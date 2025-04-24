@@ -1,134 +1,175 @@
-{# app/admin/templates/withdrawal_list.html (COMPLET avec Container/Filtre/Pagination) #}
+{# app/admin/templates/withdrawal_list.html (AVEC HISTORIQUE GLOBAL) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
 
 {% block content %}
-<div class="container mt-4 mb-5"> {# <<< Conteneur principal pour l'espacement >>> #}
+<div class="container mt-4 mb-5"> {# Conteneur principal #}
     <h1><i class="bi bi-credit-card"></i> {{ title }}</h1>
-    <p>{{ _('Cette page liste les utilisateurs et vous permet d\'enregistrer les paiements de retrait que vous effectuez manuellement.') }}</p>
-    <p class="text-danger fw-bold">{{ _("L'enregistrement d'un paiement ici mettra à jour le solde de l'utilisateur et sa date de dernier retrait.") }}</p>
+    <p>{{ _('Consultez les soldes des utilisateurs et enregistrez les paiements manuels effectués.') }}</p>
+    <hr>
 
-    {# --- Formulaire de Filtre --- #}
-    <div class="card bg-light mb-3 shadow-sm filter-card"> {# Carte pour encadrer les filtres #}
+    {# Section Liste des Utilisateurs et Actions #}
+    <h2>{{ _('Utilisateurs et Actions de Retrait') }}</h2>
+    {# Filtres Utilisateurs #}
+    <div class="card bg-light mb-3 shadow-sm filter-card">
         <div class="card-body">
             <form method="GET" action="{{ url_for('admin.list_withdrawals') }}">
                 <div class="row g-3 align-items-end">
-                    <div class="col-md-5">
-                        <label for="name" class="form-label">{{ _('Filtrer par Nom') }}</label>
-                        {# Pré-remplit avec la recherche précédente #}
-                        <input type="text" class="form-control form-control-sm" id="name" name="name" value="{{ search_name or '' }}">
-                    </div>
-                     <div class="col-md-5">
-                        <label for="email" class="form-label">{{ _('Filtrer par Email') }}</label>
-                        <input type="text" class="form-control form-control-sm" id="email" name="email" value="{{ search_email or '' }}">
-                    </div>
-                    <div class="col-md-2">
-                        <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-search"></i> {{ _('Filtrer') }}</button>
-                    </div>
+                    <div class="col-md-5"> <label for="name" class="form-label">{{ _('Filtrer par Nom') }}</label> <input type="text" class="form-control form-control-sm" id="name" name="name" value="{{ search_name or '' }}"> </div>
+                    <div class="col-md-5"> <label for="email" class="form-label">{{ _('Filtrer par Email') }}</label> <input type="text" class="form-control form-control-sm" id="email" name="email" value="{{ search_email or '' }}"> </div>
+                    <div class="col-md-2"> <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-search"></i> {{ _('Filtrer Utilisateurs') }}</button> </div>
                 </div>
             </form>
         </div>
     </div>
-    {# --- Fin Formulaire de Filtre --- #}
-    <hr>
 
     {% if not users %}
-        {# Message si aucun utilisateur (ou aucun résultat de filtre) #}
-        <div class="alert alert-info">
-             {% if search_name or search_email %}
-                {{ _('Aucun utilisateur ne correspond à vos critères de recherche.') }}
-                 <a href="{{ url_for('admin.list_withdrawals') }}" class="alert-link">{{ _('Voir tous les utilisateurs.') }}</a>
-             {% else %}
-                {{ _('Aucun utilisateur (non-admin) trouvé.') }}
-             {% endif %}
-        </div>
+        <div class="alert alert-info"> {% if search_name or search_email %} {{ _('Aucun utilisateur ne correspond à vos critères de recherche.') }} <a href="{{ url_for('admin.list_withdrawals') }}" class="alert-link">{{ _('Voir tous les utilisateurs.') }}</a> {% else %} {{ _('Aucun utilisateur (non-admin) trouvé.') }} {% endif %} </div>
     {% else %}
-        {# Affichage du tableau des utilisateurs #}
-        <div class="table-responsive">
-            <table class="table table-striped table-hover table-sm align-middle"> {# Classes pour style/alignement #}
-                <thead>
-                    <tr>
-                        <th># ID</th>
-                        <th>{{ _('Nom') }}</th>
-                        <th>{{ _('Email') }}</th>
-                        <th>{{ _('Solde Actuel') }}</th>
-                        <th>{{ _('Dernier Retrait (UTC)') }}</th>
-                        <th>{{ _('Enregistrer un Paiement Manuel') }}</th>
-                    </tr>
-                </thead>
+        <div class="table-responsive mb-4">
+            <table class="table table-striped table-hover table-sm align-middle">
+                <thead> <tr> <th>{{ _('Nom') }}</th> <th>{{ _('Email') }}</th> <th>{{ _('Solde Actuel') }}</th> <th>{{ _('Dernier Retrait (UTC)') }}</th> <th>{{ _('Enregistrer Paiement') }}</th> </tr> </thead>
                 <tbody>
-                    {# Boucle sur les utilisateurs de la page actuelle (via pagination) #}
                     {% for user in users %}
                     <tr>
-                        <th scope="row">{{ user.id }}</th>
                         <td>{{ user.full_name }}</td>
                         <td>{{ user.email }}</td>
-                        {# Affiche le solde formaté à 2 décimales #}
                         <td><strong>$ {{ "%.2f"|format(user.balance) }}</strong></td>
-                        {# Affiche la date du dernier retrait ou 'Jamais' #}
-                        <td>{{ user.last_withdrawal_date.strftime('%Y-%m-%d %H:%M') if user.last_withdrawal_date else _('Jamais') }}</td>
+                        <td>{{ user.last_withdrawal_date.strftime('%Y-%m-%d') if user.last_withdrawal_date else _('Jamais') }}</td>
                         <td>
-                            {# Formulaire pour enregistrer le paiement pour CET utilisateur #}
-                            <form action="{{ url_for('admin.record_withdrawal', user_id=user.id) }}" method="POST" class="row gx-2 align-items-center">
-                                <div class="col-auto">
-                                    <label for="amount_{{ user.id }}" class="visually-hidden">{{ _('Montant Payé') }}</label>
-                                    <div class="input-group input-group-sm"> {# Groupe pour $ et champ #}
-                                        <span class="input-group-text">$</span>
-                                        <input type="number" class="form-control form-control-sm" id="amount_{{ user.id }}" name="amount" step="0.01" min="0.01" placeholder="{{ _('Montant') }}" required style="width: 100px;">
+                            <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#recordWithdrawalModal{{ user.id }}" {% if user.balance <= 0 %}disabled title="{{_('Solde insuffisant')}}"{% endif %}>
+                                <i class="bi bi-check-circle-fill"></i> {{ _('Enregistrer') }}
+                            </button>
+                            {# --- Modale Enregistrer Retrait --- #}
+                            <div class="modal fade" id="recordWithdrawalModal{{ user.id }}" tabindex="-1" aria-labelledby="recordWithdrawalModalLabel{{ user.id }}" aria-hidden="true">
+                              <div class="modal-dialog">
+                                <div class="modal-content">
+                                  <form action="{{ url_for('admin.record_withdrawal', user_id=user.id, page_users=users_pagination.page) }}" method="post"> {# Ajout page_users pour retour correct #}
+                                    <div class="modal-header">
+                                      <h5 class="modal-title" id="recordWithdrawalModalLabel{{ user.id }}">{{ _('Enregistrer Paiement pour: %(user_name)s', user_name=user.full_name) }}</h5>
+                                      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                     </div>
+                                    <div class="modal-body">
+                                        <p>{{ _('Solde actuel: $ %(balance)s', balance= ("%.2f"|format(user.balance)) ) }}</p>
+                                        <p class="text-danger fw-bold">{{ _("Attention : N'enregistrez ce paiement que si vous avez effectivement envoyé l'argent à l'utilisateur !") }}</p>
+                                        <div class="mb-3">
+                                            <label for="amount_{{ user.id }}" class="form-label">{{ _('Montant Payé ($)') }}</label>
+                                            <input type="number" step="0.01" min="0.01" max="{{ user.balance }}" class="form-control" id="amount_{{ user.id }}" name="amount" required>
+                                        </div>
+                                        <p class="text-muted"><small>{{ _("Le montant sera déduit du solde de l'utilisateur, la date du dernier retrait sera mise à jour, et une entrée sera ajoutée à l'historique.") }}</small></p>
+                                    </div>
+                                    <div class="modal-footer">
+                                      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Annuler') }}</button>
+                                      <button type="submit" class="btn btn-success">{{ _('Confirmer Paiement Effectué') }}</button>
+                                    </div>
+                                  </form>
                                 </div>
-                                <div class="col-auto">
-                                    <button type="submit" class="btn btn-success btn-sm">{{ _('Enregistrer Paiement') }}</button>
-                                </div>
-                            </form>
+                              </div>
+                            </div>
+                            {# --- Fin Modale --- #}
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-
-        {# --- Pagination --- #}
-        {# S'affiche seulement s'il y a plus d'une page #}
-        {% if pagination and pagination.pages > 1 %}
-        <nav aria-label="Page navigation retraits" class="mt-3">
+         {# Pagination Utilisateurs #}
+        {% if users_pagination and users_pagination.pages > 1 %}
+        <nav aria-label="Page navigation utilisateurs retrait" class="mt-3 mb-4">
           <ul class="pagination justify-content-center">
-             {# Liens Previous/Next en passant les arguments de recherche pour qu'ils persistent #}
-            <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-              <a class="page-link" href="{{ url_for('admin.list_withdrawals', page=pagination.prev_num, name=search_name, email=search_email) if pagination.has_prev else '#' }}">{{ _('Précédent') }}</a>
+            <li class="page-item {% if not users_pagination.has_prev %}disabled{% endif %}">
+              <a class="page-link" href="{{ url_for('admin.list_withdrawals', page_users=users_pagination.prev_num, page_history=history_pagination.page, name=search_name, email=search_email) if users_pagination.has_prev else '#' }}">{{ _('Précédent (Users)') }}</a>
             </li>
-            {# Affiche le numéro de page actuel et total #}
             <li class="page-item active" aria-current="page">
-              <span class="page-link">{{ pagination.page }} / {{ pagination.pages }}</span>
+              <span class="page-link">{{ _('Page Users %(page)s / %(pages)s', page=users_pagination.page, pages=users_pagination.pages) }}</span>
             </li>
-            {# Pour une pagination plus complète avec les numéros de page:
-               {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
-                 {% if page_num %}
-                   {% if pagination.page == page_num %}
-                     <li class="page-item active" aria-current="page"><span class="page-link">{{ page_num }}</span></li>
-                   {% else %}
-                     <li class="page-item"><a class="page-link" href="{{ url_for('admin.list_withdrawals', page=page_num, name=search_name, email=search_email) }}">{{ page_num }}</a></li>
-                   {% endif %}
-                 {% else %}
-                   <li class="page-item disabled"><span class="page-link">...</span></li>
-                 {% endif %}
-               {% endfor %}
-            #}
-            <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-              <a class="page-link" href="{{ url_for('admin.list_withdrawals', page=pagination.next_num, name=search_name, email=search_email) if pagination.has_next else '#' }}">{{ _('Suivant') }}</a>
+            <li class="page-item {% if not users_pagination.has_next %}disabled{% endif %}">
+              <a class="page-link" href="{{ url_for('admin.list_withdrawals', page_users=users_pagination.next_num, page_history=history_pagination.page, name=search_name, email=search_email) if users_pagination.has_next else '#' }}">{{ _('Suivant (Users)') }}</a>
             </li>
           </ul>
         </nav>
         {% endif %}
-        {# --- Fin Pagination --- #}
+        {# --- Fin Pagination Utilisateurs --- #}
+    {% endif %}
 
-    {% endif %} {# Fin du else (s'il y a des utilisateurs) #}
+    <hr class="my-4">
 
-    {# Bouton Retour #}
+    {# --- NOUVEAU : Section Historique Global des Retraits --- #}
+    <h2><i class="bi bi-clock-history"></i> {{ _('Historique Global des Retraits Effectués') }}</h2>
+    {% if not withdrawal_history %}
+        <div class="alert alert-secondary">
+            {{ _('Aucun retrait n\'a encore été enregistré comme complété.') }}
+        </div>
+    {% else %}
+        <div class="table-responsive">
+             <table class="table table-striped table-hover table-sm align-middle">
+                <thead>
+                    <tr>
+                        <th>{{ _('Date Traitement (UTC)') }}</th>
+                        <th>{{ _('Utilisateur') }}</th>
+                        <th>{{ _('Email') }}</th>
+                        <th>{{ _('Montant ($)') }}</th>
+                        <th>{{ _('Traité par') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for withdrawal in withdrawal_history %}
+                    <tr>
+                        <td>{{ withdrawal.processed_timestamp.strftime('%Y-%m-%d %H:%M') if withdrawal.processed_timestamp else _('N/A') }}</td>
+                        <td>{{ withdrawal.requester.full_name if withdrawal.requester else _('Utilisateur Supprimé') }}</td>
+                        <td>{{ withdrawal.requester.email if withdrawal.requester else _('N/A') }}</td>
+                        <td><strong>{{ "%.2f"|format(withdrawal.amount) }}</strong></td>
+                        <td>{{ withdrawal.processed_by_admin.full_name if withdrawal.processed_by_admin else _('Admin Supprimé') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {# Pagination Historique #}
+        {% if history_pagination and history_pagination.pages > 1 %}
+        <nav aria-label="Page navigation historique retrait" class="mt-3">
+          <ul class="pagination justify-content-center">
+            <li class="page-item {% if not history_pagination.has_prev %}disabled{% endif %}">
+              <a class="page-link" href="{{ url_for('admin.list_withdrawals', page_users=users_pagination.page, page_history=history_pagination.prev_num, name=search_name, email=search_email) if history_pagination.has_prev else '#' }}">{{ _('Précédent (Hist.)') }}</a>
+            </li>
+            <li class="page-item active" aria-current="page">
+              <span class="page-link">{{ _('Page Hist. %(page)s / %(pages)s', page=history_pagination.page, pages=history_pagination.pages) }}</span>
+            </li>
+            <li class="page-item {% if not history_pagination.has_next %}disabled{% endif %}">
+              <a class="page-link" href="{{ url_for('admin.list_withdrawals', page_users=users_pagination.page, page_history=history_pagination.next_num, name=search_name, email=search_email) if history_pagination.has_next else '#' }}">{{ _('Suivant (Hist.)') }}</a>
+            </li>
+          </ul>
+        </nav>
+        {% endif %}
+        {# --- Fin Pagination Historique --- #}
+    {% endif %}
+    {# --- Fin Section Historique --- #}
+
     <div class="mt-4">
         <a href="{{ url_for('admin.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left-circle"></i> {{ _('Retour au Panel Admin') }}</a>
     </div>
 </div> {# <<< Fin Conteneur >>> #}
 {% endblock %}
 
+{% block scripts %}
+    {{ super() }}
+    {# Script pour pré-remplir le montant max dans la modale (optionnel) #}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var recordWithdrawalModals = document.querySelectorAll('[id^="recordWithdrawalModal"]');
+            recordWithdrawalModals.forEach(function (modal) {
+                modal.addEventListener('show.bs.modal', function (event) {
+                    var button = event.relatedTarget; // Bouton qui a déclenché la modale
+                    var userId = button.getAttribute('data-bs-target').replace('#recordWithdrawalModal', '');
+                    var userBalance = parseFloat(button.closest('tr').querySelector('td:nth-child(3) strong').innerText.replace('$ ', ''));
+                    var amountInput = modal.querySelector('#amount_' + userId);
+                    if (amountInput && userBalance > 0) {
+                        amountInput.value = userBalance.toFixed(2); // Pré-remplit avec le solde
+                        amountInput.max = userBalance.toFixed(2); // Définit le max
+                    }
+                });
+            });
+        });
+    </script>
+{% endblock %}
