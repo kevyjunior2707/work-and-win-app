@@ -1,4 +1,4 @@
-{# app/templates/dashboard.html (Ancien Design + Message Règles) #}
+{# app/templates/dashboard.html (Design Original + Message Règles) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -9,42 +9,40 @@
     <p class="lead">{{ _('Bienvenue, %(username)s ! Gérez vos tâches et vos gains ici.', username=current_user.full_name) }}</p>
     <hr>
 
-    {# Cartes d'information rapide - Disposition originale #}
-    <div class="row mb-4">
-        <div class="col-md-4">
-            <div class="card text-center shadow-sm h-100">
-                <div class="card-body">
+    {# Cartes d'information rapide - Disposition originale supposée (3 colonnes) #}
+    <div class="row mb-4 g-4"> {# Ajout g-4 pour l'espacement #}
+        <div class="col-md-4 d-flex align-items-stretch"> {# Utilisation d-flex pour hauteur égale #}
+            <div class="card text-center shadow-sm w-100">
+                <div class="card-body d-flex flex-column"> {# flex-column pour aligner bouton #}
                     <h5 class="card-title text-muted">{{ _('Solde Actuel') }}</h5>
-                    <p class="card-text display-5 fw-bold text-success">$ {{ "%.2f"|format(current_user.balance) }}</p>
-                    <a href="{{ url_for('main.withdraw') }}" class="btn btn-sm btn-outline-success mt-2">{{ _('Voir / Demander Retrait') }}</a>
+                    <p class="card-text display-5 fw-bold text-success mt-auto mb-3">$ {{ "%.2f"|format(current_user.balance) }}</p> {# mt-auto pousse vers le bas #}
+                    <a href="{{ url_for('main.withdraw') }}" class="btn btn-sm btn-outline-success">{{ _('Voir / Demander Retrait') }}</a>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-             <div class="card text-center shadow-sm h-100">
-                <div class="card-body">
+        <div class="col-md-4 d-flex align-items-stretch">
+             <div class="card text-center shadow-sm w-100">
+                <div class="card-body d-flex flex-column">
                     <h5 class="card-title text-muted">{{ _('Tâches Accomplies') }}</h5>
-                    <p class="card-text display-5 fw-bold">{{ current_user.completed_task_count }}</p>
-                     {# Lien vers Mes Tâches retiré précédemment, on le laisse enlevé #}
-                     {# <a href="{{ url_for('main.completed_tasks') }}" class="btn btn-sm btn-outline-secondary mt-2">{{ _('Voir Mon Historique') }}</a> #}
+                    <p class="card-text display-5 fw-bold mt-auto mb-3">{{ current_user.completed_task_count }}</p>
+                     {# Lien vers Mes Tâches reste enlevé comme demandé précédemment #}
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card text-center shadow-sm h-100">
-                 <div class="card-body">
+        <div class="col-md-4 d-flex align-items-stretch">
+            <div class="card text-center shadow-sm w-100">
+                 <div class="card-body d-flex flex-column">
                     <h5 class="card-title text-muted">{{ _('Mon Code Parrainage') }}</h5>
-                    <p class="card-text fs-4 fw-bold bg-light p-2 rounded user-select-all">{{ current_user.referral_code }}</p>
-                     <small class="text-muted">{{ _('Partagez ce code avec vos amis lors de leur inscription.') }}</small>
+                    <p class="card-text fs-4 fw-bold bg-light p-2 rounded user-select-all mt-auto mb-2">{{ current_user.referral_code }}</p>
+                     <small class="text-muted">{{ _('Partagez ce code avec vos amis.') }}</small>
                  </div>
             </div>
         </div>
     </div>
 
-    {# Boutons d'action principaux - Disposition originale #}
-    <div class="text-center mb-4"> {# Centrage des boutons #}
-        {# Lien Tâches Disponibles retiré précédemment, on le laisse enlevé #}
-        {# <a href="{{ url_for('main.available_tasks') }}" class="btn btn-primary btn-lg me-2"><i class="bi bi-card-checklist"></i> {{ _('Voir les Tâches Disponibles') }}</a> #}
+    {# Boutons d'action principaux - Disposition originale supposée (centrés) #}
+    <div class="text-center mb-4">
+        {# Lien Tâches Disponibles reste enlevé comme demandé précédemment #}
         <a href="{{ url_for('main.profile') }}" class="btn btn-secondary btn-lg"><i class="bi bi-person-fill-gear"></i> {{ _('Modifier Mon Profil') }}</a>
     </div>
 
@@ -55,7 +53,7 @@
       <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> {{ _('Règles Importantes') }}</h4>
       <p>{{ warning_message }}</p>
       <hr>
-      <p class="mb-0">{{ _("Jouez juste !") }}</p> {# Phrase de conclusion ajoutée #}
+      <p class="mb-0">{{ _("Jouez juste !") }}</p>
     </div>
     {% endif %}
     {# --- Fin Message Règles --- #}
