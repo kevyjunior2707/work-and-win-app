@@ -1,29 +1,27 @@
-{# app/templates/withdraw.html (AVEC CONTAINER) #}
+{# app/templates/withdraw.html (AVEC HISTORIQUE) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
 
 {% block content %}
-<div class="container mt-4 mb-5"> {# <<< Conteneur principal ajouté >>> #}
+<div class="container mt-4 mb-5"> {# Conteneur principal #}
     <h1><i class="bi bi-cash-coin"></i> {{ title }}</h1>
     <hr>
 
     {# Solde Actuel #}
-    <div class="alert alert-success fs-4 shadow-sm"> {# Ajout ombre #}
+    <div class="alert alert-success fs-5 mb-4 shadow-sm">
        {{ _('Votre Solde Actuel:') }} <strong>$ {{ "%.2f"|format(current_user.balance) }}</strong>
     </div>
 
-    {# Affiche le minimum de retrait si > 0 #}
-    {% if minimum_amount > 0 %}
-        <p class="text-info"><i class="bi bi-info-circle-fill"></i> {{ _('Note: Le montant minimum pour demander un retrait est de $ %(amount)s.', amount=minimum_amount) }}</p>
-    {% endif %}
-
     {# --- Section Instructions / Eligibilité --- #}
-    <div class="card mt-3 shadow-sm"> {# Ajout ombre #}
+    <div class="card mb-4 shadow-sm"> {# Ajout marge basse #}
         <div class="card-header">
             {{ _('Demander un retrait') }}
         </div>
         <div class="card-body">
+            {% if minimum_amount > 0 %}
+                <p class="text-info"><i class="bi bi-info-circle-fill"></i> {{ _('Note: Le montant minimum pour demander un retrait est de $ %(amount)s.', amount=minimum_amount) }}</p>
+            {% endif %}
             {# Vérifie d'abord l'éligibilité temporelle #}
             {% if not is_eligible_time %}
                 <div class="alert alert-warning" role="alert">
@@ -60,8 +58,40 @@
         </div>
     </div>
 
+    {# --- NOUVEAU : Section Historique des Retraits --- #}
+    <h2><i class="bi bi-clock-history"></i> {{ _('Historique de vos Retraits') }}</h2>
+    {% if not withdrawal_history %}
+        <div class="alert alert-secondary">
+            {{ _('Vous n\'avez pas encore effectué de retrait approuvé.') }}
+        </div>
+    {% else %}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover table-sm align-middle">
+                <thead>
+                    <tr>
+                        <th>{{ _('Date de Traitement (UTC)') }}</th>
+                        <th>{{ _('Montant Retiré') }}</th>
+                        <th>{{ _('Statut') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for withdrawal in withdrawal_history %}
+                    <tr>
+                        <td>{{ withdrawal.processed_timestamp.strftime('%Y-%m-%d %H:%M') if withdrawal.processed_timestamp else _('N/A') }}</td>
+                        <td><strong>$ {{ "%.2f"|format(withdrawal.amount) }}</strong></td>
+                        <td><span class="badge bg-success">{{ _('Complété') }}</span></td> {# Statut est toujours 'Completed' ici #}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {# Note: Pas de pagination ici pour l'instant, pourrait être ajoutée si l'historique devient très long #}
+    {% endif %}
+    {# --- Fin Section Historique --- #}
+
+
     {# Lien retour #}
-    <div class="mt-4 text-center"> {# Centré #}
+    <div class="mt-4 text-center">
          {% if current_user.is_admin %}
             <a href="{{ url_for('admin.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left-circle"></i> {{ _('Retour au Panel Admin') }}</a>
          {% else %}
