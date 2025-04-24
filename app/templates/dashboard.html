@@ -1,4 +1,4 @@
-{# app/templates/dashboard.html (RESTAURATION DESIGN CARTES + ICONES) #}
+{# app/templates/dashboard.html (Hauteur Cartes Égale Vérifiée) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -18,16 +18,20 @@
 
 
     {# Actions dans des cartes avec icônes #}
-    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4"> {# Grille responsive #}
+    {# La classe 'g-4' ajoute l'espacement. 'row-cols-*' définit le nombre de colonnes par taille d'écran #}
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
 
         {# Carte Tâches Disponibles #}
+        {# 'd-flex align-items-stretch' sur la colonne force les cartes à avoir la même hauteur dans la ligne #}
         <div class="col d-flex align-items-stretch">
+             {# 'h-100' sur la carte permet à la carte de prendre toute la hauteur disponible #}
             <div class="card h-100 shadow-sm text-center border-0">
+                 {# 'd-flex flex-column' permet d'utiliser mt-auto sur le bouton #}
                 <div class="card-body d-flex flex-column justify-content-center">
                     <i class="bi bi-card-checklist fs-1 text-primary mb-3"></i>
                     <h5 class="card-title">{{ _('Tâches Disponibles') }}</h5>
                     <p class="card-text flex-grow-1"><small>{{ _('Voir les nouvelles tâches qui vous attendent.') }}</small></p>
-                    <a href="{{ url_for('main.available_tasks') }}" class="btn btn-primary mt-auto">{{ _('Voir les tâches') }}</a>
+                    <a href="{{ url_for('main.available_tasks') }}" class="btn btn-primary mt-auto">{{ _('Voir les tâches') }}</a> {# mt-auto pousse le bouton en bas #}
                 </div>
             </div>
         </div>
@@ -52,7 +56,6 @@
                     <h5 class="card-title">{{ _('Inviter des Amis') }}</h5>
                      <p class="card-text mb-1"><small>{{ _('Votre Code:') }}</small><br><strong class="fs-5">{{ current_user.referral_code }}</strong></p>
                      {% set reg_link = url_for('auth.register', ref=current_user.referral_code, _external=True) %}
-                     {# Bouton Copier le Lien #}
                      <button class="btn btn-sm btn-outline-info mt-2" type="button" onclick="copyToClipboard('{{ reg_link }}')" title="{{ _('Copier le lien d\'invitation') }}">
                          <i class="bi bi-clipboard"></i> {{ _('Copier Lien') }}
                      </button>
@@ -80,6 +83,18 @@
                    <h5 class="card-title">{{ _('Modifier Mon Profil') }}</h5>
                    <p class="card-text flex-grow-1"><small>{{ _('Mettez à jour vos informations personnelles ou votre mot de passe.') }}</small></p>
                    <a href="{{ url_for('main.profile') }}" class="btn btn-secondary mt-auto">{{ _('Modifier Profil') }}</a>
+               </div>
+           </div>
+       </div>
+
+       {# Carte Retrait #}
+       <div class="col d-flex align-items-stretch">
+            <div class="card h-100 shadow-sm text-center border-0">
+                <div class="card-body d-flex flex-column justify-content-center">
+                   <i class="bi bi-cash-coin fs-1 text-success mb-3"></i>
+                   <h5 class="card-title">{{ _('Retrait') }}</h5>
+                   <p class="card-text flex-grow-1"><small>{{ _('Consultez votre solde et demandez un retrait.') }}</small></p>
+                   <a href="{{ url_for('main.withdraw') }}" class="btn btn-success mt-auto">{{ _('Voir / Demander Retrait') }}</a>
                </div>
            </div>
        </div>
