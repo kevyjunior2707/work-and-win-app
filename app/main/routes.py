@@ -1,18 +1,18 @@
-# app/main/routes.py (VERSION COMPLÈTE v17 - Preuve externe optionnelle)
+# app/main/routes.py (VERSION COMPLÈTE v18 - Correction JSON Notifications)
 
 from flask import render_template, redirect, url_for, flash, request, abort, current_app, send_from_directory
 from flask_login import login_required, current_user
 from flask_babel import _
 from app import db
 # Importer tous les modèles nécessaires
-from app.models import Task, UserTaskCompletion, User, Notification, ExternalTaskCompletion, ReferralCommission, Withdrawal
+from app.models import Task, UserTaskCompletion, User, Notification, ExternalTaskCompletion, ReferralCommission, Withdrawal # Ajout Withdrawal
 from app.main import bp
 # Ajout des formulaires pour la route profile
 from app.forms import EditProfileForm, ChangePasswordForm
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import joinedload
 from decimal import Decimal, InvalidOperation
-import json
+import json # <<< Import json ajouté >>>
 import os
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash
@@ -26,6 +26,7 @@ def allowed_file(filename):
 @bp.route('/')
 @bp.route('/index')
 def index():
+    # Le message d'avertissement est maintenant dans dashboard.html
     return render_template('index.html', title=_('Accueil'))
 
 # --- Route Tableau de Bord Utilisateur ---
@@ -33,7 +34,9 @@ def index():
 @login_required
 def dashboard():
     if current_user.is_admin: return redirect(url_for('admin.index'))
-    return render_template('dashboard.html', title=_('Tableau de Bord'))
+    # <<< Texte d'avertissement défini ici pour le passer au template >>>
+    warning_message = _("Nous appliquons une politique de tolérance zéro envers la triche, l'utilisation de VPN/proxys, ou la création de comptes multiples. Toute violation entraînera un bannissement permanent et la perte des gains.")
+    return render_template('dashboard.html', title=_('Tableau de Bord'), warning_message=warning_message)
 
 # --- Route pour voir les tâches disponibles ---
 @bp.route('/tasks/available')
@@ -118,12 +121,49 @@ def withdraw():
                            next_eligible_date=next_eligible_date,
                            withdrawal_history=withdrawal_history)
 
-# --- Route pour voir les notifications de l'utilisateur ---
+# --- Route pour voir les notifications de l'utilisateur (MODIFIÉE) ---
 @bp.route('/notifications')
 @login_required
 def notifications():
-    page = request.args.get('page', 1, type=int); query = db.select(Notification).where(Notification.user_id == current_user.id).order_by(Notification.timestamp.desc()); pagination = db.paginate(query, page=page, per_page=current_app.config['COMPLETIONS_PER_PAGE'], error_out=False); user_notifications = pagination.items
-    return render_template('notifications.html', title=_('Mes Notifications'), notifications=user_notifications, pagination=pagination)
+    page = request.args.get('page', 1, type=int)
+    query = db.select(Notification)\
+              .where(Notification.user_id == current_user.id)\
+              .order_by(Notification.timestamp.desc())
+    pagination = db.paginate(query, page=page, per_page=current_app.config['COMPLETIONS_PER_PAGE'], error_out=False)
+    user_notifications = pagination.items
+
+    # Parser le JSON et préparer pour le template
+    notifications_to_render = []
+    ids_to_mark_read = []
+    for notification in user_notifications:
+        payload_dict = {}
+        if notification.payload_json:
+            try:
+                payload_dict = json.loads(notification.payload_json)
+            except json.JSONDecodeError:
+                print(f"Erreur décodage JSON pour notif ID {notification.id}: {notification.payload_json}")
+        notification.payload_dict = payload_dict # Ajoute le dict à l'objet
+        notifications_to_render.append(notification)
+        if not notification.is_read:
+            ids_to_mark_read.append(notification.id)
+
+    # Marquer comme lues après les avoir récupérées
+    if ids_to_mark_read:
+        try:
+            stmt = db.update(Notification)\
+                     .where(Notification.id.in_(ids_to_mark_read))\
+                     .values(is_read=True)
+            db.session.execute(stmt)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"Erreur lors du marquage des notifications comme lues: {e}")
+            flash(_("Erreur lors de la mise à jour du statut des notifications."), 'danger')
+
+    return render_template('notifications.html',
+                           title=_('Mes Notifications'),
+                           notifications=notifications_to_render,
+                           pagination=pagination)
 
 # --- Routes Tâches Externes ---
 @bp.route('/task/external/<int:task_id>')
@@ -132,14 +172,12 @@ def view_external_task(task_id):
     if task is None or not task.is_active: flash(_('Cette tâche n\'est pas disponible ou n\'existe pas.'), 'warning'); return redirect(url_for('main.index'))
     return render_template('external_task_view.html', task=task, ref_code=ref_code)
 
-# --- Route pour soumettre la preuve externe (MODIFIÉE) ---
 @bp.route('/task/external/submit', methods=['POST'])
 def submit_external_proof():
     task_id = request.form.get('task_id'); ref_code = request.form.get('ref_code'); proof_text = request.form.get('proof'); submitter_email = request.form.get('submitter_email'); screenshot_file = request.files.get('screenshot_proof'); filename = None
     task = db.session.get(Task, int(task_id)) if task_id else None; referrer = db.session.scalar(db.select(User).where(User.referral_code == ref_code)) if ref_code else None
     if not task or not referrer: flash(_('Erreur : Tâche ou Parrain invalide.'), 'danger'); return redirect(url_for('main.index'))
 
-    # Preuve n'est plus requise, on vérifie juste si un fichier image est uploadé
     if screenshot_file and screenshot_file.filename != '':
         if allowed_file(screenshot_file.filename):
             unique_prefix = str(int(datetime.now(timezone.utc).timestamp())) + '_'; filename = secure_filename(unique_prefix + screenshot_file.filename)
@@ -148,12 +186,11 @@ def submit_external_proof():
             except Exception as e: flash(_('Erreur lors de la sauvegarde de l\'image: %(err)s', err=e), 'danger'); return redirect(url_for('main.view_external_task', task_id=task_id, ref=ref_code))
         else: flash(_('Type de fichier non autorisé. Permis: %(ext)s', ext=', '.join(current_app.config['ALLOWED_EXTENSIONS'])), 'danger'); return redirect(url_for('main.view_external_task', task_id=task_id, ref=ref_code))
     try:
-        # Crée la soumission même sans preuve texte ou image (si filename est None)
         new_submission = ExternalTaskCompletion(
             task_id=task.id,
             referrer_user_id=referrer.id,
-            submitted_proof=(proof_text.strip() if proof_text else None), # Sauvegarde le texte s'il existe
-            screenshot_filename=filename, # Sauvegarde le nom du fichier s'il existe
+            submitted_proof=(proof_text.strip() if proof_text else None),
+            screenshot_filename=filename,
             submitter_identifier=submitter_email.strip() if submitter_email else None,
             status='Pending'
         )
@@ -171,7 +208,6 @@ def submit_external_proof():
 @bp.route('/uploads/<path:filename>')
 @login_required
 def view_upload(filename):
-    # Sécurité : Seul l'admin peut voir les preuves uploadées via cette route générique
     if not current_user.is_admin: abort(403)
     upload_dir = current_app.config['UPLOAD_FOLDER']; return send_from_directory(upload_dir, filename)
 
