@@ -1,0 +1,69 @@
+{# app/templates/notifications.html (AVEC CONTAINER) #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5"> {# <<< Conteneur principal ajouté >>> #}
+    <h1><i class="bi bi-bell-fill"></i> {{ title }}</h1>
+    <hr class="mb-4">
+
+    {% if not notifications %}
+        <div class="alert alert-info" role="alert">
+            {{ _('Vous n\'avez aucune notification.') }}
+        </div>
+    {% else %}
+        <div class="list-group">
+            {% for notification in notifications %}
+                {% set payload = notification.payload_json | fromjson %} {# Parse JSON #}
+
+                {# --- Affichage Conditionnel par Type --- #}
+                {% if notification.name == 'new_task_available' %}
+                    <a href="{{ url_for('main.available_tasks') }}" class="list-group-item list-group-item-action list-group-item-light flex-column align-items-start mb-2 shadow-sm border-0 rounded"> {# Style carte légère #}
+                        <div class="d-flex w-100 justify-content-between"> <h5 class="mb-1"><i class="bi bi-list-task text-primary"></i> {{ _('Nouvelle Tâche Disponible !') }}</h5> <small>{{ notification.timestamp.strftime('%Y-%m-%d %H:%M') }} UTC</small> </div>
+                        <p class="mb-1">{{ _('Une nouvelle tâche qui pourrait vous intéresser est disponible: "%(title)s"', title=payload.task_title if payload else '') }}</p>
+                    </a>
+                {% elif notification.name == 'admin_warning' %}
+                    <div class="list-group-item list-group-item-action list-group-item-danger flex-column align-items-start mb-2 shadow-sm border-0 rounded"> <div class="d-flex w-100 justify-content-between"> <h5 class="mb-1"><i class="bi bi-exclamation-octagon-fill"></i> {{ _('Avertissement Administrateur') }}</h5> <small>{{ notification.timestamp.strftime('%Y-%m-%d %H:%M') }} UTC</small> </div> <p class="mb-1">{{ payload.message if payload and payload.message }}</p> </div>
+                {% elif notification.name == 'admin_credit' %}
+                     <div class="list-group-item list-group-item-action list-group-item-info flex-column align-items-start mb-2 shadow-sm border-0 rounded"> <div class="d-flex w-100 justify-content-between"> <h5 class="mb-1"><i class="bi bi-gift-fill"></i> {{ _('Bonus / Crédit Administrateur') }}</h5> <small>{{ notification.timestamp.strftime('%Y-%m-%d %H:%M') }} UTC</small> </div> <p class="mb-1">{{ payload.message if payload and payload.message }}</p> <small>{{ _('Montant ajouté: +$%(amount)s', amount=payload.amount) if payload and payload.amount }}</small> </div>
+                {% elif notification.name == 'admin_message' %}
+                     <div class="list-group-item list-group-item-action list-group-item-primary flex-column align-items-start mb-2 shadow-sm border-0 rounded"> <div class="d-flex w-100 justify-content-between"> <h5 class="mb-1"><i class="bi bi-envelope-fill"></i> {{ payload.subject if payload and payload.subject else _('Message de l\'Administrateur') }}</h5> <small>{{ notification.timestamp.strftime('%Y-%m-%d %H:%M') }} UTC</small> </div> <p class="mb-1">{{ payload.message if payload and payload.message }}</p> </div>
+                {% elif notification.name == 'referral_bonus' %}
+                     <div class="list-group-item list-group-item-action list-group-item-success flex-column align-items-start mb-2 shadow-sm border-0 rounded"> <div class="d-flex w-100 justify-content-between"> <h5 class="mb-1"><i class="bi bi-award-fill"></i> {{ _('Bonus de Parrainage Reçu !') }}</h5> <small>{{ notification.timestamp.strftime('%Y-%m-%d %H:%M') }} UTC</small> </div> <p class="mb-1">{{ payload.message if payload and payload.message }}</p> <small>{{ _('Bonus ajouté: +$%(amount)s', amount=payload.amount) if payload and payload.amount }}</small> </div>
+                {% elif notification.name == 'referral_commission_approved' %}
+                     <div class="list-group-item list-group-item-action list-group-item-success flex-column align-items-start mb-2 shadow-sm border-0 rounded"> <div class="d-flex w-100 justify-content-between"> <h5 class="mb-1"><i class="bi bi-cash-stack"></i> {{ _('Commission de Parrainage Approuvée !') }}</h5> <small>{{ notification.timestamp.strftime('%Y-%m-%d %H:%M') }} UTC</small> </div> <p class="mb-1">{{ payload.message if payload and payload.message }}</p> <small>{{ _('Commission ajoutée: +$%(amount)s', amount=payload.amount) if payload and payload.amount }}</small> </div>
+                {% else %}
+                    <div class="list-group-item list-group-item-action flex-column align-items-start mb-2 shadow-sm border-0 rounded"> <div class="d-flex w-100 justify-content-between"> <h5 class="mb-1">{{ _('Notification') }} ({{ notification.name }})</h5> <small>{{ notification.timestamp.strftime('%Y-%m-%d %H:%M') }} UTC</small> </div> <p class="mb-1">{{ payload.message if payload and payload.message else notification.payload_json }}</p> </div>
+                {% endif %}
+                {# --- Fin Affichage Conditionnel --- #}
+            {% endfor %} {# Fin boucle notifications #}
+        </div>
+
+        {# --- Pagination --- #}
+        {% if pagination and pagination.pages > 1 %}
+        <nav aria-label="Page navigation notifications" class="mt-4">
+          <ul class="pagination justify-content-center">
+            <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+              <a class="page-link" href="{{ url_for('main.notifications', page=pagination.prev_num) if pagination.has_prev else '#' }}">{{ _('Précédent') }}</a>
+            </li>
+            <li class="page-item active" aria-current="page">
+              <span class="page-link">{{ pagination.page }} / {{ pagination.pages }}</span>
+            </li>
+            <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+              <a class="page-link" href="{{ url_for('main.notifications', page=pagination.next_num) if pagination.has_next else '#' }}">{{ _('Suivant') }}</a>
+            </li>
+          </ul>
+        </nav>
+        {% endif %}
+        {# --- Fin Pagination --- #}
+
+    {% endif %} {# Fin if not notifications #}
+
+    {# Lien retour #}
+    <div class="mt-4 text-center"> {# Centré #}
+         {% if current_user.is_admin %} <a href="{{ url_for('admin.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left-circle"></i> {{ _('Retour au Panel Admin') }}</a>
+         {% else %} <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left-circle"></i> {{ _('Retour au Tableau de Bord') }}</a> {% endif %}
+    </div>
+</div> {# <<< Fin Conteneur >>> #}
+{% endblock %}

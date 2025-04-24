@@ -1,0 +1,148 @@
+{# app/admin/templates/statistics.html (AVEC GRAPHIQUES) #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5"> {# Conteneur principal #}
+    <h1><i class="bi bi-graph-up-arrow"></i> {{ title }}</h1>
+    <p>{{ _('Vue d\'ensemble de l\'activité sur la plateforme.') }}</p>
+    <hr>
+
+    {# --- Section Indicateurs Clés (Cartes) --- #}
+    <div class="row g-4 mb-4">
+        <div class="col-md-6 col-xl-3"> <div class="card shadow-sm text-center h-100"> <div class="card-body"> <h5 class="card-title text-muted">{{ _('Utilisateurs Actifs') }}</h5> <p class="card-text display-6 fw-bold">{{ stats.total_users }}</p> </div> </div> </div>
+        <div class="col-md-6 col-xl-3"> <div class="card shadow-sm text-center h-100"> <div class="card-body"> <h5 class="card-title text-muted">{{ _('Tâches Actives') }}</h5> <p class="card-text display-6 fw-bold">{{ stats.total_active_tasks }}</p> </div> </div> </div>
+        <div class="col-md-6 col-xl-3"> <div class="card shadow-sm text-center h-100"> <div class="card-body"> <h5 class="card-title text-muted">{{ _('Accomplissements Totals') }}</h5> <p class="card-text display-6 fw-bold">{{ stats.total_completions }}</p> </div> </div> </div>
+        <div class="col-md-6 col-xl-3"> <div class="card shadow-sm text-center h-100 bg-primary text-white"> <div class="card-body"> <h5 class="card-title">{{ _('Gains Générés (Total)') }}</h5> <p class="card-text display-6 fw-bold">$ {{ "%.2f"|format(stats.total_earnings_generated) }}</p> </div> </div> </div>
+        <div class="col-md-6 col-xl-3"> <div class="card shadow-sm text-center h-100 bg-success text-white"> <div class="card-body"> <h5 class="card-title">{{ _('Montant Total Retiré') }}</h5> <p class="card-text display-6 fw-bold">$ {{ "%.2f"|format(stats.total_withdrawn) }}</p> </div> </div> </div>
+        <div class="col-md-6 col-xl-3"> <div class="card shadow-sm text-center h-100 bg-warning text-dark"> <div class="card-body"> <h5 class="card-title">{{ _('Bonus Externes (40%%) Pend.') }}</h5> <p class="card-text display-6 fw-bold">$ {{ "%.2f"|format(stats.pending_external_bonus) }}</p> </div> </div> </div>
+        <div class="col-md-6 col-xl-3"> <div class="card shadow-sm text-center h-100 bg-warning text-dark"> <div class="card-body"> <h5 class="card-title">{{ _('Commissions (3%%) Pend.') }}</h5> <p class="card-text display-6 fw-bold">$ {{ "%.2f"|format(stats.pending_commission) }}</p> </div> </div> </div>
+    </div>
+    {# --- Fin Indicateurs Clés --- #}
+
+    <hr class="my-4">
+
+    {# --- NOUVEAU : Section Graphiques --- #}
+    <h2>{{ _('Tendances Mensuelles') }}</h2>
+    <div class="row g-4 mb-4">
+        {# Graphique Inscriptions #}
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-header">{{ _('Inscriptions par Mois') }}</div>
+                <div class="card-body">
+                    <canvas id="registrationsChart"></canvas>
+                </div>
+            </div>
+        </div>
+         {# Graphique Accomplissements #}
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-header">{{ _('Accomplissements par Mois') }}</div>
+                <div class="card-body">
+                    <canvas id="completionsChart"></canvas>
+                </div>
+            </div>
+        </div>
+         {# Graphique Gains #}
+         <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-header">{{ _('Gains Générés par Mois ($)') }}</div>
+                <div class="card-body">
+                    <canvas id="earningsChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    {# --- Fin Section Graphiques --- #}
+
+    <hr class="my-4">
+
+    {# --- Tableau Accomplissements par Pays/Appareil (Section existante) --- #}
+    <h2>{{ _('Accomplissements par Pays/Appareil') }}</h2>
+    <div class="card bg-light mb-3 shadow-sm filter-card">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('admin.statistics') }}">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-5"> <label for="country" class="form-label">{{ _('Filtrer par Pays') }}</label> <select class="form-select form-select-sm" id="country" name="country"> {% for code, name in countries_list %} <option value="{{ code }}" {% if code == search_country %}selected{% endif %}>{{ name }}</option> {% endfor %} </select> </div>
+                    <div class="col-md-5"> <label for="device" class="form-label">{{ _('Filtrer par Appareil') }}</label> <select class="form-select form-select-sm" id="device" name="device"> {% for code, name in devices_list %} <option value="{{ code }}" {% if code == search_device %}selected{% endif %}>{{ name }}</option> {% endfor %} </select> </div>
+                    <div class="col-md-2"> <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-search"></i> {{ _('Filtrer') }}</button> </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if not results %}
+        <div class="alert alert-info"> {{ _('Aucun accomplissement trouvé pour les critères sélectionnés.') }} <a href="{{ url_for('admin.statistics') }}" class="alert-link">{{ _('Voir toutes les statistiques.') }}</a> </div>
+    {% else %}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover table-sm align-middle">
+                <thead> <tr> <th scope="col">{{ _('Pays') }}</th> <th scope="col">{{ _('Appareil') }}</th> <th scope="col">{{ _('Nombre d\'Accomplissements') }}</th> </tr> </thead>
+                <tbody>
+                    {% for row in results %}
+                    <tr> <td>{{ row[0] or _('Inconnu') }}</td> <td>{{ row[1] or _('Inconnu') }}</td> <td><strong>{{ row[2] }}</strong></td> </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+    {# --- Fin Tableau --- #}
+
+    <div class="mt-4"> <a href="{{ url_for('admin.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left-circle"></i> {{ _('Retour au Panel Admin') }}</a> </div>
+</div> {# <<< Fin Conteneur >>> #}
+{% endblock %}
+
+{# --- NOUVEAU : Bloc Scripts pour Chart.js --- #}
+{% block scripts %}
+    {{ super() }} {# Inclut les scripts de base.html si besoin #}
+    {# Inclut Chart.js depuis un CDN #}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Récupère les données passées par Flask
+        const chartData = {{ chart_data | tojson }};
+        const labels = chartData.labels;
+
+        // Couleurs basées sur le CSS
+        const wwBlue = '#2d92d0';
+        const wwGreen = '#009444';
+        const wwGray = '#6c757d';
+
+        // Fonction pour créer un graphique ligne
+        function createLineChart(canvasId, label, data, color) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: data,
+                        fill: false,
+                        borderColor: color,
+                        tension: 0.1 // Légère courbe
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true, // Garde le ratio
+                    scales: {
+                        y: {
+                            beginAtZero: true // Commence l'axe Y à 0
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false // Cache la légende par défaut
+                        }
+                    }
+                }
+            });
+        }
+
+        // Crée les graphiques
+        createLineChart('registrationsChart', '{{ _("Inscriptions") }}', chartData.registrations, wwBlue);
+        createLineChart('completionsChart', '{{ _("Accomplissements") }}', chartData.completions, wwGray);
+        createLineChart('earningsChart', '{{ _("Gains ($)") }}', chartData.earnings, wwGreen);
+
+    </script>
+{% endblock %}

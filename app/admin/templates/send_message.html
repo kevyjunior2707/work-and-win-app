@@ -1,0 +1,37 @@
+{# app/admin/templates/send_message.html (AVEC CONTAINER) #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5"> {# <<< Conteneur ajouté >>> #}
+    <h1><i class="bi bi-envelope-plus-fill"></i> {{ title }}</h1>
+    <p>{{ _('Envoyez une notification interne à un groupe spécifique d\'utilisateurs basé sur leur pays ou appareil.') }}</p>
+    <hr>
+
+    <div class="row justify-content-center"> {# Centre le formulaire #}
+        <div class="col-md-8 col-lg-7">
+            <div class="card shadow-sm"> {# Encadre le formulaire #}
+                <div class="card-body">
+                    <form action="{{ url_for('admin.send_message') }}" method="post">
+                        {# Filtre Pays #}
+                        <div class="mb-3"> <label for="country" class="form-label">{{ _('Cibler par Pays (Optionnel)') }}</label> <select class="form-select" id="country" name="country"> {% for code, name in countries_list %} <option value="{{ code }}">{{ name }}</option> {% endfor %} </select> <div class="form-text">{{ _('Laissez sur "-- Sélectionnez votre pays --" pour envoyer à tous les pays.') }}</div> </div>
+                        {# Filtre Appareil #}
+                        <div class="mb-3"> <label for="device" class="form-label">{{ _('Cibler par Appareil (Optionnel)') }}</label> <select class="form-select" id="device" name="device"> {% for code, name in devices_list %} <option value="{{ code }}">{{ name }}</option> {% endfor %} </select> <div class="form-text">{{ _('Laissez sur "-- Sélectionnez votre appareil --" pour envoyer à tous les appareils.') }}</div> </div>
+                        {# Sujet du Message #}
+                        <div class="mb-3"> <label for="subject" class="form-label">{{ _('Sujet (Optionnel)') }}</label> <input type="text" class="form-control" id="subject" name="subject"> </div>
+                        {# Corps du Message #}
+                        <div class="mb-3"> <label for="body" class="form-label">{{ _('Message') }}</label> <textarea class="form-control" id="body" name="body" rows="5" required></textarea> <div class="invalid-feedback">{{ _('Le corps du message est requis.') }}</div> </div>
+                        {# Bouton Submit #}
+                        <div class="d-grid"> {# Bouton pleine largeur #}
+                             <button type="submit" class="btn btn-primary"><i class="bi bi-send-fill"></i> {{ _('Envoyer le Message aux Utilisateurs Ciblés') }}</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4"> <a href="{{ url_for('admin.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left-circle"></i> {{ _('Retour au Panel Admin') }}</a> </div>
+</div> {# <<< Fin Conteneur >>> #}
+{% endblock %}

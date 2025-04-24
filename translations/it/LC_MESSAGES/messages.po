@@ -1,0 +1,755 @@
+# Italian translations for PROJECT.
+# Copyright (C) 2025 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2025-04-22 20:07+0100\n"
+"PO-Revision-Date: 2025-04-22 23:08+0100\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: it\n"
+"Language-Team: it <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: app/decorators.py:22
+msgid "Accès non autorisé. Cette zone est réservée aux administrateurs."
+msgstr "Accesso non autorizzato. Quest'area è riservata agli amministratori."
+
+#: app/admin/routes.py:23
+msgid "Panneau de l'administrateur"
+msgstr "Pannello amministratore"
+
+#: app/admin/routes.py:31
+#, python-format
+msgid "La nouvelle tâche \"%(title)s\" a été créé avec succès !"
+msgstr "Il nuovo task \"%(title)s\" è stato creato con successo!"
+
+#: app/admin/routes.py:32
+msgid "Créer une Nouvelle Tâche"
+msgstr "Creare un nuovo compito"
+
+#: app/admin/routes.py:44
+msgid "Gestion des Tâches"
+msgstr "Gestione dei compiti"
+
+#: app/admin/routes.py:52
+#, python-format
+msgid "Tâche \"%(title)s\" mise à jour avec succès !"
+msgstr "Compito \"%(title)s\" aggiornato con successo!"
+
+#: app/admin/routes.py:53
+msgid "Modifier la Tâche"
+msgstr "Modificare l'attività"
+
+#: app/admin/routes.py:60
+#, python-format
+msgid "Tâche \"%(title)s\" supprimée avec succès."
+msgstr "Compito \"%(title)s\" cancellato con successo."
+
+#: app/admin/routes.py:61
+#, python-format
+msgid "Erreur lors de la suppression : %(error)s"
+msgstr "Errore di cancellazione : %(error)s"
+
+#: app/admin/routes.py:74
+msgid "Historique des Accomplissements"
+msgstr "Storia dei risultati ottenuti"
+
+#: app/admin/routes.py:86
+msgid "Gestion Retraits / Soldes Utilisateurs"
+msgstr "Prelievo da parte dell'utente / Gestione del saldo"
+
+#: app/admin/routes.py:99
+msgid "Le montant doit être positif."
+msgstr "L'importo deve essere positivo."
+
+#: app/admin/routes.py:101
+msgid "Le montant retiré dépasse le solde."
+msgstr "L'importo prelevato supera il saldo."
+
+#: app/admin/routes.py:109
+#, python-format
+msgid "Paiement de %(amount)s $ enregistré pour %(user)s."
+msgstr "Pagamento di %(amount)s $ registrato per %(user)s."
+
+#: app/admin/routes.py:113
+#, python-format
+msgid "Erreur lors de l'enregistrement du retrait : %(error)s"
+msgstr ""
+
+#: app/admin/routes.py:131
+msgid "Gestion des Utilisateurs"
+msgstr ""
+
+#: app/admin/routes.py:138
+msgid "Action non autorisée."
+msgstr ""
+
+#: app/admin/routes.py:139
+msgid "Cet utilisateur est déjà banni."
+msgstr ""
+
+#: app/admin/routes.py:140
+#, python-format
+msgid "L'utilisateur %(name)s a été banni."
+msgstr ""
+
+#: app/admin/routes.py:147
+msgid "Cet utilisateur n'est pas banni."
+msgstr ""
+
+#: app/admin/routes.py:148
+#, python-format
+msgid "L'utilisateur %(name)s a été débanni."
+msgstr ""
+
+#: app/admin/routes.py:155 app/admin/routes.py:173
+msgid "Vous ne pouvez pas modifier le solde d'un administrateur."
+msgstr ""
+
+#: app/admin/routes.py:159
+msgid "Le montant de réduction doit être positif."
+msgstr ""
+
+#: app/admin/routes.py:160
+msgid "Le message d'avertissement ne peut pas être vide."
+msgstr ""
+
+#: app/admin/routes.py:164
+#, python-format
+msgid ""
+"Le solde de %(user)s a été réduit de %(amount)s $ et un avertissement a "
+"été enregistré."
+msgstr ""
+
+#: app/admin/routes.py:165 app/admin/routes.py:183
+#, python-format
+msgid "Erreur : %(error)s"
+msgstr ""
+
+#: app/admin/routes.py:177
+msgid "Le montant ajouté doit être positif."
+msgstr ""
+
+#: app/admin/routes.py:178
+msgid "La raison/description ne peut pas être vide."
+msgstr ""
+
+#: app/admin/routes.py:182
+#, python-format
+msgid ""
+"Un montant de %(amount)s $ a été ajouté au solde de %(user)s. Raison : "
+"%(reason)s"
+msgstr ""
+
+#: app/admin/routes.py:193
+msgid "Le corps du message ne peut pas être vide."
+msgstr ""
+
+#: app/admin/routes.py:203
+#, python-format
+msgid "%(count)s message(s) envoyé(s) avec succès !"
+msgstr ""
+
+#: app/admin/routes.py:204
+msgid "Aucun utilisateur ne correspond aux critères sélectionnés."
+msgstr ""
+
+#: app/admin/routes.py:205
+#, python-format
+msgid "Erreur lors de l'envoi des messages : %(error)s"
+msgstr ""
+
+#: app/admin/routes.py:207
+msgid "Envoyer un Message Ciblé"
+msgstr ""
+
+#: app/admin/routes.py:215
+msgid "Approuver les Soumissions Externes"
+msgstr ""
+
+#: app/admin/routes.py:222 app/admin/routes.py:244
+msgid "Cette soumission a déjà été traitée."
+msgstr ""
+
+#: app/admin/routes.py:224
+msgid "Erreur : Utilisateur parrain ou tâche associée introuvable."
+msgstr ""
+
+#: app/admin/routes.py:233
+#, python-format
+msgid "Votre parrainage pour la tâche \"%(task_title)s\" a été approuvé !"
+msgstr ""
+
+#: app/admin/routes.py:235
+#, python-format
+msgid "Soumission approuvée. Bonus de %(bonus)s $ crédité à %(user)s."
+msgstr ""
+
+#: app/admin/routes.py:236
+#, python-format
+msgid "Erreur lors de l'approbation : %(error)s"
+msgstr ""
+
+#: app/admin/routes.py:248
+msgid "Soumission rejetée."
+msgstr ""
+
+#: app/admin/routes.py:249
+#, python-format
+msgid "Erreur lors du rejet : %(error)s"
+msgstr ""
+
+#: app/admin/routes.py:262
+msgid "Statistiques d'Accomplissement"
+msgstr ""
+
+#: app/auth/routes.py:20
+msgid ""
+"Félicitations, votre inscription est réussie ! Vous pouvez maintenant "
+"vous connecter."
+msgstr ""
+
+#: app/auth/routes.py:22 app/templates/base.html:22
+msgid "Inscription"
+msgstr ""
+
+#: app/auth/routes.py:33
+msgid "Votre compte a été banni. Veuillez contacter le support."
+msgstr ""
+
+#: app/auth/routes.py:38
+msgid "Email ou mot de passe invalide."
+msgstr ""
+
+#: app/auth/routes.py:46
+msgid "Connexion réussie !"
+msgstr ""
+
+#: app/auth/routes.py:48 app/templates/auth/login.html:6
+#: app/templates/base.html:21
+msgid "Connexion"
+msgstr ""
+
+#: app/auth/routes.py:53
+msgid "Vous avez été déconnecté."
+msgstr ""
+
+#: app/main/routes.py:26 app/templates/base.html:19
+msgid "Accueil"
+msgstr ""
+
+#: app/main/routes.py:33 app/templates/base.html:25
+msgid "Tableau de Bord"
+msgstr ""
+
+#: app/main/routes.py:47 app/templates/available_tasks.html:7
+msgid "Tâches Disponibles"
+msgstr ""
+
+#: app/main/routes.py:54
+msgid "Vous avez déjà marqué cette tâche comme accomplie."
+msgstr ""
+
+#: app/main/routes.py:56
+msgid "Vous ne pouvez pas accomplir cette tâche ou elle n'est plus active."
+msgstr ""
+
+#: app/main/routes.py:60
+#, python-format
+msgid ""
+"Félicitations ! Tâche \"%(title)s\" marquée comme accomplie. Récompense "
+"de %(amount)s $ ajoutée à votre solde."
+msgstr ""
+
+#: app/main/routes.py:61
+#, python-format
+msgid "Une erreur est survenue : %(error)s"
+msgstr ""
+
+#: app/main/routes.py:69
+msgid "Mes Tâches Accomplies"
+msgstr ""
+
+#: app/main/routes.py:97
+msgid "Mon Solde et Retrait"
+msgstr ""
+
+#: app/main/routes.py:108
+msgid "Mes Notifications"
+msgstr ""
+
+#: app/main/routes.py:114
+msgid "Cette tâche n'est pas disponible ou n'existe pas."
+msgstr ""
+
+#: app/main/routes.py:122
+msgid "Erreur : Tâche ou Parrain invalide."
+msgstr ""
+
+#: app/main/routes.py:123
+msgid "Veuillez fournir une preuve (texte ou capture d'écran)."
+msgstr ""
+
+#: app/main/routes.py:130
+#, python-format
+msgid "Erreur lors de la sauvegarde de l'image: %(err)s"
+msgstr ""
+
+#: app/main/routes.py:131
+#, python-format
+msgid "Type de fichier non autorisé. Permis: %(ext)s"
+msgstr ""
+
+#: app/main/routes.py:135
+msgid "Votre preuve a été soumise avec succès et est en attente de vérification."
+msgstr ""
+
+#: app/main/routes.py:141
+#, python-format
+msgid "Erreur lors de la soumission : %(error)s"
+msgstr ""
+
+#: app/templates/available_tasks.html:8
+#, python-format
+msgid ""
+"Voici les tâches qui correspondent à votre profil (Pays: %(country)s, "
+"Appareil: %(device)s) et que vous n'avez pas encore accomplies."
+msgstr ""
+
+#: app/templates/available_tasks.html:13
+msgid "Aucune nouvelle tâche disponible pour le moment."
+msgstr ""
+
+#: app/templates/available_tasks.html:28 app/templates/available_tasks.html:30
+msgid "Commencer la Tâche"
+msgstr ""
+
+#: app/templates/available_tasks.html:30
+msgid "Aucun lien direct fourni"
+msgstr ""
+
+#: app/templates/available_tasks.html:34
+msgid "Marquer comme Terminé"
+msgstr ""
+
+#: app/templates/available_tasks.html:39 app/templates/completed_tasks.html:42
+msgid "Partager cette tâche"
+msgstr ""
+
+#: app/templates/available_tasks.html:42
+msgid "Évitez la fraude"
+msgstr ""
+
+#: app/templates/available_tasks.html:49
+msgid "Confirmation Requise"
+msgstr ""
+
+#: app/templates/available_tasks.html:49
+msgid "ATTENTION !"
+msgstr ""
+
+#: app/templates/available_tasks.html:49
+#, python-format
+msgid "Vous êtes sur le point de marquer la tâche '%(title)s' comme terminée."
+msgstr ""
+
+#: app/templates/available_tasks.html:49
+msgid ""
+"Ne confirmez que si vous avez réellement et entièrement accompli cette "
+"tâche selon les instructions."
+msgstr ""
+
+#: app/templates/available_tasks.html:49
+msgid ""
+"Toute tentative de marquer une tâche comme terminée sans l'avoir "
+"réellement faite est considérée comme une fraude, entraînera un "
+"bannissement immédiat de la plateforme et l'annulation de tous vos gains "
+"accumulés."
+msgstr ""
+
+#: app/templates/available_tasks.html:49
+msgid "Êtes-vous sûr de vouloir continuer ?"
+msgstr ""
+
+#: app/templates/available_tasks.html:49
+msgid "Annuler"
+msgstr ""
+
+#: app/templates/available_tasks.html:49
+msgid "Confirmer l'Accomplissement"
+msgstr ""
+
+#: app/templates/available_tasks.html:58 app/templates/notifications.html:65
+#: app/templates/withdraw.html:68
+msgid "Retour au Panel Admin"
+msgstr ""
+
+#: app/templates/available_tasks.html:59 app/templates/completed_tasks.html:79
+#: app/templates/notifications.html:66 app/templates/withdraw.html:70
+msgid "Retour au Tableau de Bord"
+msgstr ""
+
+#: app/templates/base.html:9
+msgid "Gagnez en accomplissant des tâches"
+msgstr ""
+
+#: app/templates/base.html:26
+msgid "Mon Solde"
+msgstr ""
+
+#: app/templates/base.html:29
+msgid "Notifications"
+msgstr ""
+
+#: app/templates/base.html:31
+msgid "Admin Panel"
+msgstr ""
+
+#: app/templates/base.html:33
+msgid "Déconnexion"
+msgstr ""
+
+#: app/templates/base.html:46
+msgid "Tous droits réservés."
+msgstr ""
+
+#: app/templates/base.html:46
+msgid "Politique de confidentialité"
+msgstr ""
+
+#: app/templates/base.html:46
+msgid "Conditions d'utilisation"
+msgstr ""
+
+#: app/templates/base.html:46
+msgid "Support Email"
+msgstr ""
+
+#: app/templates/base.html:46
+msgid "Support Telegram"
+msgstr ""
+
+#: app/templates/completed_tasks.html:8
+msgid "Voici la liste des tâches que vous avez marquées comme accomplies."
+msgstr ""
+
+#: app/templates/completed_tasks.html:13
+msgid "Vous n'avez accompli aucune tâche pour le moment."
+msgstr ""
+
+#: app/templates/completed_tasks.html:20
+msgid "Tâche"
+msgstr ""
+
+#: app/templates/completed_tasks.html:21
+msgid "Récompense Reçue"
+msgstr ""
+
+#: app/templates/completed_tasks.html:22
+msgid "Accomplie le (UTC)"
+msgstr ""
+
+#: app/templates/completed_tasks.html:23
+msgid "Actions"
+msgstr ""
+
+#: app/templates/completed_tasks.html:31
+msgid "Tâche Supprimée"
+msgstr ""
+
+#: app/templates/completed_tasks.html:43 app/templates/completed_tasks.html:48
+msgid "Partager"
+msgstr ""
+
+#: app/templates/completed_tasks.html:47
+msgid "Partage non disponible (Tâche inactive ou supprimée)"
+msgstr ""
+
+#: app/templates/completed_tasks.html:63 app/templates/notifications.html:58
+msgid "Précédent"
+msgstr ""
+
+#: app/templates/completed_tasks.html:69 app/templates/notifications.html:58
+msgid "Suivant"
+msgstr ""
+
+#: app/templates/dashboard.html:7
+#, python-format
+msgid "Bienvenue sur votre tableau de bord, %(username)s !"
+msgstr ""
+
+#: app/templates/dashboard.html:10
+msgid "Que souhaitez-vous faire ?"
+msgstr ""
+
+#: app/templates/dashboard.html:13
+msgid "Voir les tâches disponibles"
+msgstr ""
+
+#: app/templates/dashboard.html:16
+msgid "Voir mes tâches accomplies"
+msgstr ""
+
+#: app/templates/dashboard.html:20
+msgid "Mon Solde / Demander un Retrait"
+msgstr ""
+
+#: app/templates/dashboard.html:25
+msgid "Important !"
+msgstr ""
+
+#: app/templates/dashboard.html:28
+msgid ""
+"Assurez-vous de bien lire les instructions avant de marquer une tâche "
+"comme accomplie."
+msgstr ""
+
+#: app/templates/external_task_view.html:9
+#, python-format
+msgid "Accomplir la Tâche: %(title)s"
+msgstr ""
+
+#: app/templates/external_task_view.html:23
+msgid "COMMENCER LA TÂCHE ICI (Ouvre un lien externe)"
+msgstr ""
+
+#: app/templates/external_task_view.html:30
+msgid "Description"
+msgstr ""
+
+#: app/templates/external_task_view.html:34
+msgid "Instructions"
+msgstr ""
+
+#: app/templates/external_task_view.html:38
+msgid "Récompense (pour le parrain après validation)"
+msgstr ""
+
+#: app/templates/external_task_view.html:44
+msgid "Soumettre la preuve d'accomplissement"
+msgstr ""
+
+#: app/templates/external_task_view.html:45
+msgid "Après avoir accompli la tâche, soumettez votre preuve ici."
+msgstr ""
+
+#: app/templates/external_task_view.html:47
+msgid "Type de preuve attendu:"
+msgstr ""
+
+#: app/templates/external_task_view.html:66
+msgid "Votre Preuve (Texte/Lien)"
+msgstr ""
+
+#: app/templates/external_task_view.html:67
+msgid "Collez un lien, décrivez le résultat, etc."
+msgstr ""
+
+#: app/templates/external_task_view.html:72
+msgid "OU Joindre une Capture d'Écran (Optionnel)"
+msgstr ""
+
+#: app/templates/external_task_view.html:76
+#, python-format
+msgid ""
+"Astuce : Joindre une capture d'écran peut accélérer la validation pour la"
+" personne qui vous a partagé cette tâche (~80%% plus rapide)."
+msgstr ""
+
+#: app/templates/external_task_view.html:82
+msgid "Votre Email (Optionnel, pour suivi)"
+msgstr ""
+
+#: app/templates/external_task_view.html:86
+msgid "Soumettre ma Preuve"
+msgstr ""
+
+#: app/templates/external_task_view.html:91
+msgid "Partagé via Work and Win"
+msgstr ""
+
+#: app/templates/index.html:6
+msgid "Bienvenue sur Work and Win!"
+msgstr ""
+
+#: app/templates/index.html:9
+msgid ""
+"Rejoignez notre communauté pour commencer à gagner de l'argent en "
+"effectuant des tâches simples depuis chez vous ou en déplacement."
+msgstr ""
+
+#: app/templates/index.html:13
+msgid "Inscrivez-vous maintenant"
+msgstr ""
+
+#: app/templates/index.html:14
+msgid "Se connecter"
+msgstr ""
+
+#: app/templates/index.html:17
+#, python-format
+msgid "Ravi de vous revoir, %(username)s!"
+msgstr ""
+
+#: app/templates/index.html:19
+msgid "Accéder à mon tableau de bord"
+msgstr ""
+
+#: app/templates/notifications.html:11
+msgid "Vous n'avez aucune notification."
+msgstr ""
+
+#: app/templates/notifications.html:20
+msgid "Avertissement Administrateur"
+msgstr ""
+
+#: app/templates/notifications.html:25
+msgid "Bonus / Crédit Administrateur"
+msgstr ""
+
+#: app/templates/notifications.html:27
+#, python-format
+msgid "Montant ajouté: +$%(amount)s"
+msgstr ""
+
+#: app/templates/notifications.html:31
+msgid "Message de l'Administrateur"
+msgstr ""
+
+#: app/templates/notifications.html:38
+msgid "Bonus de Parrainage Reçu !"
+msgstr ""
+
+#: app/templates/notifications.html:42
+#, python-format
+msgid "Bonus ajouté: +$%(amount)s"
+msgstr ""
+
+#: app/templates/notifications.html:48
+msgid "Notification"
+msgstr ""
+
+#: app/templates/withdraw.html:12
+msgid "Votre Solde Actuel:"
+msgstr ""
+
+#: app/templates/withdraw.html:17
+#, python-format
+msgid "Note: Le montant minimum pour demander un retrait est de $ %(amount)s."
+msgstr ""
+
+#: app/templates/withdraw.html:23
+msgid "Demander un retrait"
+msgstr ""
+
+#: app/templates/withdraw.html:30
+msgid "Retrait Non Disponible"
+msgstr ""
+
+#: app/templates/withdraw.html:31
+#, python-format
+msgid "Vous ne pouvez effectuer qu'un seul retrait tous les %(days)s jours."
+msgstr ""
+
+#: app/templates/withdraw.html:34
+#, python-format
+msgid "Votre prochain retrait sera possible à partir du : %(date)s (UTC)"
+msgstr ""
+
+#: app/templates/withdraw.html:41
+#, python-format
+msgid ""
+"Votre solde actuel ($ %(balance)s) est inférieur au minimum requis ($ "
+"%(min_amount)s) pour demander un retrait."
+msgstr ""
+
+#: app/templates/withdraw.html:45
+msgid "Processus de Retrait Manuel"
+msgstr ""
+
+#: app/templates/withdraw.html:46
+#, python-format
+msgid ""
+"Pour demander le retrait de vos gains (minimum $ %(min_amount)s), "
+"veuillez contacter notre équipe de support en fournissant les "
+"informations suivantes :"
+msgstr ""
+
+#: app/templates/withdraw.html:48
+msgid "Votre adresse email enregistrée :"
+msgstr ""
+
+#: app/templates/withdraw.html:49
+msgid "Le montant exact que vous souhaitez retirer (en $)."
+msgstr ""
+
+#: app/templates/withdraw.html:50
+msgid ""
+"Votre méthode de paiement préférée (ex: Mobile Money [Numéro], Virement "
+"Bancaire [Détails], etc.)."
+msgstr ""
+
+#: app/templates/withdraw.html:52
+msgid "Vous pouvez nous contacter via :"
+msgstr ""
+
+#: app/templates/withdraw.html:54
+msgid "Email:"
+msgstr ""
+
+#: app/templates/withdraw.html:56
+msgid "Telegram:"
+msgstr ""
+
+#: app/templates/withdraw.html:59
+msgid ""
+"Votre demande sera traitée manuellement par notre équipe dans les plus "
+"brefs délais (généralement 24-72h ouvrées). Votre date de dernier retrait"
+" sera enregistrée une fois le paiement effectué par l'administrateur."
+msgstr ""
+
+#: app/templates/auth/login.html:44
+msgid "Nouveau sur Work and Win?"
+msgstr ""
+
+#: app/templates/auth/login.html:44
+msgid "Cliquez ici pour vous inscrire!"
+msgstr ""
+
+#: app/templates/auth/register.html:6
+msgid "Créer un compte"
+msgstr ""
+
+#: app/templates/auth/register.html:10
+msgid "Information Importante"
+msgstr ""
+
+#: app/templates/auth/register.html:11
+msgid ""
+"Veuillez fournir des informations exactes concernant votre pays de "
+"résidence et l'appareil principal que vous utilisez."
+msgstr ""
+
+#: app/templates/auth/register.html:13
+msgid ""
+"Ces informations sont utilisées pour vous proposer des tâches adaptées. "
+"Fournir des informations incorrectes pourrait entraîner des difficultés "
+"lors de la validation de vos gains."
+msgstr ""
+
+#: app/templates/auth/register.html:70
+msgid "Déjà inscrit?"
+msgstr ""
+
+#: app/templates/auth/register.html:70
+msgid "Connectez-vous ici!"
+msgstr ""
+

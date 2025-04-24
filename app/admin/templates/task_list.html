@@ -1,0 +1,48 @@
+{# app/admin/templates/task_list.html (AVEC CONTAINER) #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5"> {# <<< Conteneur ajouté >>> #}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1><i class="bi bi-card-list"></i> {{ title }}</h1>
+        <a href="{{ url_for('admin.create_task') }}" class="btn btn-success"><i class="bi bi-plus-circle-fill"></i> {{ _('Créer une Nouvelle Tâche') }}</a>
+    </div>
+
+    {# Filtres dans une carte #}
+    <div class="card bg-light mb-3 shadow-sm filter-card">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('admin.list_tasks') }}">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4"> <label for="title" class="form-label">{{ _('Filtrer par Titre') }}</label> <input type="text" class="form-control form-control-sm" id="title" name="title" value="{{ search_title or '' }}"> </div>
+                    <div class="col-md-3"> <label for="country" class="form-label">{{ _('Filtrer par Pays') }}</label> <select class="form-select form-select-sm" id="country" name="country"> <option value="" {% if not search_country %}selected{% endif %}>-- {{ _('Tous les Pays') }} --</option> {% for code, name in countries_list %} {% if code != 'ALL' %}<option value="{{ code }}" {% if code == search_country %}selected{% endif %}>{{ name }}</option>{% endif %} {% endfor %} </select> </div>
+                    <div class="col-md-3"> <label for="device" class="form-label">{{ _('Filtrer par Appareil') }}</label> <select class="form-select form-select-sm" id="device" name="device"> <option value="" {% if not search_device %}selected{% endif %}>-- {{ _('Tous les Appareils') }} --</option> {% for code, name in devices_list %} {% if code != 'ALL' %}<option value="{{ code }}" {% if code == search_device %}selected{% endif %}>{{ name }}</option>{% endif %} {% endfor %} </select> </div>
+                    <div class="col-md-2"> <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-search"></i> {{ _('Rechercher') }}</button> </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    <hr>
+
+    {% if not tasks %}
+        <div class="alert alert-info"> {% if search_title or search_country or search_device %} {{ _('Aucune tâche ne correspond à vos critères de recherche.') }} <a href="{{ url_for('admin.list_tasks') }}" class="alert-link">{{ _('Voir toutes les tâches.') }}</a> {% else %} {{ _('Aucune tâche n\'a été créée pour le moment.') }} {% endif %} </div>
+    {% else %}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover table-sm align-middle">
+                <thead> <tr> <th scope="col"># ID</th> <th scope="col">{{ _('Titre') }}</th> <th scope="col">{{ _('Récompense') }}</th> <th scope="col">{{ _('Pays Cibles') }}</th> <th scope="col">{{ _('Appareils Cibles') }}</th> <th scope="col">{{ _('Statut') }}</th> <th scope="col">{{ _('Créée le') }}</th> <th scope="col">{{ _('Actions') }}</th> </tr> </thead>
+                <tbody>
+                    {% for task in tasks %}
+                    <tr> <th scope="row">{{ task.id }}</th> <td>{{ task.title }}</td> <td>$ {{ "%.2f"|format(task.reward_amount) }}</td> <td>{{ task.target_countries or _('N/A') }}</td> <td>{{ task.target_devices or _('N/A') }}</td> <td> {% if task.is_active %}<span class="badge bg-success">{{ _('Active') }}</span>{% else %}<span class="badge bg-secondary">{{ _('Inactive') }}</span>{% endif %} </td> <td>{{ task.creation_date.strftime('%Y-%m-%d') if task.creation_date else ''}}</td> <td class="text-nowrap"> <a href="{{ url_for('admin.edit_task', task_id=task.id) }}" class="btn btn-sm btn-outline-primary" title="{{ _('Modifier') }}"><i class="bi bi-pencil-square"></i></a> <form action="{{ url_for('admin.delete_task', task_id=task.id) }}" method="post" style="display: inline;"> <button type="submit" class="btn btn-sm btn-outline-danger" title="{{ _('Supprimer') }}" onclick="return confirm('{{ _('Êtes-vous sûr de vouloir supprimer définitivement cette tâche et tous ses accomplissements associés ?') }}');"><i class="bi bi-trash3"></i></button> </form> </td> </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {# Note: Pagination pour les tâches pourrait être ajoutée ici si la liste devient très longue #}
+    {% endif %}
+
+    <div class="mt-4"> <a href="{{ url_for('admin.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left-circle"></i> {{ _('Retour au Panel Admin') }}</a> </div>
+</div> {# <<< Fin Conteneur >>> #}
+{% endblock %}
+
+{% block scripts %} {{ super() }} {% endblock %}

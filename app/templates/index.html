@@ -1,0 +1,90 @@
+{# app/templates/index.html (Lien Espace vers Dashboard) #}
+{% extends "base.html" %}
+
+{% block title %}{{ _('Accueil') }}{% endblock %}
+
+{# Le contenu principal commence directement par la bannière #}
+{% block content %}
+{# --- Section Principale (Hero) avec Bannière CSS --- #}
+<div class="hero-banner text-center text-white">
+    <div class="container col-lg-8"> {# Conteneur pour centrer/limiter largeur #}
+        <h1 class="display-4 fw-bold">{{ _('Gagnez de l\'argent en ligne, simplement.') }}</h1>
+        <p class="lead my-4">{{ _('Work and Win vous connecte à des tâches simples que vous pouvez accomplir depuis votre appareil (Android, iOS, PC) pour gagner des récompenses. Flexible, accessible, et à votre rythme.') }}</p>
+        <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+            {% if current_user.is_anonymous %}
+                <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg px-4 gap-3">{{ _('Inscrivez-vous Gratuitement') }}</a>
+                <a href="{{ url_for('auth.login') }}" class="btn btn-outline-light btn-lg px-4">{{ _('Se Connecter') }}</a>
+            {% else %}
+                 {# <<< CORRECTION DU LIEN ICI >>> #}
+                 {# Pointe vers 'main.dashboard' pour user normal, 'admin.index' reste correct #}
+                 <a href="{{ url_for('main.dashboard') if not current_user.is_admin else url_for('admin.index') }}" class="btn btn-primary btn-lg px-4 gap-3">{{ _('Accéder à mon Espace') }}</a>
+                 {# <<< FIN CORRECTION DU LIEN >>> #}
+            {% endif %}
+        </div>
+    </div>
+</div>
+{# --- Fin Section Hero --- #}
+
+<div class="container"> {# Conteneur pour le reste du contenu #}
+
+    {# --- Section Comment ça Marche --- #}
+    <div class="row g-4 py-5 row-cols-1 row-cols-lg-3 text-center mt-4 how-it-works-section">
+        <h2 class="pb-2 border-bottom w-100 mb-4">{{ _('Comment ça Marche ?') }}</h2>
+        <div class="col d-flex align-items-stretch"> <div class="card shadow-sm h-100 w-100"> <div class="card-body d-flex flex-column"> <div class="feature-icon-small d-inline-flex align-items-center justify-content-center text-bg-primary bg-gradient fs-4 rounded-3 mb-3 px-2"><i class="bi bi-person-plus-fill"></i></div> <h3 class="fs-4">{{ _('1. Inscription Rapide') }}</h3> <p>{{ _('Créez votre compte gratuitement en quelques clics en indiquant votre pays et appareil.') }}</p> </div> </div> </div>
+        <div class="col d-flex align-items-stretch"> <div class="card shadow-sm h-100 w-100"> <div class="card-body d-flex flex-column"> <div class="feature-icon-small d-inline-flex align-items-center justify-content-center text-bg-primary bg-gradient fs-4 rounded-3 mb-3 px-2"><i class="bi bi-list-task"></i></div> <h3 class="fs-4">{{ _('2. Trouvez des Tâches') }}</h3> <p>{{ _('Parcourez les tâches disponibles spécifiquement pour votre localisation et votre type d\'appareil.') }}</p> </div> </div> </div>
+        <div class="col d-flex align-items-stretch"> <div class="card shadow-sm h-100 w-100"> <div class="card-body d-flex flex-column"> <div class="feature-icon-small d-inline-flex align-items-center justify-content-center text-bg-primary bg-gradient fs-4 rounded-3 mb-3 px-2"><i class="bi bi-check2-circle"></i></div> <h3 class="fs-4">{{ _('3. Accomplissez & Gagnez') }}</h3> <p>{{ _('Suivez les instructions, accomplissez la tâche, marquez-la comme terminée et recevez votre récompense en $ sur votre solde.') }}</p> </div> </div> </div>
+        <div class="col d-flex align-items-stretch"> <div class="card shadow-sm h-100 w-100"> <div class="card-body d-flex flex-column"> <div class="feature-icon-small d-inline-flex align-items-center justify-content-center text-bg-primary bg-gradient fs-4 rounded-3 mb-3 px-2"><i class="bi bi-cash-coin"></i></div> <h3 class="fs-4">{{ _('4. Retirez vos Gains') }}</h3> <p>{{ _('Demandez un retrait manuel de votre solde (minimum 25$) via nos canaux de support.') }}</p> </div> </div> </div>
+        <div class="col d-flex align-items-stretch"> <div class="card shadow-sm h-100 w-100"> <div class="card-body d-flex flex-column"> <div class="feature-icon-small d-inline-flex align-items-center justify-content-center text-bg-primary bg-gradient fs-4 rounded-3 mb-3 px-2"><i class="bi bi-share-fill"></i></div> <h3 class="fs-4">{{ _('5. Parrainez & Gagnez Plus') }}</h3> <p>{{ _('Partagez des tâches ou invitez des amis à s\'inscrire pour gagner des bonus et commissions supplémentaires.') }}</p> </div> </div> </div>
+    </div>
+    <hr class="my-5">
+
+    {# --- Section Avertissement Fraude --- #}
+    <div class="alert alert-danger d-flex align-items-center" role="alert">
+      <i class="bi bi-shield-exclamation fs-2 me-3"></i>
+      <div>
+        <h4 class="alert-heading">{{ _("Tolérance Zéro pour la Fraude !") }}</h4>
+        {{ _("Chez Work and Win, nous traitons de l'argent réel et exigeons le plus grand sérieux de la part de nos utilisateurs. Toute tentative de fraude, de triche ou de manipulation du système entraînera un bannissement immédiat et définitif, ainsi que l'annulation de tous les gains. Soyez honnête, respectez les règles.") }}
+      </div>
+    </div>
+    <hr class="my-5">
+
+    {# --- Section À Propos --- #}
+    <div class="row align-items-center py-5">
+         <div class="col-lg-7"> <h2 class="pb-2 border-bottom">{{ _('À Propos de Work and Win') }}</h2> <p>{{ _("Work and Win a pour mission de fournir une plateforme simple et accessible permettant à chacun de générer un revenu complémentaire en réalisant des micro-tâches en ligne. Nous croyons en la flexibilité du travail et en l'opportunité pour tous de monétiser leur temps libre, où qu'ils soient dans le monde et quel que soit leur appareil.") }}</p> <p>{{ _("Les tâches proposées peuvent varier : tester des applications, répondre à des sondages, visiter des sites web, interagir sur les réseaux sociaux, et bien plus encore. De nouvelles opportunités sont ajoutées régulièrement.") }}</p> </div>
+         <div class="col-lg-5 text-center"> <img src="{{ url_for('static', filename='img/logo.png') }}" class="img-fluid rounded-3" alt="{{ _('Illustration Work and Win') }}" width="300"> </div>
+    </div>
+    <hr class="my-5">
+
+    {# --- Section Témoignages --- #}
+    <div class="py-5">
+        <h2 class="pb-2 border-bottom text-center">{{ _('Ce que disent nos utilisateurs') }}</h2>
+        <div class="row g-4 mt-3">
+            <div class="col-md-4"> <div class="card h-100 shadow-sm"> <div class="card-body text-center"> <i class="bi bi-quote fs-1 text-muted"></i> <p class="card-text fst-italic">{{ _("Enfin une plateforme sérieuse ! J'ai pu retirer mes gains sans problème après avoir fait quelques tâches pendant mon temps libre.") }}</p> </div> <div class="card-footer text-center"> <small class="text-muted">- {{ _('Aisha B., Cotonou') }}</small> </div> </div> </div>
+            <div class="col-md-4"> <div class="card h-100 shadow-sm"> <div class="card-body text-center"> <i class="bi bi-quote fs-1 text-muted"></i> <p class="card-text fst-italic">{{ _("Facile à utiliser sur mon téléphone Android. Les tâches sont simples et les instructions claires. Le système de parrainage est un plus !") }}</p> </div> <div class="card-footer text-center"> <small class="text-muted">- {{ _('Moussa D., Dakar') }}</small> </div> </div> </div>
+            <div class="col-md-4"> <div class="card h-100 shadow-sm"> <div class="card-body text-center"> <i class="bi bi-quote fs-1 text-muted"></i> <p class="card-text fst-italic">{{ _("J'utilise le site sur mon PC. C'est pratique pour arrondir les fins de mois. Le support a été réactif quand j'ai eu une question.") }}</p> </div> <div class="card-footer text-center"> <small class="text-muted">- {{ _('Fatou K., Abidjan') }}</small> </div> </div> </div>
+        </div>
+    </div>
+    <hr class="my-5">
+
+    {# --- Section Trustpilot Placeholder --- #}
+     <div class="py-5 text-center bg-light rounded-3">
+         <h2 class="pb-2">{{ _('Notre Réputation Compte') }}</h2>
+         <p class="lead">{{ _("Nous nous efforçons d'être transparents et fiables. Consultez les avis de notre communauté !") }}</p>
+         <a href="#" class="btn btn-lg btn-success disabled" aria-disabled="true"><i class="bi bi-star-fill"></i> {{ _('Voir nos Avis sur Trustpilot (Bientôt)') }}</a>
+     </div>
+     <hr class="my-5">
+
+    {# --- Section FAQ --- #}
+    <div class="py-5">
+        <h2 class="pb-2 border-bottom">{{ _('Questions Fréquentes (FAQ)') }}</h2>
+        <div class="accordion mt-3" id="faqAccordion">
+          <div class="accordion-item"> <h2 class="accordion-header" id="headingOne"> <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne"> {{ _('Comment puis-je m\'inscrire ?') }} </button> </h2> <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#faqAccordion"> <div class="accordion-body"> {{ _('Cliquez sur le bouton "Inscription" en haut à droite ou sur la page d\'accueil. Remplissez le formulaire avec votre nom, email, pays, appareil principal et choisissez un mot de passe. C\'est gratuit ! N\'oubliez pas de fournir des informations exactes.') }} </div> </div> </div>
+          <div class="accordion-item"> <h2 class="accordion-header" id="headingTwo"> <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo"> {{ _('Quel type de tâches vais-je trouver ?') }} </button> </h2> <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#faqAccordion"> <div class="accordion-body"> {{ _('Les tâches varient : tests d\'applications, réponses à des sondages, visites de sites, actions sur les réseaux sociaux, etc. Les tâches disponibles dépendent de votre pays et de votre appareil.') }} </div> </div> </div>
+          <div class="accordion-item"> <h2 class="accordion-header" id="headingThree"> <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree"> {{ _('Comment et quand suis-je payé ?') }} </button> </h2> <div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree" data-bs-parent="#faqAccordion"> <div class="accordion-body"> {{ _("Vos gains sont ajoutés à votre solde sur le site après chaque tâche accomplie. Vous pouvez demander un retrait manuel lorsque votre solde atteint 25$. Contactez le support (Email ou Telegram indiqués en bas de page) avec votre email, le montant désiré et votre méthode de paiement préférée. Les paiements sont généralement traités sous 24-72h ouvrées. Vous ne pouvez demander qu'un retrait tous les 30 jours.") }} </div> </div> </div>
+          <div class="accordion-item"> <h2 class="accordion-header" id="headingFour"> <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFour" aria-expanded="false" aria-controls="collapseFour"> {{ _('Comment fonctionne le parrainage ?') }} </button> </h2> <div id="collapseFour" class="accordion-collapse collapse" aria-labelledby="headingFour" data-bs-parent="#faqAccordion"> <div class="accordion-body"> {{ _("Il y a deux façons : 1) Partagez des tâches spécifiques : si un ami accomplit la tâche via votre lien et que sa preuve est validée par l'admin, vous recevez un bonus de 40%% de la récompense de cette tâche. 2) Invitez des amis à s'inscrire avec votre code/lien : une fois que votre filleul a accompli 20 tâches, vous gagnez une commission de 3%% sur toutes ses tâches futures (après validation par l'admin).") }} </div> </div> </div>
+        </div>
+    </div>
+
+</div> {# Fin du conteneur standard #}
+{% endblock %}
+

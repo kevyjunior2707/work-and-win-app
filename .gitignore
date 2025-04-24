@@ -1,0 +1,39 @@
+# Environnement virtuel
+venv/
+*/venv/
+*/.venv/
+env/
+*/env/
+
+# Fichiers Python compilés et caches
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+*$py.class
+
+# Fichiers de base de données SQLite locaux
+*.db
+*.sqlite3
+
+# Fichiers d'environnement locaux (ne pas envoyer les secrets !)
+.env
+
+# Dossier d'uploads (si vous ne voulez pas versionner les preuves)
+# uploads/ # Décommentez si vous ne voulez PAS suivre les images de preuve
+
+# Fichiers IDE/Editeur
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Fichiers OS
+.DS_Store
+Thumbs.db
+
+# Dossier migrations (on ne versionne que le dossier, pas son contenu initial si BDD locale)
+# migrations/versions/ # Peut être utile de versionner les migrations pour la prod
+
+# Fichiers spécifiques à Render (si générés localement, souvent inutiles)
+render.yaml

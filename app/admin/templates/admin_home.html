@@ -1,0 +1,208 @@
+{# app/admin/templates/admin_home.html (AVEC GRAPHIQUES) #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5"> {# Conteneur principal #}
+    <h1 class="mb-4"><i class="bi bi-shield-lock"></i> {{ title }}</h1>
+    <p class="lead">{{ _('Bienvenue dans la zone d\'administration de Work and Win, %(username)s.', username=current_user.full_name) }}</p>
+    <hr>
+
+    {# --- Section Graphiques --- #}
+    <h2>{{ _('Tendances Récentes (12 derniers mois)') }}</h2>
+    <div class="row g-4 mb-4">
+        {# Graphique Inscriptions #}
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-header">{{ _('Inscriptions par Mois') }}</div>
+                <div class="card-body">
+                    <canvas id="registrationsChart"></canvas>
+                </div>
+            </div>
+        </div>
+         {# Graphique Accomplissements #}
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-header">{{ _('Accomplissements par Mois') }}</div>
+                <div class="card-body">
+                    <canvas id="completionsChart"></canvas>
+                </div>
+            </div>
+        </div>
+         {# Graphique Gains #}
+         <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-header">{{ _('Gains Générés par Mois ($)') }}</div>
+                <div class="card-body">
+                    <canvas id="earningsChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    {# --- Fin Section Graphiques --- #}
+
+    <hr class="my-4">
+
+    {# --- Section Actions Rapides --- #}
+    <h2>{{ _('Actions Rapides') }}</h2>
+    <div class="row g-3 mt-3">
+         {# Gestion Tâches #}
+         <div class="col-md-6 col-lg-4 d-flex align-items-stretch">
+            <div class="card h-100 shadow-sm w-100">
+                 <div class="card-body d-flex flex-column">
+                    <h5 class="card-title"><i class="bi bi-card-list"></i> {{ _('Gestion des Tâches') }}</h5>
+                    <p class="card-text flex-grow-1"><small>{{ _('Créer, voir, modifier ou supprimer les tâches proposées aux utilisateurs.') }}</small></p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('admin.list_tasks') }}" class="btn btn-primary btn-sm">{{ _('Voir la Liste') }}</a>
+                        <a href="{{ url_for('admin.create_task') }}" class="btn btn-success btn-sm">{{ _('Créer une Tâche') }}</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+         {# Gestion Utilisateurs #}
+         <div class="col-md-6 col-lg-4 d-flex align-items-stretch">
+            <div class="card h-100 shadow-sm w-100">
+                 <div class="card-body d-flex flex-column">
+                    <h5 class="card-title"><i class="bi bi-people-fill"></i> {{ _('Gestion des Utilisateurs') }}</h5>
+                    <p class="card-text flex-grow-1"><small>{{ _('Voir les utilisateurs, gérer leur statut (bannir), leur solde et envoyer des messages.') }}</small></p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('admin.list_users') }}" class="btn btn-primary btn-sm">{{ _('Voir les Utilisateurs') }}</a>
+                        <a href="{{ url_for('admin.send_message') }}" class="btn btn-info btn-sm text-white">{{ _('Envoyer Message') }}</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+         {# Gestion Retraits #}
+         <div class="col-md-6 col-lg-4 d-flex align-items-stretch">
+            <div class="card h-100 shadow-sm w-100">
+                 <div class="card-body d-flex flex-column">
+                    <h5 class="card-title"><i class="bi bi-credit-card"></i> {{ _('Gestion Retraits/Soldes') }}</h5>
+                    <p class="card-text flex-grow-1"><small>{{ _('Consulter les soldes et enregistrer les paiements manuels effectués.') }}</small></p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('admin.list_withdrawals') }}" class="btn btn-primary btn-sm">{{ _('Gérer les Retraits') }}</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+         {# Approbations Parrainages #}
+         <div class="col-md-6 col-lg-4 d-flex align-items-stretch">
+            <div class="card h-100 shadow-sm w-100">
+                 <div class="card-body d-flex flex-column">
+                    <h5 class="card-title"><i class="bi bi-patch-question-fill"></i> {{ _('Approbations Parrainages') }}</h5>
+                    <p class="card-text flex-grow-1"><small>{{ _('Approuver/rejeter les preuves externes (bonus 40%%) et les commissions (3%%).') }}</small></p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('admin.list_pending_referrals') }}" class="btn btn-warning btn-sm">{{ _('Preuves Externes (40%%)') }}</a>
+                        <a href="{{ url_for('admin.list_pending_commissions') }}" class="btn btn-warning btn-sm mt-1">{{ _('Commissions Filleuls (3%%)') }}</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+         {# Historique Accomplissements #}
+         <div class="col-md-6 col-lg-4 d-flex align-items-stretch">
+            <div class="card h-100 shadow-sm w-100">
+                 <div class="card-body d-flex flex-column">
+                    <h5 class="card-title"><i class="bi bi-clipboard-check"></i> {{ _('Historique Accomplissements') }}</h5>
+                    <p class="card-text flex-grow-1"><small>{{ _('Voir l\'historique de toutes les tâches accomplies par les utilisateurs.') }}</small></p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('admin.list_completions') }}" class="btn btn-primary btn-sm">{{ _('Voir l\'Historique') }}</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {# Statistiques (Lien vers page détaillée) #}
+        <div class="col-md-6 col-lg-4 d-flex align-items-stretch">
+            <div class="card h-100 shadow-sm w-100">
+                 <div class="card-body d-flex flex-column">
+                    <h5 class="card-title"><i class="bi bi-graph-up"></i> {{ _('Statistiques Détaillées') }}</h5>
+                    <p class="card-text flex-grow-1"><small>{{ _('Consulter les indicateurs clés et les accomplissements par pays/appareil.') }}</small></p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('admin.statistics') }}" class="btn btn-primary btn-sm">{{ _('Voir les Stats') }}</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+         {# Gestion Admins (Conditionnel) #}
+         {% if current_user.is_super_admin %}
+         <div class="col-md-6 col-lg-4 d-flex align-items-stretch">
+            <div class="card h-100 shadow-sm border-danger w-100"> {# Bordure rouge pour Super Admin #}
+                 <div class="card-body d-flex flex-column">
+                    <h5 class="card-title text-danger"><i class="bi bi-person-badge"></i> {{ _('Gérer les Admins') }}</h5>
+                    <p class="card-text flex-grow-1"><small>{{ _('Ajouter, promouvoir ou retirer des privilèges administrateur (Super Admin requis).') }}</small></p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('admin.manage_admins') }}" class="btn btn-danger btn-sm">{{ _('Gérer les Admins') }}</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {# --- Fin Actions Rapides --- #}
+
+</div> {# <<< Fin Conteneur >>> #}
+{% endblock %}
+
+{# --- Bloc Scripts pour Chart.js --- #}
+{% block scripts %}
+    {{ super() }}
+    {# Inclut Chart.js depuis un CDN #}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Attend que le DOM soit chargé
+        document.addEventListener('DOMContentLoaded', (event) => {
+            // Récupère les données passées par Flask
+            const chartData = {{ chart_data | tojson | safe }}; // Utilise |safe pour éviter l'échappement HTML
+            const labels = chartData.labels;
+
+            // Couleurs (peut être récupéré depuis les variables CSS si besoin plus avancé)
+            const wwBlue = '#2d92d0';
+            const wwGreen = '#009444';
+            const wwGray = '#6c757d';
+
+            // Fonction pour créer un graphique ligne
+            function createLineChart(canvasId, label, data, color) {
+                const ctx = document.getElementById(canvasId);
+                if (!ctx) {
+                    console.error(`Canvas element with id "${canvasId}" not found.`);
+                    return; // Sort si le canvas n'existe pas
+                }
+                new Chart(ctx.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: label,
+                            data: data,
+                            fill: false,
+                            borderColor: color,
+                            backgroundColor: color, // Pour les points
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        scales: {
+                            y: { beginAtZero: true }
+                        },
+                        plugins: {
+                            legend: { display: false }
+                        }
+                    }
+                });
+            }
+
+            // Crée les graphiques seulement si les données existent
+            if (chartData && chartData.labels && chartData.labels.length > 0) {
+                createLineChart('registrationsChart', '{{ _("Inscriptions") }}', chartData.registrations, wwBlue);
+                createLineChart('completionsChart', '{{ _("Accomplissements") }}', chartData.completions, wwGray);
+                createLineChart('earningsChart', '{{ _("Gains ($)") }}', chartData.earnings, wwGreen);
+            } else {
+                console.log("No chart data available to render.");
+                // Optionnel: Afficher un message dans les zones de graphique
+                // document.getElementById('registrationsChart').parentNode.innerHTML = '<p class="text-muted text-center">{{_("Pas de données pour le graphique.")}}</p>';
+                // etc.
+            }
+        });
+    </script>
+{% endblock %}

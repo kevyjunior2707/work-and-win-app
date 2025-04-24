@@ -1,0 +1,72 @@
+{# app/templates/withdraw.html (AVEC CONTAINER) #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5"> {# <<< Conteneur principal ajouté >>> #}
+    <h1><i class="bi bi-cash-coin"></i> {{ title }}</h1>
+    <hr>
+
+    {# Solde Actuel #}
+    <div class="alert alert-success fs-4 shadow-sm"> {# Ajout ombre #}
+       {{ _('Votre Solde Actuel:') }} <strong>$ {{ "%.2f"|format(current_user.balance) }}</strong>
+    </div>
+
+    {# Affiche le minimum de retrait si > 0 #}
+    {% if minimum_amount > 0 %}
+        <p class="text-info"><i class="bi bi-info-circle-fill"></i> {{ _('Note: Le montant minimum pour demander un retrait est de $ %(amount)s.', amount=minimum_amount) }}</p>
+    {% endif %}
+
+    {# --- Section Instructions / Eligibilité --- #}
+    <div class="card mt-3 shadow-sm"> {# Ajout ombre #}
+        <div class="card-header">
+            {{ _('Demander un retrait') }}
+        </div>
+        <div class="card-body">
+            {# Vérifie d'abord l'éligibilité temporelle #}
+            {% if not is_eligible_time %}
+                <div class="alert alert-warning" role="alert">
+                    <h4 class="alert-heading">{{ _('Retrait Non Disponible') }}</h4>
+                    <p>{{ _('Vous ne pouvez effectuer qu\'un seul retrait tous les %(days)s jours.', days=30) }}</p>
+                    <hr>
+                    <p class="mb-0">{{ _('Votre prochain retrait sera possible à partir du : %(date)s (UTC)', date=next_eligible_date.strftime('%Y-%m-%d')) }}</p>
+                </div>
+            {% else %}
+                {# Si éligible en temps, vérifie le solde #}
+                {% if not can_request_now %}
+                    <div class="alert alert-danger" role="alert">
+                      {{ _('Votre solde actuel ($ %(balance)s) est inférieur au minimum requis ($ %(min_amount)s) pour demander un retrait.', balance= ("%.2f"|format(current_user.balance)), min_amount=minimum_amount) }}
+                    </div>
+                {% else %}
+                    {# Si éligible (temps ET solde), affiche les instructions #}
+                    <h5 class="card-title">{{ _('Processus de Retrait Manuel') }}</h5>
+                    <p>{{ _("Pour demander le retrait de vos gains (minimum $ %(min_amount)s), veuillez contacter notre équipe de support en fournissant les informations suivantes :", min_amount=minimum_amount) }}</p>
+                    <ul>
+                        <li>{{ _("Votre adresse email enregistrée :") }} <strong>{{ current_user.email }}</strong></li>
+                        <li>{{ _("Le montant exact que vous souhaitez retirer (en $).") }}</li>
+                        <li>{{ _("Votre méthode de paiement préférée (ex: Mobile Money [Numéro], Virement Bancaire [Détails], etc.).") }}</li>
+                    </ul>
+                    <p>{{ _("Vous pouvez nous contacter via :") }}</p>
+                    <p>
+                        <i class="bi bi-envelope-fill"></i> <strong>{{ _('Email:') }}</strong> <a href="mailto:{{ config.SUPPORT_EMAIL }}">{{ config.SUPPORT_EMAIL }}</a><br>
+                        {% if config.SUPPORT_TELEGRAM_LINK and config.SUPPORT_TELEGRAM_LINK != 'TELEGRAM_LINK_A_DEFINIR' %}
+                            <i class="bi bi-telegram"></i> <strong>{{ _('Telegram:') }}</strong> <a href="{{ config.SUPPORT_TELEGRAM_LINK }}" target="_blank">{{ config.SUPPORT_TELEGRAM_LINK }}</a>
+                        {% endif %}
+                    </p>
+                    <p class="text-muted"><small>{{ _("Votre demande sera traitée manuellement par notre équipe dans les plus brefs délais (généralement 24-72h ouvrées). Votre date de dernier retrait sera enregistrée une fois le paiement effectué par l'administrateur.") }}</small></p>
+                {% endif %} {# Fin vérif solde #}
+            {% endif %} {# Fin vérif éligibilité temps #}
+        </div>
+    </div>
+
+    {# Lien retour #}
+    <div class="mt-4 text-center"> {# Centré #}
+         {% if current_user.is_admin %}
+            <a href="{{ url_for('admin.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left-circle"></i> {{ _('Retour au Panel Admin') }}</a>
+         {% else %}
+            <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left-circle"></i> {{ _('Retour au Tableau de Bord') }}</a>
+         {% endif %}
+    </div>
+</div> {# <<< Fin Conteneur >>> #}
+{% endblock %}
