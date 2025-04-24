@@ -1,4 +1,4 @@
-# app/forms.py (VERSION COMPLÈTE v6 - Re-verified)
+# app/forms.py (VERSION COMPLÈTE v7 - Ajout FileField TaskForm)
 from flask_wtf import FlaskForm
 from wtforms import (StringField, PasswordField, SubmitField, SelectField,
                      BooleanField, TextAreaField, DecimalField, SelectMultipleField,
@@ -6,10 +6,13 @@ from wtforms import (StringField, PasswordField, SubmitField, SelectField,
 from wtforms import widgets
 from wtforms.validators import (DataRequired, Email, EqualTo, Length, ValidationError,
                               NumberRange, Optional, URL)
+# <<< IMPORTS AJOUTÉS >>>
+from flask_wtf.file import FileField, FileAllowed
+# <<< FIN IMPORTS AJOUTÉS >>>
 from app.models import User
 from app import db
 from flask_babel import lazy_gettext as _l
-from flask_login import current_user # Import pour validation mot de passe
+from flask_login import current_user
 
 # --- Listes de Choix (Pays/Appareils) ---
 try:
@@ -45,7 +48,7 @@ class LoginForm(FlaskForm):
     remember_me = BooleanField(_l('Se souvenir de moi'))
     submit = SubmitField(_l('Connexion'))
 
-# --- Formulaire de Tâche ---
+# --- Formulaire de Tâche (MODIFIÉ) ---
 class TaskForm(FlaskForm):
     title = StringField(_l('Titre de la tâche'), validators=[DataRequired(_l('Le titre est requis.'))])
     description = TextAreaField(_l('Description détaillée'), validators=[DataRequired(_l('La description est requise.'))], render_kw={'rows': 5})
@@ -55,6 +58,10 @@ class TaskForm(FlaskForm):
     target_countries = SelectMultipleField(_l('Pays Cibles'), choices=countries_choices_multi, widget=widgets.ListWidget(prefix_label=False), option_widget=widgets.CheckboxInput(), coerce=str)
     target_devices = SelectMultipleField(_l('Appareils Cibles'), choices=devices_choices_multi, widget=widgets.ListWidget(prefix_label=False), option_widget=widgets.CheckboxInput(), coerce=str)
     is_active = BooleanField(_l('Activer cette tâche maintenant ?'), default='checked')
+    # <<< CHAMP AJOUTÉ >>>
+    task_image = FileField(_l('Image Mise en Avant (Optionnel, JPG/PNG/JPEG/GIF)'), validators=[
+        FileAllowed(['jpg', 'png', 'jpeg', 'gif'], _l('Seules les images sont autorisées!'))
+    ])
     submit = SubmitField(_l('Enregistrer la Tâche'))
 
 # --- Formulaire pour Modifier le Profil ---
@@ -64,7 +71,7 @@ class EditProfileForm(FlaskForm):
     phone_number = StringField(_l('Numéro de téléphone (Optionnel)'))
     country = SelectField(_l('Pays'), choices=countries_choices_single, validators=[DataRequired(_l('Veuillez sélectionner votre pays.'))])
     device = SelectField(_l('Appareil Principal'), choices=devices_choices_single, validators=[DataRequired(_l('Veuillez sélectionner votre appareil.'))])
-    submit_profile = SubmitField(_l('Enregistrer les Modifications du Profil')) # Nom différent pour le bouton submit
+    submit_profile = SubmitField(_l('Enregistrer les Modifications du Profil'))
 
     def __init__(self, original_email, *args, **kwargs):
         super(EditProfileForm, self).__init__(*args, **kwargs)
@@ -81,7 +88,7 @@ class ChangePasswordForm(FlaskForm):
     current_password = PasswordField(_l('Mot de Passe Actuel'), validators=[DataRequired(_l('Requis'))])
     new_password = PasswordField(_l('Nouveau Mot de Passe'), validators=[DataRequired(_l('Requis')), Length(min=8, message=_l('Doit contenir au moins 8 caractères.'))])
     new_password2 = PasswordField(_l('Confirmer Nouveau Mot de Passe'), validators=[DataRequired(_l('Requis')), EqualTo('new_password', message=_l('Les mots de passe doivent correspondre.'))])
-    submit_password = SubmitField(_l('Changer le Mot de Passe')) # Nom différent pour le bouton submit
+    submit_password = SubmitField(_l('Changer le Mot de Passe'))
 
     def validate_current_password(self, current_password):
         if not current_user.check_password(current_password.data):
@@ -98,7 +105,7 @@ class AdminResetPasswordForm(FlaskForm):
             DataRequired(_l('Requis')),
             EqualTo('new_password', message=_l('Les mots de passe doivent correspondre.'))
     ])
-    submit_reset = SubmitField(_l('Réinitialiser le Mot de Passe')) # Nom différent pour le bouton submit
+    submit_reset = SubmitField(_l('Réinitialiser le Mot de Passe'))
 
 # --- Formulaire pour Ajouter un Nouvel Admin (par Super Admin) ---
 class AddAdminForm(FlaskForm):
@@ -106,11 +113,9 @@ class AddAdminForm(FlaskForm):
         DataRequired(_l('L\'adresse email est requise.')),
         Email(_l('Adresse email invalide.'))
     ])
-    # Option pour créer directement un Super Admin
     is_super = BooleanField(_l('Promouvoir Super Administrateur ?'))
     submit_add = SubmitField(_l('Ajouter/Promouvoir Admin'))
 
-    # Valide si l'email correspond à un utilisateur existant et non-admin
     def validate_email(self, email):
         user = db.session.scalar(db.select(User).where(User.email == email.data))
         if user is None:

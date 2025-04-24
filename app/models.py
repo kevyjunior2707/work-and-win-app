@@ -1,4 +1,4 @@
-# app/models.py (VERSION COMPLÈTE v15 - Utilisation de back_populates)
+# app/models.py (VERSION COMPLÈTE v15 - Ajout image_filename + back_populates)
 
 import secrets
 from datetime import datetime, timezone
@@ -29,34 +29,20 @@ class User(UserMixin, db.Model):
     completed_task_count = db.Column(db.Integer, default=0, nullable=False)
 
     # --- Relations ---
-    # Relation vers l'utilisateur qui a parrainé CET utilisateur
     referrer = relationship('User', remote_side=[id], back_populates='referred_users')
-    # Relation vers les utilisateurs que CET utilisateur a parrainés
     referred_users = relationship('User', back_populates='referrer', foreign_keys=[referred_by_id])
-
-    # Relation vers les accomplissements faits par cet utilisateur
     completed_tasks_rel = relationship('UserTaskCompletion', back_populates='user', lazy='dynamic', foreign_keys='UserTaskCompletion.user_id')
-    # Relation vers les soumissions externes référées par cet utilisateur
     referred_completions = relationship('ExternalTaskCompletion', back_populates='referrer_user', lazy='dynamic', foreign_keys='ExternalTaskCompletion.referrer_user_id')
-    # Relation vers les retraits demandés par cet utilisateur
     withdrawals = relationship('Withdrawal', back_populates='requester', lazy='dynamic', foreign_keys='Withdrawal.user_id')
-    # Relation vers les notifications de cet utilisateur
     notifications = relationship('Notification', back_populates='user', lazy='dynamic', foreign_keys='Notification.user_id')
-
-    # Relations inverses (Admin)
     processed_withdrawals = relationship('Withdrawal', back_populates='processed_by_admin', lazy='dynamic', foreign_keys='Withdrawal.processed_by_admin_id')
     processed_external_completions = relationship('ExternalTaskCompletion', back_populates='processed_by_ext_admin', lazy='dynamic', foreign_keys='ExternalTaskCompletion.processed_by_admin_id')
     processed_commissions = relationship('ReferralCommission', back_populates='processed_by_admin', lazy='dynamic', foreign_keys='ReferralCommission.processed_by_admin_id')
-
-    # Relations pour les commissions de parrainage (inscription)
     commissions_earned = relationship('ReferralCommission', back_populates='referrer', lazy='dynamic', foreign_keys='ReferralCommission.referrer_id')
     commissions_generated = relationship('ReferralCommission', back_populates='referred_user', lazy='dynamic', foreign_keys='ReferralCommission.referred_user_id')
 
-
     # --- Méthodes ---
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._generate_referral_code()
+    def __init__(self, **kwargs): super().__init__(**kwargs); self._generate_referral_code()
     def _generate_referral_code(self):
         if not self.referral_code: self.referral_code = secrets.token_hex(8)
     def set_password(self, password): self.password_hash = generate_password_hash(password)
@@ -66,7 +52,7 @@ class User(UserMixin, db.Model):
 @login.user_loader
 def load_user(id): return db.session.get(User, int(id))
 
-# --- Modèle Tâche ---
+# --- Modèle Tâche (MODIFIÉ) ---
 class Task(db.Model):
     __tablename__ = 'task'
     id = db.Column(db.Integer, primary_key=True)
@@ -80,6 +66,9 @@ class Task(db.Model):
     proof_type_required = db.Column(db.String(50), default='text')
     is_active = db.Column(db.Boolean, default=True)
     creation_date = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    # <<< CHAMP AJOUTÉ ICI >>>
+    image_filename = db.Column(db.String(256), nullable=True) # Nom du fichier image optionnel
+
     # Relations
     completions = db.relationship('UserTaskCompletion', back_populates='task', lazy='dynamic', foreign_keys='UserTaskCompletion.task_id')
     external_completions = db.relationship('ExternalTaskCompletion', back_populates='task', lazy='dynamic', foreign_keys='ExternalTaskCompletion.task_id')
