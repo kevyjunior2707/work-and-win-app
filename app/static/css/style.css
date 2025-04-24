@@ -134,6 +134,4 @@ footer a:hover { color: var(--ww-dark-text); }
 
 /* --- Tableau de Bord Utilisateur - Hauteur Cartes --- */
 /* Cible les colonnes qui ont la classe 'dashboard-card' ajoutée dans le HTML */
-/*.dashboard-card .card {
-    min-height: 220px; /* Définit une hauteur minimale pour toutes les cartes */
     /* Les autres styles flex (h-100, d-flex, flex-column) sont gérés par les classes Bootstrap dans le HTML */
