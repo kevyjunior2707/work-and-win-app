@@ -1,4 +1,4 @@
-# app/admin/routes.py (VERSION COMPLÈTE v37 - Correction fonction date PostgreSQL)
+# app/admin/routes.py (VERSION COMPLÈTE v38 - Avec Historique Retraits Admin)
 
 from flask import render_template, redirect, url_for, flash, request, abort, current_app, send_from_directory
 from flask_login import login_required, current_user
@@ -7,11 +7,11 @@ from app import db
 from app.admin import bp
 # Ajout AdminResetPasswordForm et AddAdminForm
 from app.forms import TaskForm, countries_choices_multi, devices_choices_multi, countries_choices_single, devices_choices_single, AdminResetPasswordForm, AddAdminForm
-# Ajout ReferralCommission
+# Ajout ReferralCommission et Withdrawal
 from app.models import Task, UserTaskCompletion, ExternalTaskCompletion, User, Withdrawal, Notification, ReferralCommission
 # Ajout super_admin_required
 from app.decorators import admin_required, super_admin_required
-from sqlalchemy import select, or_, func, cast, String as SQLString # Ajout cast et SQLString
+from sqlalchemy import select, or_, func
 from sqlalchemy.orm import joinedload
 from datetime import datetime, timezone, timedelta # Ajout timedelta
 from decimal import Decimal, InvalidOperation
@@ -21,18 +21,16 @@ from werkzeug.utils import secure_filename
 # Import pour générer le token CSRF
 from flask_wtf.csrf import generate_csrf
 
-# --- Route pour l'accueil Admin (MODIFIÉE pour inclure données graphiques et fonction date PG) ---
+# --- Route pour l'accueil Admin (Avec Graphiques) ---
 @bp.route('/')
 @login_required
 @admin_required
 def index():
-    # --- Calculs pour les Graphiques (par mois, 12 derniers mois) ---
+    # Calculs pour les Graphiques (par mois, 12 derniers mois)
     twelve_months_ago = datetime.now(timezone.utc) - timedelta(days=365)
+    date_format_string = 'YYYY-MM' # Format pour PostgreSQL
 
-    # Utilise func.to_char pour PostgreSQL au lieu de func.strftime
-    date_format_string = 'YYYY-MM'
-
-    # 1. Inscriptions par mois
+    # Inscriptions
     registrations_by_month_query = db.select(
             func.to_char(User.registration_date, date_format_string).label('month'),
             func.count(User.id).label('count')
@@ -40,8 +38,7 @@ def index():
         .group_by(func.to_char(User.registration_date, date_format_string))\
         .order_by(func.to_char(User.registration_date, date_format_string))
     registrations_data = db.session.execute(registrations_by_month_query).all()
-
-    # 2. Accomplissements par mois
+    # Accomplissements
     completions_by_month_query = db.select(
             func.to_char(UserTaskCompletion.completion_timestamp, date_format_string).label('month'),
             func.count(UserTaskCompletion.id).label('count')
@@ -49,8 +46,7 @@ def index():
         .group_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string))\
         .order_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string))
     completions_data = db.session.execute(completions_by_month_query).all()
-
-    # 3. Gains générés par mois
+    # Gains
     earnings_by_month_query = db.select(
             func.to_char(UserTaskCompletion.completion_timestamp, date_format_string).label('month'),
             func.sum(Task.reward_amount).label('total_reward')
@@ -59,8 +55,7 @@ def index():
         .group_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string))\
         .order_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string))
     earnings_data = db.session.execute(earnings_by_month_query).all()
-
-    # Préparation données Chart.js (inchangé)
+    # Préparation données Chart.js
     reg_dict = {row.month: row.count for row in registrations_data}
     comp_dict = {row.month: row.count for row in completions_data}
     earn_dict = {row.month: float(row.total_reward or 0.0) for row in earnings_data}
@@ -79,11 +74,9 @@ def index():
         'completions': completions_chart_data,
         'earnings': earnings_chart_data
     }
-    # --- Fin Calculs Graphiques ---
-
     return render_template('admin_home.html',
                            title=_('Panneau Administrateur'),
-                           chart_data=chart_data) # Passe les données au template
+                           chart_data=chart_data)
 
 # --- Routes pour la gestion des Tâches ---
 @bp.route('/tasks/new', methods=['GET', 'POST'])
@@ -199,17 +192,41 @@ def list_completions():
     query = query.order_by(UserTaskCompletion.completion_timestamp.desc()); pagination = db.paginate(query, page=page, per_page=current_app.config['COMPLETIONS_PER_PAGE'], error_out=False); completions = pagination.items
     return render_template('completion_list.html', title=_('Historique des Accomplissements'), completions=completions, pagination=pagination, user_search=user_search, task_search=task_search)
 
-# --- Route pour afficher les utilisateurs/soldes et enregistrer les retraits ---
+# --- Route pour afficher les utilisateurs/soldes et enregistrer les retraits (MODIFIÉE) ---
 @bp.route('/withdrawals')
 @login_required
 @admin_required
 def list_withdrawals():
-    page = request.args.get('page', 1, type=int); search_name = request.args.get('name', ''); search_email = request.args.get('email', '')
-    query = db.select(User).where(User.is_admin == False)
-    if search_name: query = query.where(User.full_name.ilike(f'%{search_name}%'))
-    if search_email: query = query.where(User.email.ilike(f'%{search_email}%'))
-    query = query.order_by(User.full_name); pagination = db.paginate(query, page=page, per_page=current_app.config['COMPLETIONS_PER_PAGE'], error_out=False); users = pagination.items
-    return render_template('withdrawal_list.html', title=_('Gestion Retraits / Soldes Utilisateurs'), users=users, pagination=pagination, search_name=search_name, search_email=search_email)
+    page_users = request.args.get('page_users', 1, type=int)
+    page_history = request.args.get('page_history', 1, type=int)
+    search_name = request.args.get('name', '')
+    search_email = request.args.get('email', '')
+
+    # Requête pour la liste des utilisateurs (paginée)
+    users_query = db.select(User).where(User.is_admin == False)
+    if search_name: users_query = users_query.where(User.full_name.ilike(f'%{search_name}%'))
+    if search_email: users_query = users_query.where(User.email.ilike(f'%{search_email}%'))
+    users_query = users_query.order_by(User.full_name)
+    users_pagination = db.paginate(users_query, page=page_users, per_page=current_app.config.get('USERS_PER_PAGE', 15), error_out=False)
+    users = users_pagination.items
+
+    # <<< AJOUT : Requête pour l'historique global des retraits (paginée) >>>
+    history_query = db.select(Withdrawal)\
+        .options(joinedload(Withdrawal.requester), joinedload(Withdrawal.processed_by_admin))\
+        .where(Withdrawal.status == 'Completed')\
+        .order_by(Withdrawal.processed_timestamp.desc())
+    history_pagination = db.paginate(history_query, page=page_history, per_page=current_app.config.get('HISTORY_PER_PAGE', 20), error_out=False)
+    withdrawal_history = history_pagination.items
+    # <<< FIN AJOUT >>>
+
+    return render_template('withdrawal_list.html',
+                           title=_('Gestion Retraits / Soldes Utilisateurs'),
+                           users=users,
+                           users_pagination=users_pagination, # Passe l'objet pagination des users
+                           withdrawal_history=withdrawal_history,
+                           history_pagination=history_pagination, # Passe l'objet pagination de l'historique
+                           search_name=search_name,
+                           search_email=search_email)
 
 # --- Route pour ENREGISTRER un retrait manuel ---
 @bp.route('/withdrawal/record/<int:user_id>', methods=['POST'])
@@ -227,7 +244,9 @@ def record_withdrawal(user_id):
         db.session.add(withdrawal_log); db.session.commit()
         flash(_('Paiement de %(amount)s $ enregistré pour %(user)s.', amount=amount_withdrawn, user=user.full_name), 'success')
     except (InvalidOperation, ValueError, TypeError, Exception) as e: db.session.rollback(); flash(_('Erreur lors de l\'enregistrement du retrait : %(error)s', error=str(e)), 'danger')
-    return redirect(url_for('admin.list_withdrawals'))
+    # Redirige vers la page d'où venait la requête (ou la page 1 par défaut)
+    page_users = request.args.get('page_users', 1, type=int)
+    return redirect(url_for('admin.list_withdrawals', page_users=page_users))
 
 # --- Routes Gestion Utilisateurs ---
 @bp.route('/users')
@@ -416,7 +435,7 @@ def reject_commission(commission_id):
     except Exception as e: db.session.rollback(); flash(_('Erreur lors du rejet de la commission : %(error)s', error=str(e)), 'danger')
     return redirect(url_for('admin.list_pending_commissions'))
 
-# --- Route Statistiques (MODIFIÉE pour utiliser func.to_char) ---
+# --- Route Statistiques ---
 @bp.route('/statistics')
 @login_required
 @admin_required
