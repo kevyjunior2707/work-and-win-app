@@ -1,14 +1,14 @@
-# app/__init__.py (VERSION COMPLÈTE v7 - Assignation locale_selector après init)
+# app/__init__.py (VERSION COMPLÈTE v8 - Correction NameError current_app)
 
 import os
-from flask import Flask, request, g
+from flask import Flask, request, g, current_app # <<< current_app ajouté à l'import flask >>>
 from config import Config
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager, current_user
 from flask_babel import Babel, lazy_gettext as _l
 from sqlalchemy import select, func
-from datetime import datetime, timezone # Import datetime ici
+from datetime import datetime, timezone # Import datetime déplacé ici pour être sûr
 
 # Initialisation des extensions
 db = SQLAlchemy()
@@ -17,14 +17,13 @@ login = LoginManager()
 login.login_view = 'auth.login'
 login.login_message = _l('Veuillez vous connecter pour accéder à cette page.')
 login.login_message_category = 'info'
-babel = Babel() # Initialisation globale
+babel = Babel()
 
-# Fonction de sélection de la langue (définie globalement ou à l'intérieur de create_app)
+# Fonction de sélection de la langue
 def get_locale():
     # 1. Essayer d'obtenir la langue depuis l'URL (?lang=en)
     lang = request.args.get('lang')
-    # Utilise app.config ici, nécessite le contexte de l'application
-    # Il est peut-être préférable de la définir DANS create_app ou d'utiliser current_app
+    # Utilise current_app importé
     if lang and lang in current_app.config['LANGUAGES']:
          return lang
     # 2. Essayer d'obtenir la langue depuis l'en-tête Accept-Language du navigateur
@@ -42,11 +41,10 @@ def create_app(config_class=Config):
     db.init_app(app)
     migrate.init_app(app, db)
     login.init_app(app)
-    babel.init_app(app) # Lie Babel à l'app
+    babel.init_app(app)
 
-    # <<< CORRECTION : Enregistre la fonction localeselector APRÈS init_app >>>
+    # Enregistre la fonction localeselector APRÈS init_app
     babel.localeselector_func = get_locale
-    # <<< FIN CORRECTION >>>
 
     # --- Configuration du dossier d'upload ---
     upload_folder = app.config.get('UPLOAD_FOLDER', os.path.join(app.root_path, 'static/uploads'))
@@ -67,10 +65,12 @@ def create_app(config_class=Config):
         from .models import Notification # Import local
         if current_user.is_authenticated and not current_user.is_admin:
             try:
-                unread_count = db.session.scalar(
-                    db.select(func.count(Notification.id))
-                    .where(Notification.user_id == current_user.id, Notification.is_read == False)
-                ) or 0
+                # Utilise le contexte de l'application pour être sûr d'avoir accès à db
+                with app.app_context():
+                    unread_count = db.session.scalar(
+                        db.select(func.count(Notification.id))
+                        .where(Notification.user_id == current_user.id, Notification.is_read == False)
+                    ) or 0
             except Exception as e:
                 print(f"Erreur lors du comptage des notifications: {e}")
                 unread_count = 0
