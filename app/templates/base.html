@@ -1,4 +1,4 @@
-{# app/templates/base.html (Correction Visibilité Liens Nav + Vérif Logo/Favicon) #}
+{# app/templates/base.html (Navbar claire, Logo auto, Favicon img/) #}
 <!doctype html>
 <html lang="{{ g.locale }}">
   <head>
@@ -7,8 +7,7 @@
     <title>{% block title %}{{ _('Work and Win') }}{% endblock %}</title>
 
     {# --- Favicon --- #}
-    {# ASSUREZ-VOUS que 'money-management.png' est bien dans app/static/ #}
-    {# Si c'est dans app/static/img/, changez filename='img/money-management.png' #}
+    {# Chemin pointant vers app/static/img/ #}
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/money-management.png') }}">
     {# --- Fin Favicon --- #}
 
@@ -22,19 +21,20 @@
   <body class="d-flex flex-column min-vh-100">
 
     {# --- Barre de Navigation --- #}
-    {# Si votre fond est sombre, gardez navbar-dark bg-dark. Si clair, utilisez navbar-light bg-light #}
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm">
+    {# <<< CORRECTION : Utilisation de navbar-light pour correspondre au fond blanc du CSS >>> #}
+    {# Note: bg-light est optionnel ici car le CSS force déjà le blanc, mais c'est cohérent #}
+    <nav class="navbar navbar-expand-lg navbar-light bg-light sticky-top shadow-sm">
       <div class="container">
         <a class="navbar-brand fw-bold" href="{{ url_for('main.index') }}">
-          {# Logo avec dimensions 30x30 #}
-          <img src="{{ url_for('static', filename='img/logo.png') }}" alt="{{ _('Logo Work and Win') }}" width="30" height="30" class="d-inline-block align-text-top me-2">
+          {# <<< CORRECTION : width et height enlevés du logo >>> #}
+          <img src="{{ url_for('static', filename='img/logo.png') }}" alt="{{ _('Logo Work and Win') }}" class="d-inline-block align-text-top me-2 navbar-logo-img">
           Work and Win
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
-          {# <<< CORRECTION : text-white enlevé, laisser Bootstrap gérer via navbar-dark/navbar-light >>> #}
+          {# Les couleurs des liens seront gérées par .navbar-light dans le CSS #}
           <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
             <li class="nav-item">
               <a class="nav-link {% if request.endpoint == 'main.index' %}active{% endif %}" aria-current="page" href="{{ url_for('main.index') }}">{{ _('Accueil') }}</a>
@@ -49,7 +49,8 @@
             {% else %}
                {% if current_user.is_admin %}
                  <li class="nav-item">
-                   <a class="nav-link {% if request.endpoint.startswith('admin.') %}active{% endif %}" href="{{ url_for('admin.index') }}">{{ _('Admin Panel') }}</a>
+                   {# <<< CORRECTION : Ajout classe admin-link pour style spécifique CSS >>> #}
+                   <a class="nav-link admin-link {% if request.endpoint.startswith('admin.') %}active{% endif %}" href="{{ url_for('admin.index') }}">{{ _('Admin Panel') }}</a>
                  </li>
                {% else %}
                  <li class="nav-item">
