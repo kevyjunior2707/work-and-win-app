@@ -1,4 +1,4 @@
-{# app/templates/base.html (Logo corrigé + Favicon) #}
+{# app/templates/base.html (Correction Logo/Favicon/Navlink) #}
 <!doctype html>
 <html lang="{{ g.locale }}">
   <head>
@@ -7,6 +7,7 @@
     <title>{% block title %}{{ _('Work and Win') }}{% endblock %}</title>
 
     {# --- Favicon --- #}
+    {# Assurez-vous que 'money-management.png' est dans app/static/ #}
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='money-management.png') }}">
     {# --- Fin Favicon --- #}
 
@@ -23,7 +24,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm">
       <div class="container">
         <a class="navbar-brand fw-bold" href="{{ url_for('main.index') }}">
-          {# <<< CORRECTION LOGO : Dimensions originales remises >>> #}
+          {# <<< Logo avec dimensions fixes >>> #}
           <img src="{{ url_for('static', filename='img/logo.png') }}" alt="{{ _('Logo Work and Win') }}" width="30" height="30" class="d-inline-block align-text-top me-2">
           Work and Win
         </a>
@@ -31,41 +32,42 @@
           <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
+          {# <<< Ajout text-light aux liens pour forcer la couleur sur fond sombre >>> #}
           <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
             <li class="nav-item">
-              <a class="nav-link {% if request.endpoint == 'main.index' %}active{% endif %}" aria-current="page" href="{{ url_for('main.index') }}">{{ _('Accueil') }}</a>
+              <a class="nav-link text-light {% if request.endpoint == 'main.index' %}active{% endif %}" aria-current="page" href="{{ url_for('main.index') }}">{{ _('Accueil') }}</a>
             </li>
             {% if current_user.is_anonymous %}
               <li class="nav-item">
-                <a class="nav-link {% if request.endpoint == 'auth.login' %}active{% endif %}" href="{{ url_for('auth.login') }}">{{ _('Connexion') }}</a>
+                <a class="nav-link text-light {% if request.endpoint == 'auth.login' %}active{% endif %}" href="{{ url_for('auth.login') }}">{{ _('Connexion') }}</a>
               </li>
               <li class="nav-item">
-                <a class="nav-link {% if request.endpoint == 'auth.register' %}active{% endif %}" href="{{ url_for('auth.register') }}">{{ _('Inscription') }}</a>
+                <a class="nav-link text-light {% if request.endpoint == 'auth.register' %}active{% endif %}" href="{{ url_for('auth.register') }}">{{ _('Inscription') }}</a>
               </li>
             {% else %}
                {% if current_user.is_admin %}
                  <li class="nav-item">
-                   <a class="nav-link {% if request.endpoint.startswith('admin.') %}active{% endif %}" href="{{ url_for('admin.index') }}">{{ _('Admin Panel') }}</a>
+                   <a class="nav-link text-light {% if request.endpoint.startswith('admin.') %}active{% endif %}" href="{{ url_for('admin.index') }}">{{ _('Admin Panel') }}</a>
                  </li>
                {% else %}
                  <li class="nav-item">
-                   <a class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}" href="{{ url_for('main.dashboard') }}">{{ _('Tableau de Bord') }}</a>
+                   <a class="nav-link text-light {% if request.endpoint == 'main.dashboard' %}active{% endif %}" href="{{ url_for('main.dashboard') }}">{{ _('Tableau de Bord') }}</a>
                  </li>
                  <li class="nav-item">
-                   <a class="nav-link {% if request.endpoint == 'main.available_tasks' %}active{% endif %}" href="{{ url_for('main.available_tasks') }}">{{ _('Tâches Disponibles') }}</a>
+                   <a class="nav-link text-light {% if request.endpoint == 'main.available_tasks' %}active{% endif %}" href="{{ url_for('main.available_tasks') }}">{{ _('Tâches Disponibles') }}</a>
                  </li>
                   <li class="nav-item">
-                   <a class="nav-link {% if request.endpoint == 'main.completed_tasks' %}active{% endif %}" href="{{ url_for('main.completed_tasks') }}">{{ _('Mes Tâches') }}</a>
+                   <a class="nav-link text-light {% if request.endpoint == 'main.completed_tasks' %}active{% endif %}" href="{{ url_for('main.completed_tasks') }}">{{ _('Mes Tâches') }}</a>
                  </li>
                   <li class="nav-item">
-                   <a class="nav-link {% if request.endpoint == 'main.withdraw' %}active{% endif %}" href="{{ url_for('main.withdraw') }}">{{ _('Retrait') }}</a>
+                   <a class="nav-link text-light {% if request.endpoint == 'main.withdraw' %}active{% endif %}" href="{{ url_for('main.withdraw') }}">{{ _('Retrait') }}</a>
                  </li>
                   <li class="nav-item">
-                   <a class="nav-link {% if request.endpoint == 'main.notifications' %}active{% endif %}" href="{{ url_for('main.notifications') }}">{{ _('Notifications') }}</a>
+                   <a class="nav-link text-light {% if request.endpoint == 'main.notifications' %}active{% endif %}" href="{{ url_for('main.notifications') }}">{{ _('Notifications') }}</a>
                  </li>
                {% endif %}
               <li class="nav-item dropdown">
-                <a class="nav-link dropdown-toggle {% if request.endpoint == 'main.profile' %}active{% endif %}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <a class="nav-link dropdown-toggle text-light {% if request.endpoint == 'main.profile' %}active{% endif %}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                   <i class="bi bi-person-circle"></i> {{ current_user.full_name }}
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
@@ -76,7 +78,7 @@
               </li>
             {% endif %}
             <li class="nav-item dropdown">
-               <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+               <a class="nav-link dropdown-toggle text-light" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                  <i class="bi bi-translate"></i> {{ g.locale_display_name }}
                </a>
                <ul class="dropdown-menu dropdown-menu-end">
