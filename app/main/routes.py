@@ -1,18 +1,18 @@
-# app/main/routes.py (VERSION COMPLÈTE v18 - Correction JSON Notifications)
+# app/main/routes.py (VERSION COMPLÈTE v18 - Passage warning_message confirmé)
 
 from flask import render_template, redirect, url_for, flash, request, abort, current_app, send_from_directory
 from flask_login import login_required, current_user
 from flask_babel import _
 from app import db
 # Importer tous les modèles nécessaires
-from app.models import Task, UserTaskCompletion, User, Notification, ExternalTaskCompletion, ReferralCommission, Withdrawal # Ajout Withdrawal
+from app.models import Task, UserTaskCompletion, User, Notification, ExternalTaskCompletion, ReferralCommission, Withdrawal
 from app.main import bp
 # Ajout des formulaires pour la route profile
 from app.forms import EditProfileForm, ChangePasswordForm
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import joinedload
 from decimal import Decimal, InvalidOperation
-import json # <<< Import json ajouté >>>
+import json
 import os
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash
@@ -26,15 +26,14 @@ def allowed_file(filename):
 @bp.route('/')
 @bp.route('/index')
 def index():
-    # Le message d'avertissement est maintenant dans dashboard.html
     return render_template('index.html', title=_('Accueil'))
 
-# --- Route Tableau de Bord Utilisateur ---
+# --- Route Tableau de Bord Utilisateur (Passe warning_message) ---
 @bp.route('/dashboard')
 @login_required
 def dashboard():
     if current_user.is_admin: return redirect(url_for('admin.index'))
-    # <<< Texte d'avertissement défini ici pour le passer au template >>>
+    # Définit le message d'avertissement ici
     warning_message = _("Nous appliquons une politique de tolérance zéro envers la triche, l'utilisation de VPN/proxys, ou la création de comptes multiples. Toute violation entraînera un bannissement permanent et la perte des gains.")
     return render_template('dashboard.html', title=_('Tableau de Bord'), warning_message=warning_message)
 
@@ -121,7 +120,7 @@ def withdraw():
                            next_eligible_date=next_eligible_date,
                            withdrawal_history=withdrawal_history)
 
-# --- Route pour voir les notifications de l'utilisateur (MODIFIÉE) ---
+# --- Route pour voir les notifications de l'utilisateur ---
 @bp.route('/notifications')
 @login_required
 def notifications():
@@ -132,7 +131,6 @@ def notifications():
     pagination = db.paginate(query, page=page, per_page=current_app.config['COMPLETIONS_PER_PAGE'], error_out=False)
     user_notifications = pagination.items
 
-    # Parser le JSON et préparer pour le template
     notifications_to_render = []
     ids_to_mark_read = []
     for notification in user_notifications:
@@ -142,12 +140,11 @@ def notifications():
                 payload_dict = json.loads(notification.payload_json)
             except json.JSONDecodeError:
                 print(f"Erreur décodage JSON pour notif ID {notification.id}: {notification.payload_json}")
-        notification.payload_dict = payload_dict # Ajoute le dict à l'objet
+        notification.payload_dict = payload_dict
         notifications_to_render.append(notification)
         if not notification.is_read:
             ids_to_mark_read.append(notification.id)
 
-    # Marquer comme lues après les avoir récupérées
     if ids_to_mark_read:
         try:
             stmt = db.update(Notification)\

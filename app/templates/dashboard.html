@@ -1,4 +1,4 @@
-{# app/templates/dashboard.html (Texte Règles Modifié) #}
+{# app/templates/dashboard.html (Ancien Design + Message Règles) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -9,10 +9,9 @@
     <p class="lead">{{ _('Bienvenue, %(username)s ! Gérez vos tâches et vos gains ici.', username=current_user.full_name) }}</p>
     <hr>
 
-    {# Cartes d'information rapide #}
-    <div class="row g-4 mb-4">
-        {# Solde #}
-        <div class="col-md-6 col-lg-4">
+    {# Cartes d'information rapide - Disposition originale #}
+    <div class="row mb-4">
+        <div class="col-md-4">
             <div class="card text-center shadow-sm h-100">
                 <div class="card-body">
                     <h5 class="card-title text-muted">{{ _('Solde Actuel') }}</h5>
@@ -21,42 +20,45 @@
                 </div>
             </div>
         </div>
-        {# Tâches Accomplies #}
-        <div class="col-md-6 col-lg-4">
-            <div class="card text-center shadow-sm h-100">
+        <div class="col-md-4">
+             <div class="card text-center shadow-sm h-100">
                 <div class="card-body">
                     <h5 class="card-title text-muted">{{ _('Tâches Accomplies') }}</h5>
                     <p class="card-text display-5 fw-bold">{{ current_user.completed_task_count }}</p>
-                    <a href="{{ url_for('main.completed_tasks') }}" class="btn btn-sm btn-outline-secondary mt-2">{{ _('Voir Mon Historique') }}</a>
+                     {# Lien vers Mes Tâches retiré précédemment, on le laisse enlevé #}
+                     {# <a href="{{ url_for('main.completed_tasks') }}" class="btn btn-sm btn-outline-secondary mt-2">{{ _('Voir Mon Historique') }}</a> #}
                 </div>
             </div>
         </div>
-        {# Code Parrainage #}
-        <div class="col-md-12 col-lg-4"> {# Prend toute la largeur sur md #}
+        <div class="col-md-4">
             <div class="card text-center shadow-sm h-100">
-                <div class="card-body">
+                 <div class="card-body">
                     <h5 class="card-title text-muted">{{ _('Mon Code Parrainage') }}</h5>
                     <p class="card-text fs-4 fw-bold bg-light p-2 rounded user-select-all">{{ current_user.referral_code }}</p>
-                    <small class="text-muted">{{ _('Partagez ce code avec vos amis lors de leur inscription.') }}</small>
-                </div>
+                     <small class="text-muted">{{ _('Partagez ce code avec vos amis lors de leur inscription.') }}</small>
+                 </div>
             </div>
         </div>
     </div>
 
-    {# Boutons d'action principaux #}
-    <div class="d-grid gap-3 d-md-flex justify-content-md-center mb-4">
-        <a href="{{ url_for('main.available_tasks') }}" class="btn btn-primary btn-lg px-4 gap-3"><i class="bi bi-card-checklist"></i> {{ _('Voir les Tâches Disponibles') }}</a>
-        <a href="{{ url_for('main.profile') }}" class="btn btn-secondary btn-lg px-4"><i class="bi bi-person-fill-gear"></i> {{ _('Modifier Mon Profil') }}</a>
+    {# Boutons d'action principaux - Disposition originale #}
+    <div class="text-center mb-4"> {# Centrage des boutons #}
+        {# Lien Tâches Disponibles retiré précédemment, on le laisse enlevé #}
+        {# <a href="{{ url_for('main.available_tasks') }}" class="btn btn-primary btn-lg me-2"><i class="bi bi-card-checklist"></i> {{ _('Voir les Tâches Disponibles') }}</a> #}
+        <a href="{{ url_for('main.profile') }}" class="btn btn-secondary btn-lg"><i class="bi bi-person-fill-gear"></i> {{ _('Modifier Mon Profil') }}</a>
     </div>
 
-    {# --- NOUVEAU : Texte Règles Importantes --- #}
+    {# --- Message Règles Importantes --- #}
+    {# Affiche le message passé depuis la route #}
+    {% if warning_message %}
     <div class="alert alert-warning mt-4 shadow-sm" role="alert">
       <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> {{ _('Règles Importantes') }}</h4>
-      <p>{{ _("Nous appliquons une politique de tolérance zéro envers la triche, l'utilisation de VPN/proxys, ou la création de comptes multiples.") }}</p>
+      <p>{{ warning_message }}</p>
       <hr>
-      <p class="mb-0">{{ _("Toute violation de ces règles entraînera un bannissement permanent et la perte des gains accumulés. Jouez juste !") }}</p>
+      <p class="mb-0">{{ _("Jouez juste !") }}</p> {# Phrase de conclusion ajoutée #}
     </div>
-    {# --- Fin Texte Règles --- #}
+    {% endif %}
+    {# --- Fin Message Règles --- #}
 
 </div> {# <<< Fin Conteneur >>> #}
 {% endblock %}
