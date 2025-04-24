@@ -1,4 +1,4 @@
-/* app/static/css/style.css (Version Améliorée v2) */
+/* app/static/css/style.css (Version Améliorée v3 - Ajout Hauteur Cartes Dashboard) */
 
 /* Définition des couleurs personnalisées */
 :root {
@@ -8,124 +8,133 @@
     --ww-green-darker: #007a3a; /* Pour survol succès */
     --ww-light-blue: #eaf4fa; /* Bleu très clair pour fonds légers */
     --ww-light-gray: #f8f9fa; /* Gris clair standard */
-    --ww-gray: #6c757d;      /* Gris standard */
+    --ww-gray: #6c757d;       /* Gris standard */
     --ww-dark-text: #212529;
     --ww-light-text: #ffffff;
     --bs-link-hover-color: var(--ww-blue-darker); /* Change couleur survol liens bootstrap */
     --bs-body-bg: var(--ww-light-gray); /* Fond général gris clair */
-  }
-  
-  /* --- Styles Généraux --- */
-  body {
-      color: var(--ww-dark-text);
-      /* font-family: sans-serif; */ /* Utilise la police par défaut de Bootstrap */
-  }
-  
-  a {
-      color: var(--ww-blue);
-      text-decoration: none;
-  }
-  /* Couleur survol gérée par --bs-link-hover-color */
-  
-  h1, h2, h3, h4, h5, h6 {
-      font-weight: 500; /* Titres légèrement moins gras par défaut */
-  }
-  
-  /* --- Barre de Navigation --- */
-  .navbar.sticky-top {
-      background-color: #ffffff !important; /* Fond blanc pour clarté */
-      box-shadow: 0 .125rem .25rem rgba(0,0,0,.075)!important;
-  }
-  .navbar-brand img {
-      max-height: 35px;
-  }
-  .navbar-light .navbar-nav .nav-link { color: rgba(0, 0, 0, 0.7); }
-  .navbar-light .navbar-nav .nav-link:hover,
-  .navbar-light .navbar-nav .nav-link:focus { color: rgba(0, 0, 0, 0.9); }
-  /* Lien Admin Panel spécifique */
-  .navbar-light .navbar-nav .nav-link.admin-link { /* Ajout classe spécifique */
-    color: var(--ww-blue) !important; /* Force couleur primaire */
-    font-weight: 600;
-  }
-  .navbar-light .navbar-nav .nav-link.admin-link:hover {
-     color: var(--ww-blue-darker) !important;
-  }
-  /* Bouton inscription dans la nav */
-  .navbar .btn-primary { font-size: 0.85rem; padding: 0.3rem 0.8rem; }
-  
-  /* --- Section Bannière (Hero) --- */
-  .hero-banner {
-      /* Utilise VOTRE image */
-      background-image: linear-gradient(rgba(0, 0, 0, 0.50), rgba(0, 0, 0, 0.50)), url('../img/hero-image-backgrund.png');
-      background-size: cover;
-      background-position: center center;
-      background-repeat: no-repeat;
-      padding-top: 7rem;
-      padding-bottom: 7rem;
-      color: white;
-      text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.7);
-      margin-bottom: 0; /* Plus de marge basse, le container suivant gère */
-      border-bottom: none;
-  }
-  .hero-banner .display-4 { font-weight: 700 !important; }
-  .hero-banner .lead { font-weight: 400; font-size: 1.2rem; max-width: 700px; margin-left: auto; margin-right: auto;} /* Limite largeur description */
-  /* Boutons Hero */
-  .hero-banner .btn { padding: 0.8rem 1.8rem; font-size: 1.1rem; font-weight: 500;}
-  .hero-banner .btn-primary { background-color: var(--ww-blue); border-color: var(--ww-blue); }
-  .hero-banner .btn-primary:hover { background-color: var(--ww-blue-darker); border-color: var(--ww-blue-darker); }
-  .hero-banner .btn-outline-light { border-width: 2px; }
-  
-  
-  /* --- Section "Comment ça marche" --- */
-  .how-it-works-section { margin-top: 0; padding-top: 3rem; padding-bottom: 3rem; background-color: #ffffff; } /* Fond blanc pour cette section */
-  .how-it-works-section .card { border: none; transition: transform .2s; border-radius: .375rem; }
-  .how-it-works-section .card:hover { transform: translateY(-5px); box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1) !important; }
-  .how-it-works-section .feature-icon-small { width: 3rem; height: 3rem; font-size: 1.5rem; background-color: var(--ww-blue) !important; }
-  .how-it-works-section .card-body { padding: 1.5rem; }
-  
-   /* --- Section À Propos & FAQ (Sur fond gris clair par défaut) --- */
-   /* Pas de style spécifique ajouté pour l'instant */
-  
-   /* --- Section Trustpilot --- */
-  .trustpilot-section { background-color: var(--ww-light-blue); } /* Fond bleu très clair */
-  
-  /* --- Pages d'Authentification (Login/Register) --- */
-  .auth-card { max-width: 500px; margin: 4rem auto; border: none; border-radius: .375rem; }
-  .auth-card .card-body { padding: 2rem; }
-  
-  /* --- Tableaux Admin (Général) --- */
-  .table { vertical-align: middle; }
-  .table thead th { font-weight: 600; background-color: #e9ecef; } /* Gris clair standard pour en-têtes */
-  .table td .btn { margin-right: 0.25rem; } /* Petit espace entre boutons action */
-  
-  /* --- Cartes (Général) --- */
-  .card { border: none; border-radius: .375rem; } /* Coins arrondis, pas de bordure */
-  
-  /* --- Formulaires Admin (Filtres) --- */
-  .filter-card { background-color: #ffffff; } /* Fond blanc pour filtres */
-  .filter-card .card-body { padding: 1rem 1.25rem; }
-  .filter-card label { font-size: 0.875rem; font-weight: 500; margin-bottom: 0.25rem; }
-  
-  /* --- Boutons Globaux (Couleurs Logo) --- */
-  .btn-primary { background-color: var(--ww-blue); border-color: var(--ww-blue); color: white !important; }
-  .btn-primary:hover { background-color: var(--ww-blue-darker); border-color: #1e6390; color: white !important; }
-  .btn-success { background-color: var(--ww-green); border-color: var(--ww-green); color: white !important; }
-  .btn-success:hover { background-color: var(--ww-green-darker); border-color: #006b33; color: white !important; }
-  /* S'assurer que d'autres boutons utilisent des couleurs contrastées par défaut */
-  .btn-warning { color: #000 !important; } /* Texte noir sur jaune */
-  .btn-info { color: white !important; } /* Texte blanc sur cyan */
-  
-  /* --- Badges --- */
-  .badge.bg-primary { background-color: var(--ww-blue) !important; }
-  .badge.bg-success { background-color: var(--ww-green) !important; }
-  /* Les autres (danger, warning, secondary, info) utilisent les couleurs Bootstrap par défaut */
-  
-  /* --- Footer --- */
-  footer a { color: var(--ww-gray); }
-  footer a:hover { color: var(--ww-dark-text); }
-  
-  /* Responsive bannière */
-  @media (max-width: 767.98px) {
-      .hero-banner { padding-top: 4rem; padding-bottom: 4rem; }
-      .hero-banner h1 { font-size: 2.5rem; }
-  }
+}
+
+/* --- Styles Généraux --- */
+body {
+    color: var(--ww-dark-text);
+    /* font-family: sans-serif; */ /* Utilise la police par défaut de Bootstrap */
+}
+
+a {
+    color: var(--ww-blue);
+    text-decoration: none;
+}
+/* Couleur survol gérée par --bs-link-hover-color */
+
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 500; /* Titres légèrement moins gras par défaut */
+}
+
+/* --- Barre de Navigation --- */
+.navbar.sticky-top {
+    background-color: #ffffff !important; /* Fond blanc pour clarté */
+    box-shadow: 0 .125rem .25rem rgba(0,0,0,.075)!important;
+}
+/* Style pour le logo dans la navbar (limite la hauteur) */
+.navbar-brand img.navbar-logo-img {
+    max-height: 35px; /* Limite la hauteur du logo */
+    width: auto;      /* Laisse la largeur s'ajuster */
+}
+.navbar-light .navbar-nav .nav-link { color: rgba(0, 0, 0, 0.7); }
+.navbar-light .navbar-nav .nav-link:hover,
+.navbar-light .navbar-nav .nav-link:focus { color: rgba(0, 0, 0, 0.9); }
+/* Lien Admin Panel spécifique */
+.navbar-light .navbar-nav .nav-link.admin-link { /* Utilise la classe ajoutée dans base.html */
+  color: var(--ww-blue) !important; /* Force couleur primaire */
+  font-weight: 600;
+}
+.navbar-light .navbar-nav .nav-link.admin-link:hover {
+   color: var(--ww-blue-darker) !important;
+}
+/* Bouton inscription dans la nav */
+.navbar .btn-primary { font-size: 0.85rem; padding: 0.3rem 0.8rem; }
+
+/* --- Section Bannière (Hero) --- */
+.hero-banner {
+    /* Utilise VOTRE image */
+    background-image: linear-gradient(rgba(0, 0, 0, 0.50), rgba(0, 0, 0, 0.50)), url('../img/hero-image-backgrund.png');
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    padding-top: 7rem;
+    padding-bottom: 7rem;
+    color: white;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.7);
+    margin-bottom: 0; /* Plus de marge basse, le container suivant gère */
+    border-bottom: none;
+}
+.hero-banner .display-4 { font-weight: 700 !important; }
+.hero-banner .lead { font-weight: 400; font-size: 1.2rem; max-width: 700px; margin-left: auto; margin-right: auto;} /* Limite largeur description */
+/* Boutons Hero */
+.hero-banner .btn { padding: 0.8rem 1.8rem; font-size: 1.1rem; font-weight: 500;}
+.hero-banner .btn-primary { background-color: var(--ww-blue); border-color: var(--ww-blue); }
+.hero-banner .btn-primary:hover { background-color: var(--ww-blue-darker); border-color: var(--ww-blue-darker); }
+.hero-banner .btn-outline-light { border-width: 2px; }
+
+
+/* --- Section "Comment ça marche" --- */
+.how-it-works-section { margin-top: 0; padding-top: 3rem; padding-bottom: 3rem; background-color: #ffffff; } /* Fond blanc pour cette section */
+.how-it-works-section .card { border: none; transition: transform .2s; border-radius: .375rem; }
+.how-it-works-section .card:hover { transform: translateY(-5px); box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1) !important; }
+.how-it-works-section .feature-icon-small { width: 3rem; height: 3rem; font-size: 1.5rem; background-color: var(--ww-blue) !important; }
+.how-it-works-section .card-body { padding: 1.5rem; }
+
+ /* --- Section À Propos & FAQ (Sur fond gris clair par défaut) --- */
+ /* Pas de style spécifique ajouté pour l'instant */
+
+ /* --- Section Trustpilot --- */
+.trustpilot-section { background-color: var(--ww-light-blue); } /* Fond bleu très clair */
+
+/* --- Pages d'Authentification (Login/Register) --- */
+.auth-card { max-width: 500px; margin: 4rem auto; border: none; border-radius: .375rem; }
+.auth-card .card-body { padding: 2rem; }
+
+/* --- Tableaux Admin (Général) --- */
+.table { vertical-align: middle; }
+.table thead th { font-weight: 600; background-color: #e9ecef; } /* Gris clair standard pour en-têtes */
+.table td .btn { margin-right: 0.25rem; } /* Petit espace entre boutons action */
+
+/* --- Cartes (Général) --- */
+.card { border: none; border-radius: .375rem; } /* Coins arrondis, pas de bordure */
+
+/* --- Formulaires Admin (Filtres) --- */
+.filter-card { background-color: #ffffff; } /* Fond blanc pour filtres */
+.filter-card .card-body { padding: 1rem 1.25rem; }
+.filter-card label { font-size: 0.875rem; font-weight: 500; margin-bottom: 0.25rem; }
+
+/* --- Boutons Globaux (Couleurs Logo) --- */
+.btn-primary { background-color: var(--ww-blue); border-color: var(--ww-blue); color: white !important; }
+.btn-primary:hover { background-color: var(--ww-blue-darker); border-color: #1e6390; color: white !important; }
+.btn-success { background-color: var(--ww-green); border-color: var(--ww-green); color: white !important; }
+.btn-success:hover { background-color: var(--ww-green-darker); border-color: #006b33; color: white !important; }
+/* S'assurer que d'autres boutons utilisent des couleurs contrastées par défaut */
+.btn-warning { color: #000 !important; } /* Texte noir sur jaune */
+.btn-info { color: white !important; } /* Texte blanc sur cyan */
+
+/* --- Badges --- */
+.badge.bg-primary { background-color: var(--ww-blue) !important; }
+.badge.bg-success { background-color: var(--ww-green) !important; }
+/* Les autres (danger, warning, secondary, info) utilisent les couleurs Bootstrap par défaut */
+
+/* --- Footer --- */
+footer a { color: var(--ww-gray); }
+footer a:hover { color: var(--ww-dark-text); }
+
+/* Responsive bannière */
+@media (max-width: 767.98px) {
+    .hero-banner { padding-top: 4rem; padding-bottom: 4rem; }
+    .hero-banner h1 { font-size: 2.5rem; }
+}
+
+/* --- Tableau de Bord Utilisateur - Hauteur Cartes --- */
+/* Cible les colonnes qui ont la classe 'dashboard-card' ajoutée dans le HTML */
+.dashboard-card .card {
+    min-height: 220px; /* Définit une hauteur minimale pour toutes les cartes */
+    /* Les autres styles flex (h-100, d-flex, flex-column) sont gérés par les classes Bootstrap dans le HTML */
+}
