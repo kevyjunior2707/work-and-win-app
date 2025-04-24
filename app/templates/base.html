@@ -1,4 +1,4 @@
-{# app/templates/base.html (Navbar claire, Logo auto, Favicon img/) #}
+{# app/templates/base.html (Navbar ajustée: Logo seul, liens user, solde, notif icon+badge) #}
 <!doctype html>
 <html lang="{{ g.locale }}">
   <head>
@@ -7,7 +7,6 @@
     <title>{% block title %}{{ _('Work and Win') }}{% endblock %}</title>
 
     {# --- Favicon --- #}
-    {# Chemin pointant vers app/static/img/ #}
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/money-management.png') }}">
     {# --- Fin Favicon --- #}
 
@@ -21,21 +20,18 @@
   <body class="d-flex flex-column min-vh-100">
 
     {# --- Barre de Navigation --- #}
-    {# <<< CORRECTION : Utilisation de navbar-light pour correspondre au fond blanc du CSS >>> #}
-    {# Note: bg-light est optionnel ici car le CSS force déjà le blanc, mais c'est cohérent #}
-    <nav class="navbar navbar-expand-lg navbar-light bg-light sticky-top shadow-sm">
+    <nav class="navbar navbar-expand-lg navbar-light bg-light sticky-top shadow-sm"> {# Utilise navbar-light bg-light comme défini dans le CSS #}
       <div class="container">
         <a class="navbar-brand fw-bold" href="{{ url_for('main.index') }}">
-          {# <<< CORRECTION : width et height enlevés du logo >>> #}
-          <img src="{{ url_for('static', filename='img/logo.png') }}" alt="{{ _('Logo Work and Win') }}" class="d-inline-block align-text-top me-2 navbar-logo-img">
-          Work and Win
+          {# <<< CORRECTION : Logo seul, sans texte à côté >>> #}
+          <img src="{{ url_for('static', filename='img/logo.png') }}" alt="{{ _('Logo Work and Win') }}" class="d-inline-block align-text-top navbar-logo-img">
+          {# Le texte "Work and Win" a été supprimé ici #}
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
-          {# Les couleurs des liens seront gérées par .navbar-light dans le CSS #}
-          <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+          <ul class="navbar-nav ms-auto mb-2 mb-lg-0 align-items-center"> {# Ajout align-items-center pour aligner verticalement #}
             <li class="nav-item">
               <a class="nav-link {% if request.endpoint == 'main.index' %}active{% endif %}" aria-current="page" href="{{ url_for('main.index') }}">{{ _('Accueil') }}</a>
             </li>
@@ -49,26 +45,38 @@
             {% else %}
                {% if current_user.is_admin %}
                  <li class="nav-item">
-                   {# <<< CORRECTION : Ajout classe admin-link pour style spécifique CSS >>> #}
                    <a class="nav-link admin-link {% if request.endpoint.startswith('admin.') %}active{% endif %}" href="{{ url_for('admin.index') }}">{{ _('Admin Panel') }}</a>
                  </li>
                {% else %}
+                 {# Liens Utilisateur Normal - MODIFIÉS #}
                  <li class="nav-item">
                    <a class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}" href="{{ url_for('main.dashboard') }}">{{ _('Tableau de Bord') }}</a>
                  </li>
-                 <li class="nav-item">
-                   <a class="nav-link {% if request.endpoint == 'main.available_tasks' %}active{% endif %}" href="{{ url_for('main.available_tasks') }}">{{ _('Tâches Disponibles') }}</a>
-                 </li>
-                  <li class="nav-item">
-                   <a class="nav-link {% if request.endpoint == 'main.completed_tasks' %}active{% endif %}" href="{{ url_for('main.completed_tasks') }}">{{ _('Mes Tâches') }}</a>
-                 </li>
+                 {# Liens Tâches Disponibles et Mes Tâches supprimés #}
                   <li class="nav-item">
                    <a class="nav-link {% if request.endpoint == 'main.withdraw' %}active{% endif %}" href="{{ url_for('main.withdraw') }}">{{ _('Retrait') }}</a>
                  </li>
-                  <li class="nav-item">
-                   <a class="nav-link {% if request.endpoint == 'main.notifications' %}active{% endif %}" href="{{ url_for('main.notifications') }}">{{ _('Notifications') }}</a>
+                 {# <<< NOUVEAU : Affichage Solde >>> #}
+                 <li class="nav-item">
+                    <span class="navbar-text me-3"> {# Utilise navbar-text pour style simple #}
+                       {{ _('Solde:') }} <strong>$ {{ "%.2f"|format(current_user.balance) }}</strong>
+                    </span>
+                 </li>
+                 {# <<< NOUVEAU : Icône Notifications avec Badge >>> #}
+                 <li class="nav-item me-2"> {# Ajout marge droite #}
+                   <a class="nav-link position-relative" href="{{ url_for('main.notifications') }}" title="{{ _('Notifications') }}">
+                     <i class="bi bi-bell-fill fs-5"></i> {# Icône cloche plus grande #}
+                     {# Affiche le badge seulement si count > 0 #}
+                     {% if unread_notification_count > 0 %}
+                       <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.65em;">
+                         {{ unread_notification_count if unread_notification_count <= 9 else '9+' }} {# Limite l'affichage à 9+ #}
+                         <span class="visually-hidden">unread messages</span>
+                       </span>
+                     {% endif %}
+                   </a>
                  </li>
                {% endif %}
+              {# Dropdown Profil (inchangé) #}
               <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle {% if request.endpoint == 'main.profile' %}active{% endif %}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                   <i class="bi bi-person-circle"></i> {{ current_user.full_name }}
@@ -80,6 +88,7 @@
                 </ul>
               </li>
             {% endif %}
+            {# Sélecteur de Langue (inchangé) #}
             <li class="nav-item dropdown">
                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                  <i class="bi bi-translate"></i> {{ g.locale_display_name }}
