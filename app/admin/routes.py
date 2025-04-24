@@ -1,4 +1,4 @@
-# app/admin/routes.py (VERSION COMPLÈTE v36 - Avec Stats/Graphiques dans Index)
+# app/admin/routes.py (VERSION COMPLÈTE v37 - Correction fonction date PostgreSQL)
 
 from flask import render_template, redirect, url_for, flash, request, abort, current_app, send_from_directory
 from flask_login import login_required, current_user
@@ -11,7 +11,7 @@ from app.forms import TaskForm, countries_choices_multi, devices_choices_multi, 
 from app.models import Task, UserTaskCompletion, ExternalTaskCompletion, User, Withdrawal, Notification, ReferralCommission
 # Ajout super_admin_required
 from app.decorators import admin_required, super_admin_required
-from sqlalchemy import select, or_, func
+from sqlalchemy import select, or_, func, cast, String as SQLString # Ajout cast et SQLString
 from sqlalchemy.orm import joinedload
 from datetime import datetime, timezone, timedelta # Ajout timedelta
 from decimal import Decimal, InvalidOperation
@@ -21,39 +21,46 @@ from werkzeug.utils import secure_filename
 # Import pour générer le token CSRF
 from flask_wtf.csrf import generate_csrf
 
-# --- Route pour l'accueil Admin (MODIFIÉE pour inclure données graphiques) ---
+# --- Route pour l'accueil Admin (MODIFIÉE pour inclure données graphiques et fonction date PG) ---
 @bp.route('/')
 @login_required
 @admin_required
 def index():
     # --- Calculs pour les Graphiques (par mois, 12 derniers mois) ---
     twelve_months_ago = datetime.now(timezone.utc) - timedelta(days=365)
-    # Inscriptions
+
+    # Utilise func.to_char pour PostgreSQL au lieu de func.strftime
+    date_format_string = 'YYYY-MM'
+
+    # 1. Inscriptions par mois
     registrations_by_month_query = db.select(
-            func.strftime('%Y-%m', User.registration_date).label('month'),
+            func.to_char(User.registration_date, date_format_string).label('month'),
             func.count(User.id).label('count')
         ).where(User.is_admin == False, User.registration_date >= twelve_months_ago)\
-        .group_by(func.strftime('%Y-%m', User.registration_date))\
-        .order_by(func.strftime('%Y-%m', User.registration_date))
+        .group_by(func.to_char(User.registration_date, date_format_string))\
+        .order_by(func.to_char(User.registration_date, date_format_string))
     registrations_data = db.session.execute(registrations_by_month_query).all()
-    # Accomplissements
+
+    # 2. Accomplissements par mois
     completions_by_month_query = db.select(
-            func.strftime('%Y-%m', UserTaskCompletion.completion_timestamp).label('month'),
+            func.to_char(UserTaskCompletion.completion_timestamp, date_format_string).label('month'),
             func.count(UserTaskCompletion.id).label('count')
         ).where(UserTaskCompletion.completion_timestamp >= twelve_months_ago)\
-        .group_by(func.strftime('%Y-%m', UserTaskCompletion.completion_timestamp))\
-        .order_by(func.strftime('%Y-%m', UserTaskCompletion.completion_timestamp))
+        .group_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string))\
+        .order_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string))
     completions_data = db.session.execute(completions_by_month_query).all()
-    # Gains
+
+    # 3. Gains générés par mois
     earnings_by_month_query = db.select(
-            func.strftime('%Y-%m', UserTaskCompletion.completion_timestamp).label('month'),
+            func.to_char(UserTaskCompletion.completion_timestamp, date_format_string).label('month'),
             func.sum(Task.reward_amount).label('total_reward')
         ).join(Task, UserTaskCompletion.task_id == Task.id)\
         .where(UserTaskCompletion.completion_timestamp >= twelve_months_ago)\
-        .group_by(func.strftime('%Y-%m', UserTaskCompletion.completion_timestamp))\
-        .order_by(func.strftime('%Y-%m', UserTaskCompletion.completion_timestamp))
+        .group_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string))\
+        .order_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string))
     earnings_data = db.session.execute(earnings_by_month_query).all()
-    # Préparation données Chart.js
+
+    # Préparation données Chart.js (inchangé)
     reg_dict = {row.month: row.count for row in registrations_data}
     comp_dict = {row.month: row.count for row in completions_data}
     earn_dict = {row.month: float(row.total_reward or 0.0) for row in earnings_data}
@@ -409,7 +416,7 @@ def reject_commission(commission_id):
     except Exception as e: db.session.rollback(); flash(_('Erreur lors du rejet de la commission : %(error)s', error=str(e)), 'danger')
     return redirect(url_for('admin.list_pending_commissions'))
 
-# --- Route Statistiques (MODIFIÉE pour inclure données graphiques) ---
+# --- Route Statistiques (MODIFIÉE pour utiliser func.to_char) ---
 @bp.route('/statistics')
 @login_required
 @admin_required
@@ -429,12 +436,13 @@ def statistics():
     if search_country: query_table = query_table.where(User.country == search_country)
     if search_device: query_table = query_table.where(User.device == search_device)
     query_table = query_table.order_by(User.country, User.device); results_table = db.session.execute(query_table).all()
-    # Prépare les données pour Chart.js
-    registrations_by_month_query = db.select(func.strftime('%Y-%m', User.registration_date).label('month'), func.count(User.id).label('count')).where(User.is_admin == False).group_by(func.strftime('%Y-%m', User.registration_date)).order_by(func.strftime('%Y-%m', User.registration_date))
+    # Prépare les données pour Chart.js (Utilise to_char pour PG)
+    date_format_string = 'YYYY-MM'
+    registrations_by_month_query = db.select(func.to_char(User.registration_date, date_format_string).label('month'), func.count(User.id).label('count')).where(User.is_admin == False).group_by(func.to_char(User.registration_date, date_format_string)).order_by(func.to_char(User.registration_date, date_format_string))
     registrations_data = db.session.execute(registrations_by_month_query).all()
-    completions_by_month_query = db.select(func.strftime('%Y-%m', UserTaskCompletion.completion_timestamp).label('month'), func.count(UserTaskCompletion.id).label('count')).group_by(func.strftime('%Y-%m', UserTaskCompletion.completion_timestamp)).order_by(func.strftime('%Y-%m', UserTaskCompletion.completion_timestamp))
+    completions_by_month_query = db.select(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string).label('month'), func.count(UserTaskCompletion.id).label('count')).group_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string)).order_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string))
     completions_data = db.session.execute(completions_by_month_query).all()
-    earnings_by_month_query = db.select(func.strftime('%Y-%m', UserTaskCompletion.completion_timestamp).label('month'), func.sum(Task.reward_amount).label('total_reward')).join(Task, UserTaskCompletion.task_id == Task.id).group_by(func.strftime('%Y-%m', UserTaskCompletion.completion_timestamp)).order_by(func.strftime('%Y-%m', UserTaskCompletion.completion_timestamp))
+    earnings_by_month_query = db.select(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string).label('month'), func.sum(Task.reward_amount).label('total_reward')).join(Task, UserTaskCompletion.task_id == Task.id).group_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string)).order_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string))
     earnings_data = db.session.execute(earnings_by_month_query).all()
     reg_dict = {row.month: row.count for row in registrations_data}; comp_dict = {row.month: row.count for row in completions_data}; earn_dict = {row.month: float(row.total_reward or 0.0) for row in earnings_data}
     all_months = sorted(list(set(reg_dict.keys()) | set(comp_dict.keys()) | set(earn_dict.keys())))
