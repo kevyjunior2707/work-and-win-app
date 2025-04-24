@@ -1,4 +1,4 @@
-{# app/templates/base.html (Avec favicon money-management.png) #}
+{# app/templates/base.html (Logo corrigé + Favicon) #}
 <!doctype html>
 <html lang="{{ g.locale }}">
   <head>
@@ -23,6 +23,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm">
       <div class="container">
         <a class="navbar-brand fw-bold" href="{{ url_for('main.index') }}">
+          {# <<< CORRECTION LOGO : Dimensions originales remises >>> #}
           <img src="{{ url_for('static', filename='img/logo.png') }}" alt="{{ _('Logo Work and Win') }}" width="30" height="30" class="d-inline-block align-text-top me-2">
           Work and Win
         </a>

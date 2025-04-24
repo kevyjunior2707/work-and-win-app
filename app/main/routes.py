@@ -1,11 +1,11 @@
-# app/main/routes.py (VERSION COMPLÈTE v16 - Re-verified Indentation)
+# app/main/routes.py (VERSION COMPLÈTE v17 - Preuve externe optionnelle)
 
 from flask import render_template, redirect, url_for, flash, request, abort, current_app, send_from_directory
 from flask_login import login_required, current_user
 from flask_babel import _
 from app import db
 # Importer tous les modèles nécessaires
-from app.models import Task, UserTaskCompletion, User, Notification, ExternalTaskCompletion, ReferralCommission, Withdrawal # Ajout Withdrawal
+from app.models import Task, UserTaskCompletion, User, Notification, ExternalTaskCompletion, ReferralCommission, Withdrawal
 from app.main import bp
 # Ajout des formulaires pour la route profile
 from app.forms import EditProfileForm, ChangePasswordForm
@@ -80,7 +80,7 @@ def completed_tasks():
     page = request.args.get('page', 1, type=int); query = db.select(UserTaskCompletion).where(UserTaskCompletion.user_id == current_user.id).options(joinedload(UserTaskCompletion.task)).order_by(UserTaskCompletion.completion_timestamp.desc()); pagination = db.paginate(query, page=page, per_page=current_app.config['COMPLETIONS_PER_PAGE'], error_out=False); completions = pagination.items
     return render_template('completed_tasks.html', title=_('Mes Tâches Accomplies'), completions=completions, pagination=pagination)
 
-# --- Route pour la page de retrait (AVEC HISTORIQUE) ---
+# --- Route pour la page de retrait ---
 @bp.route('/withdraw')
 @login_required
 def withdraw():
@@ -89,16 +89,14 @@ def withdraw():
     is_eligible_time = False
     next_eligible_date = None
     days_limit = 30
-    now_utc = datetime.now(timezone.utc) # Date actuelle aware
+    now_utc = datetime.now(timezone.utc)
 
     if last_withdrawal is None:
         is_eligible_time = True
     else:
-        # Assure que last_withdrawal est offset-aware (en UTC) avant la comparaison
         if last_withdrawal.tzinfo is None:
             last_withdrawal = last_withdrawal.replace(tzinfo=timezone.utc)
-
-        time_since_last = now_utc - last_withdrawal # Maintenant les deux sont aware
+        time_since_last = now_utc - last_withdrawal
         if time_since_last >= timedelta(days=days_limit):
             is_eligible_time = True
         else:
@@ -106,11 +104,10 @@ def withdraw():
 
     can_request_now = is_eligible_time and current_user.balance >= min_amount
 
-    # Requête pour l'historique des retraits complétés
     withdrawal_history = db.session.scalars(
         db.select(Withdrawal)
         .where(Withdrawal.user_id == current_user.id, Withdrawal.status == 'Completed')
-        .order_by(Withdrawal.processed_timestamp.desc()) # Les plus récents d'abord
+        .order_by(Withdrawal.processed_timestamp.desc())
     ).all()
 
     return render_template('withdraw.html',
@@ -119,7 +116,7 @@ def withdraw():
                            is_eligible_time=is_eligible_time,
                            can_request_now=can_request_now,
                            next_eligible_date=next_eligible_date,
-                           withdrawal_history=withdrawal_history) # Passe l'historique au template
+                           withdrawal_history=withdrawal_history)
 
 # --- Route pour voir les notifications de l'utilisateur ---
 @bp.route('/notifications')
@@ -135,12 +132,14 @@ def view_external_task(task_id):
     if task is None or not task.is_active: flash(_('Cette tâche n\'est pas disponible ou n\'existe pas.'), 'warning'); return redirect(url_for('main.index'))
     return render_template('external_task_view.html', task=task, ref_code=ref_code)
 
+# --- Route pour soumettre la preuve externe (MODIFIÉE) ---
 @bp.route('/task/external/submit', methods=['POST'])
 def submit_external_proof():
     task_id = request.form.get('task_id'); ref_code = request.form.get('ref_code'); proof_text = request.form.get('proof'); submitter_email = request.form.get('submitter_email'); screenshot_file = request.files.get('screenshot_proof'); filename = None
     task = db.session.get(Task, int(task_id)) if task_id else None; referrer = db.session.scalar(db.select(User).where(User.referral_code == ref_code)) if ref_code else None
     if not task or not referrer: flash(_('Erreur : Tâche ou Parrain invalide.'), 'danger'); return redirect(url_for('main.index'))
-    if (not proof_text or not proof_text.strip()) and not screenshot_file: flash(_('Veuillez fournir une preuve (texte ou capture d\'écran).'), 'danger'); return redirect(url_for('main.view_external_task', task_id=task_id, ref=ref_code))
+
+    # Preuve n'est plus requise, on vérifie juste si un fichier image est uploadé
     if screenshot_file and screenshot_file.filename != '':
         if allowed_file(screenshot_file.filename):
             unique_prefix = str(int(datetime.now(timezone.utc).timestamp())) + '_'; filename = secure_filename(unique_prefix + screenshot_file.filename)
@@ -148,7 +147,19 @@ def submit_external_proof():
             try: screenshot_file.save(os.path.join(upload_dir, filename))
             except Exception as e: flash(_('Erreur lors de la sauvegarde de l\'image: %(err)s', err=e), 'danger'); return redirect(url_for('main.view_external_task', task_id=task_id, ref=ref_code))
         else: flash(_('Type de fichier non autorisé. Permis: %(ext)s', ext=', '.join(current_app.config['ALLOWED_EXTENSIONS'])), 'danger'); return redirect(url_for('main.view_external_task', task_id=task_id, ref=ref_code))
-    try: new_submission = ExternalTaskCompletion(task_id=task.id, referrer_user_id=referrer.id, submitted_proof=(proof_text.strip() if proof_text else None), screenshot_filename=filename, submitter_identifier=submitter_email.strip() if submitter_email else None, status='Pending'); db.session.add(new_submission); db.session.commit(); flash(_('Votre preuve a été soumise avec succès et est en attente de vérification.'), 'success'); return redirect(url_for('main.index'))
+    try:
+        # Crée la soumission même sans preuve texte ou image (si filename est None)
+        new_submission = ExternalTaskCompletion(
+            task_id=task.id,
+            referrer_user_id=referrer.id,
+            submitted_proof=(proof_text.strip() if proof_text else None), # Sauvegarde le texte s'il existe
+            screenshot_filename=filename, # Sauvegarde le nom du fichier s'il existe
+            submitter_identifier=submitter_email.strip() if submitter_email else None,
+            status='Pending'
+        )
+        db.session.add(new_submission); db.session.commit()
+        flash(_('Votre accomplissement a été soumis avec succès et est en attente de vérification.'), 'success')
+        return redirect(url_for('main.index'))
     except Exception as e:
         db.session.rollback()
         if filename and os.path.exists(os.path.join(current_app.config['UPLOAD_FOLDER'], filename)):
@@ -160,6 +171,7 @@ def submit_external_proof():
 @bp.route('/uploads/<path:filename>')
 @login_required
 def view_upload(filename):
+    # Sécurité : Seul l'admin peut voir les preuves uploadées via cette route générique
     if not current_user.is_admin: abort(403)
     upload_dir = current_app.config['UPLOAD_FOLDER']; return send_from_directory(upload_dir, filename)
 

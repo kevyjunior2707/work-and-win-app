@@ -1,4 +1,4 @@
-{# app/admin/templates/admin_home.html (AVEC GRAPHIQUES) #}
+{# app/admin/templates/admin_home.html (Texte 85%) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -9,10 +9,9 @@
     <p class="lead">{{ _('Bienvenue dans la zone d\'administration de Work and Win, %(username)s.', username=current_user.full_name) }}</p>
     <hr>
 
-    {# --- Section Graphiques --- #}
+    {# Section Graphiques #}
     <h2>{{ _('Tendances Récentes (12 derniers mois)') }}</h2>
     <div class="row g-4 mb-4">
-        {# Graphique Inscriptions #}
         <div class="col-lg-4">
             <div class="card shadow-sm">
                 <div class="card-header">{{ _('Inscriptions par Mois') }}</div>
@@ -21,7 +20,6 @@
                 </div>
             </div>
         </div>
-         {# Graphique Accomplissements #}
         <div class="col-lg-4">
             <div class="card shadow-sm">
                 <div class="card-header">{{ _('Accomplissements par Mois') }}</div>
@@ -30,7 +28,6 @@
                 </div>
             </div>
         </div>
-         {# Graphique Gains #}
          <div class="col-lg-4">
             <div class="card shadow-sm">
                 <div class="card-header">{{ _('Gains Générés par Mois ($)') }}</div>
@@ -40,11 +37,11 @@
             </div>
         </div>
     </div>
-    {# --- Fin Section Graphiques --- #}
+    {# Fin Section Graphiques #}
 
     <hr class="my-4">
 
-    {# --- Section Actions Rapides --- #}
+    {# Section Actions Rapides #}
     <h2>{{ _('Actions Rapides') }}</h2>
     <div class="row g-3 mt-3">
          {# Gestion Tâches #}
@@ -90,9 +87,11 @@
             <div class="card h-100 shadow-sm w-100">
                  <div class="card-body d-flex flex-column">
                     <h5 class="card-title"><i class="bi bi-patch-question-fill"></i> {{ _('Approbations Parrainages') }}</h5>
-                    <p class="card-text flex-grow-1"><small>{{ _('Approuver/rejeter les preuves externes (bonus 40%%) et les commissions (3%%).') }}</small></p>
+                    {# <<< CORRECTION TEXTE ICI >>> #}
+                    <p class="card-text flex-grow-1"><small>{{ _('Approuver/rejeter les preuves externes (bonus 85%%) et les commissions (3%%).') }}</small></p>
                     <div class="mt-auto">
-                        <a href="{{ url_for('admin.list_pending_referrals') }}" class="btn btn-warning btn-sm">{{ _('Preuves Externes (40%%)') }}</a>
+                        {# <<< CORRECTION TEXTE ICI >>> #}
+                        <a href="{{ url_for('admin.list_pending_referrals') }}" class="btn btn-warning btn-sm">{{ _('Soumissions Externes (85%%)') }}</a>
                         <a href="{{ url_for('admin.list_pending_commissions') }}" class="btn btn-warning btn-sm mt-1">{{ _('Commissions Filleuls (3%%)') }}</a>
                     </div>
                 </div>
@@ -145,63 +144,31 @@
 {# --- Bloc Scripts pour Chart.js --- #}
 {% block scripts %}
     {{ super() }}
-    {# Inclut Chart.js depuis un CDN #}
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        // Attend que le DOM soit chargé
         document.addEventListener('DOMContentLoaded', (event) => {
-            // Récupère les données passées par Flask
-            const chartData = {{ chart_data | tojson | safe }}; // Utilise |safe pour éviter l'échappement HTML
+            const chartData = {{ chart_data | tojson | safe }};
             const labels = chartData.labels;
-
-            // Couleurs (peut être récupéré depuis les variables CSS si besoin plus avancé)
             const wwBlue = '#2d92d0';
             const wwGreen = '#009444';
             const wwGray = '#6c757d';
 
-            // Fonction pour créer un graphique ligne
             function createLineChart(canvasId, label, data, color) {
                 const ctx = document.getElementById(canvasId);
-                if (!ctx) {
-                    console.error(`Canvas element with id "${canvasId}" not found.`);
-                    return; // Sort si le canvas n'existe pas
-                }
+                if (!ctx) { console.error(`Canvas element with id "${canvasId}" not found.`); return; }
                 new Chart(ctx.getContext('2d'), {
                     type: 'line',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: label,
-                            data: data,
-                            fill: false,
-                            borderColor: color,
-                            backgroundColor: color, // Pour les points
-                            tension: 0.1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: true,
-                        scales: {
-                            y: { beginAtZero: true }
-                        },
-                        plugins: {
-                            legend: { display: false }
-                        }
-                    }
+                    data: { labels: labels, datasets: [{ label: label, data: data, fill: false, borderColor: color, backgroundColor: color, tension: 0.1 }] },
+                    options: { responsive: true, maintainAspectRatio: true, scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } }
                 });
             }
 
-            // Crée les graphiques seulement si les données existent
             if (chartData && chartData.labels && chartData.labels.length > 0) {
                 createLineChart('registrationsChart', '{{ _("Inscriptions") }}', chartData.registrations, wwBlue);
                 createLineChart('completionsChart', '{{ _("Accomplissements") }}', chartData.completions, wwGray);
                 createLineChart('earningsChart', '{{ _("Gains ($)") }}', chartData.earnings, wwGreen);
             } else {
                 console.log("No chart data available to render.");
-                // Optionnel: Afficher un message dans les zones de graphique
-                // document.getElementById('registrationsChart').parentNode.innerHTML = '<p class="text-muted text-center">{{_("Pas de données pour le graphique.")}}</p>';
-                // etc.
             }
         });
     </script>

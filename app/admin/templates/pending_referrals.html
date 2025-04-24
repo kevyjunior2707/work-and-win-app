@@ -1,4 +1,4 @@
-{# app/admin/templates/pending_referrals.html (AVEC CONTAINER) #}
+{# app/admin/templates/pending_referrals.html (Texte 85%) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -6,11 +6,12 @@
 {% block content %}
 <div class="container mt-4 mb-5"> {# <<< Conteneur ajouté >>> #}
     <h1><i class="bi bi-patch-question-fill"></i> {{ title }}</h1>
-    <p>{{ _('Vérifiez les preuves soumises par les utilisateurs externes via les liens de parrainage.') }}</p>
+    {# <<< CORRECTION TEXTE ICI >>> #}
+    <p>{{ _('Vérifiez les soumissions externes via les liens de parrainage (Bonus de 85%% pour le parrain).') }}</p>
     <hr>
 
     {% if not submissions %}
-        <div class="alert alert-info"> {{ _('Aucune soumission en attente d\'approbation.') }} </div>
+        <div class="alert alert-info"> {{ _('Aucune soumission externe en attente d\'approbation.') }} </div>
     {% else %}
         <div class="table-responsive">
             <table class="table table-striped table-hover table-sm align-middle">
@@ -25,7 +26,8 @@
                         <td> {% if submission.screenshot_filename %} <a href="{{ url_for('main.view_upload', filename=submission.screenshot_filename) }}" target="_blank" class="btn btn-sm btn-outline-secondary"> <i class="bi bi-image"></i> {{ _('Voir Image') }} </a> {% else %} - {% endif %} </td>
                         <td>{{ submission.submission_timestamp.strftime('%Y-%m-%d %H:%M') if submission.submission_timestamp else ''}}</td>
                         <td class="text-nowrap">
-                            <form action="{{ url_for('admin.approve_referral', completion_id=submission.id) }}" method="post" style="display: inline;"> <button type="submit" class="btn btn-sm btn-success" title="{{ _('Approuver') }}" onclick="return confirm('{{ _('Approuver cette soumission ? Le parrain recevra son bonus.') }}');"><i class="bi bi-check-lg"></i></button> </form>
+                            {# <<< CORRECTION TEXTE ICI >>> #}
+                            <form action="{{ url_for('admin.approve_referral', completion_id=submission.id) }}" method="post" style="display: inline;"> <button type="submit" class="btn btn-sm btn-success" title="{{ _('Approuver') }}" onclick="return confirm('{{ _('Approuver cette soumission ? Le parrain recevra son bonus de 85%%.') }}');"><i class="bi bi-check-lg"></i></button> </form>
                             <form action="{{ url_for('admin.reject_referral', completion_id=submission.id) }}" method="post" style="display: inline;"> <button type="submit" class="btn btn-sm btn-danger" title="{{ _('Rejeter') }}" onclick="return confirm('{{ _('Rejeter cette soumission ? Aucun bonus ne sera versé.') }}');"><i class="bi bi-x-lg"></i></button> </form>
                         </td>
                     </tr>

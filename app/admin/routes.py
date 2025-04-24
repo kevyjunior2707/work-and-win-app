@@ -454,11 +454,11 @@ def approve_referral(completion_id):
     referrer = submission.referrer_user; task = submission.task
     if not referrer or not task: flash(_('Erreur : Utilisateur parrain ou tâche associée introuvable.'), 'danger'); return redirect(url_for('admin.list_pending_referrals'))
     try:
-        bonus_amount = Decimal(str(task.reward_amount or 0.0)) * Decimal('0.40'); referrer_balance_decimal = Decimal(str(referrer.balance or 0.0))
+        bonus_amount = Decimal(str(task.reward_amount or 0.0)) * Decimal('0.85'); referrer_balance_decimal = Decimal(str(referrer.balance or 0.0))
         submission.status = 'Approved'; submission.processed_timestamp = datetime.now(timezone.utc); submission.processed_by_admin_id = current_user.id; referrer.balance = float(referrer_balance_decimal + bonus_amount)
         notif = Notification(user_id=referrer.id, name='referral_bonus', payload_json=json.dumps({'message': _('Votre parrainage pour la tâche "%(task_title)s" a été approuvé !', task_title=task.title), 'amount': str(bonus_amount.quantize(Decimal("0.01")))}))
         db.session.add(notif); db.session.commit()
-        flash(_('Soumission approuvée. Bonus de %(bonus)s $ crédité à %(user)s.', bonus=bonus_amount.quantize(Decimal("0.01")), user=referrer.full_name), 'success')
+        flash(_('Soumission approuvée. Bonus de %(bonus)s $ (85%%) crédité à %(user)s.', bonus=bonus_amount.quantize(Decimal("0.01")), user=referrer.full_name), 'success')
     except Exception as e: db.session.rollback(); flash(_('Erreur lors de l\'approbation : %(error)s', error=str(e)), 'danger')
     return redirect(url_for('admin.list_pending_referrals'))
 
