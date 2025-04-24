@@ -1,83 +1,114 @@
-# app/__init__.py (COMPLET avec tentative init_app pour locale - v11)
-from flask import Flask, request, current_app
+# app/__init__.py (VERSION COMPLÈTE v5 - Avec Context Processor Notif)
+
+import os
+from flask import Flask, request, g # g ajouté pour la langue
 from config import Config
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
-# from flask_mail import Mail # Commenté/Supprimé
-from flask_babel import Babel, lazy_gettext as _l, get_locale as babel_get_locale
-import logging
-from logging.handlers import RotatingFileHandler
-import os
-import json
-from datetime import datetime, timezone
+from flask_babel import Babel, lazy_gettext as _l # Babel ajouté
+# Ajout pour le context processor
+from flask_login import current_user
+from sqlalchemy import select
 
-# --- Définition de la fonction de sélection de langue (globale) AVEC DEBUG ---
-# (Cette fonction sera passée à init_app)
-def get_locale_selector():
-    lang = request.args.get('lang')
-    print(f"DEBUG flask-babel: Lang from URL = {lang}") # DEBUG
-    if lang and lang in current_app.config['LANGUAGES']:
-        print(f"DEBUG flask-babel: Using locale from URL: {lang}") # DEBUG
-        return lang
-    accept_lang = request.accept_languages.best_match(current_app.config['LANGUAGES'])
-    print(f"DEBUG flask-babel: Lang from Accept-Language = {accept_lang}") # DEBUG
-    if accept_lang:
-         print(f"DEBUG flask-babel: Using locale from browser: {accept_lang}") # DEBUG
-         return accept_lang
-    default_lang = current_app.config.get('BABEL_DEFAULT_LOCALE', 'en')
-    print(f"DEBUG flask-babel: Using default locale: {default_lang}") # DEBUG
-    return default_lang
-
-# --- Initialisation des extensions ---
+# Initialisation des extensions (sans lier à une app spécifique pour l'instant)
 db = SQLAlchemy()
 migrate = Migrate()
 login = LoginManager()
+# Point d'entrée pour la page de connexion (requis par Flask-Login)
 login.login_view = 'auth.login'
+# Message à afficher quand un utilisateur essaie d'accéder à une page protégée
 login.login_message = _l('Veuillez vous connecter pour accéder à cette page.')
-# mail = Mail() # Commenté/Supprimé
-# <<< MODIFICATION ICI : Initialise Babel SANS le sélecteur ici >>>
-babel = Babel()
+login.login_message_category = 'info' # Catégorie Bootstrap pour le message flash
+babel = Babel() # Initialisation de Babel
 
-# --- Factory de l'Application ---
+# --- Fonction Factory pour créer l'application ---
 def create_app(config_class=Config):
+    """Crée et configure une instance de l'application Flask."""
     app = Flask(__name__)
+    # Charge la configuration depuis la classe Config (ou une autre passée en argument)
     app.config.from_object(config_class)
 
-    # Filtre Jinja pour JSON
-    app.jinja_env.filters['fromjson'] = json.loads
-
-    # Initialisation des extensions AVEC application
+    # Lie les extensions à l'instance de l'application créée
     db.init_app(app)
     migrate.init_app(app, db)
     login.init_app(app)
-    # mail.init_app(app) # Commenté/Supprimé
-    # <<< MODIFICATION ICI : Passe le sélecteur LORS de l'appel à init_app >>>
-    babel.init_app(app, locale_selector=get_locale_selector)
+    babel.init_app(app) # Lie Babel à l'app
 
-    # --- Processeur de Contexte (Injecte dans les Templates) ---
+    # --- Configuration du dossier d'upload ---
+    # S'assure que le dossier UPLOAD_FOLDER existe
+    # Note: Sur Render, ce dossier sera probablement effacé lors des redéploiements
+    # si vous n'utilisez pas un "disque persistant" (option payante).
+    # Pour les preuves, un stockage externe (comme S3) serait plus robuste à long terme.
+    upload_folder = app.config.get('UPLOAD_FOLDER', os.path.join(app.root_path, 'static/uploads'))
+    os.makedirs(upload_folder, exist_ok=True)
+    os.makedirs(os.path.join(upload_folder, 'tasks'), exist_ok=True) # Crée aussi le sous-dossier tasks
+
+    # --- Sélection de la langue ---
+    @babel.localeselector
+    def get_locale():
+        # 1. Essayer d'obtenir la langue depuis l'URL (?lang=en)
+        lang = request.args.get('lang')
+        if lang and lang in app.config['LANGUAGES']:
+            return lang
+        # 2. Essayer d'obtenir la langue depuis la session utilisateur (si stockée)
+        # return session.get('locale', app.config['BABEL_DEFAULT_LOCALE'])
+        # 3. Essayer d'obtenir la langue depuis l'en-tête Accept-Language du navigateur
+        return request.accept_languages.best_match(app.config['LANGUAGES'].keys())
+        # 4. Utiliser la langue par défaut
+        # return app.config['BABEL_DEFAULT_LOCALE']
+
+    # Met la locale choisie et l'année actuelle à disposition des templates via 'g'
+    @app.before_request
+    def before_request():
+        g.locale = str(get_locale())
+        g.locale_display_name = app.config['LANGUAGES'].get(g.locale, g.locale) # Nom lisible
+        g.current_year = datetime.now(timezone.utc).year
+
+    # --- Context Processor pour Notifications Non Lues ---
     @app.context_processor
-    def inject_template_globals():
-        return dict(
-            get_locale=babel_get_locale, # Fonction pour obtenir la langue choisie
-            current_year=datetime.now(timezone.utc).year
-        )
+    def inject_notifications():
+        unread_count = 0
+        # Import local pour éviter dépendance circulaire au démarrage
+        from .models import Notification
+        if current_user.is_authenticated and not current_user.is_admin:
+            # Compte seulement si l'utilisateur est connecté et n'est pas admin
+            try:
+                unread_count = db.session.scalar(
+                    db.select(db.func.count(Notification.id))
+                    .where(Notification.user_id == current_user.id, Notification.is_read == False)
+                ) or 0
+            except Exception as e:
+                # En cas d'erreur BDD pendant le démarrage ou avant la première requête,
+                # évite de planter toute l'application.
+                print(f"Erreur lors du comptage des notifications: {e}")
+                unread_count = 0 # Retourne 0 par sécurité
+        return dict(unread_notification_count=unread_count)
+    # --- Fin Context Processor ---
 
-    # Enregistrement des Blueprints
-    from app.errors import bp as errors_bp; app.register_blueprint(errors_bp)
-    from app.auth import bp as auth_bp; app.register_blueprint(auth_bp, url_prefix='/auth')
-    from app.main import bp as main_bp; app.register_blueprint(main_bp)
-    from app.admin import bp as admin_bp; app.register_blueprint(admin_bp, url_prefix='/admin')
+    # --- Enregistrement des Blueprints ---
+    # Blueprint pour les routes d'authentification (login, register, logout)
+    from app.auth import bp as auth_bp
+    app.register_blueprint(auth_bp, url_prefix='/auth')
 
-    # Configuration du Logging
+    # Blueprint pour les routes principales (accueil, dashboard, tâches user)
+    from app.main import bp as main_bp
+    app.register_blueprint(main_bp)
+
+    # Blueprint pour les routes d'administration
+    from app.admin import bp as admin_bp
+    app.register_blueprint(admin_bp, url_prefix='/admin')
+
+    # --- Log de démarrage (optionnel) ---
+    # Utilise app.logger pour une meilleure intégration
     if not app.debug and not app.testing:
-        if not os.path.exists('logs'): os.mkdir('logs')
-        file_handler = RotatingFileHandler('logs/work_and_win.log', maxBytes=10240, backupCount=10)
-        file_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'))
-        file_handler.setLevel(logging.INFO); app.logger.addHandler(file_handler)
-        app.logger.setLevel(logging.INFO); app.logger.info('Work and Win startup')
+        # Configurez ici des logs plus avancés pour la production si nécessaire
+        # (ex: envoi par email, fichier rotatif, etc.)
+        pass
+    app.logger.info('Work and Win startup') # Message simple pour les logs Render
 
     return app
 
-# Import des modèles à la fin
+# Importe les modèles à la fin pour éviter les imports circulaires
+# Flask-SQLAlchemy et Flask-Migrate peuvent maintenant trouver les modèles
 from app import models
