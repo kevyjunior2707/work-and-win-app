@@ -56,7 +56,7 @@
                     <h5 class="card-title">{{ _('Inviter des Amis') }}</h5>
                      {# Utilise flex-grow-1 sur le conteneur pour pousser le bouton #}
                      <div class="flex-grow-1 d-flex flex-column justify-content-center">
-                         <p class="card-text mb-1"><small>{{ _('Votre Code de parrainage:') }}</small><br><strong class="fs-5 user-select-all">{{ current_user.referral_code }}</strong></p>
+                         <p class="card-text mb-1"><small>{{ _('Votre Code de parrainage pour gagner des commissions grâce à vos filleuls :') }}</small><br><strong class="fs-5 user-select-all">{{ current_user.referral_code }}</strong></p>
                      </div>
                      {% set reg_link = url_for('auth.register', ref=current_user.referral_code, _external=True) %}
                      <button class="btn btn-sm btn-outline-info mt-auto" type="button" onclick="copyToClipboard('{{ reg_link }}')" title="{{ _('Copier le lien d\'invitation') }}">
@@ -72,7 +72,7 @@
                  <div class="card-body d-flex flex-column">
                     <div class="mb-3"><i class="bi bi-bell fs-1 text-warning"></i></div>
                     <h5 class="card-title">{{ _('Notifications') }}</h5>
-                    <p class="card-text flex-grow-1"><small>{{ _('Voir les messages importants et les mises à jour.') }}</small></p>
+                    <p class="card-text flex-grow-1"><small>{{ _('Voir les messages importants, notifications et les mises à jour du systèmes et des administrateurs.') }}</small></p>
                     <a href="{{ url_for('main.notifications') }}" class="btn btn-warning mt-auto">{{ _('Voir les notifications') }}</a>
                 </div>
             </div>
@@ -96,7 +96,7 @@
                 <div class="card-body d-flex flex-column">
                    <div class="mb-3"><i class="bi bi-cash-coin fs-1 text-success"></i></div>
                    <h5 class="card-title">{{ _('Retrait') }}</h5>
-                   <p class="card-text flex-grow-1"><small>{{ _('Consultez votre solde et demandez un retrait.') }}</small></p>
+                   <p class="card-text flex-grow-1"><small>{{ _('Consultez votre solde et demandez le retrait de vos gains.') }}</small></p>
                    <a href="{{ url_for('main.withdraw') }}" class="btn btn-success mt-auto">{{ _('Voir / Demander Retrait') }}</a>
                </div>
            </div>
