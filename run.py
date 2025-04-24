@@ -1,3 +1,6 @@
+import click
+from app.models import User
+from app import db
 from app import create_app, db # Importe la factory et l'objet BDD depuis app/__init__.py
 from app.models import User, Task # Importe les modèles BDD (même si app/models.py est encore vide)
 from flask_migrate import Migrate # Importe l'outil de migration BDD
@@ -5,6 +8,19 @@ from flask_migrate import Migrate # Importe l'outil de migration BDD
 # Crée l'instance de l'application en appelant la factory
 # create_app() utilise la classe Config par défaut
 app = create_app()
+# Commande CLI pour définir un super admin
+@app.cli.command("set-super-admin")
+@click.argument("email")
+def set_super_admin(email):
+    """Définit un utilisateur existant comme Super Admin."""
+    user = db.session.scalar(db.select(User).where(User.email == email))
+    if user:
+        user.is_admin = True
+        user.is_super_admin = True
+        db.session.commit()
+        print(f"Utilisateur {email} défini comme Super Admin.")
+    else:
+        print(f"ERREUR : Utilisateur {email} non trouvé.")
 
 # Initialise Flask-Migrate en le liant à notre app et notre BDD
 # Cela active les commandes comme `flask db migrate`
