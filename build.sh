@@ -7,6 +7,4 @@ pip install -r requirements.txt
 
 # Run database migrations
 flask db upgrade
-
-
 echo "Build script finished."
