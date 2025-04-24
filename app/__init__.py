@@ -1,4 +1,4 @@
-# app/__init__.py (VERSION COMPLÈTE v6 - Correction Decorateur Babel)
+# app/__init__.py (VERSION COMPLÈTE v6 - Re-vérification Décorateur Babel)
 
 import os
 from flask import Flask, request, g # g ajouté pour la langue
@@ -37,7 +37,6 @@ def create_app(config_class=Config):
     os.makedirs(os.path.join(upload_folder, 'tasks'), exist_ok=True)
 
     # --- Sélection de la langue ---
-    # <<< CORRECTION ICI : Le décorateur est placé au-dessus de la fonction >>>
     @babel.localeselector
     def get_locale():
         # 1. Essayer d'obtenir la langue depuis l'URL (?lang=en)
