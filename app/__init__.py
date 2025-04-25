@@ -1,4 +1,4 @@
-# app/__init__.py (VERSION COMPLÈTE v12 - Vérification Init Babel)
+# app/__init__.py (VERSION COMPLÈTE v13 - Explicit Translation Dir)
 
 import os
 from flask import Flask, request, g, current_app, session
@@ -11,23 +11,20 @@ from sqlalchemy import select, func
 from datetime import datetime, timezone
 import json
 
-# Initialisation des extensions (SANS app)
+# Initialisation des extensions
 db = SQLAlchemy()
 migrate = Migrate()
 login = LoginManager()
 login.login_view = 'auth.login'
 login.login_message = _l('Veuillez vous connecter pour accéder à cette page.')
 login.login_message_category = 'info'
-babel = Babel() # Initialisation globale SANS app
+babel = Babel() # Initialisation globale
 
 # Fonction de sélection de la langue (Utilise current_app)
 def get_locale():
     lang = request.args.get('lang')
     if lang and lang in current_app.config['LANGUAGES']:
          return lang
-    # Tente la session si on veut la persistance (commenté pour l'instant pour simplifier)
-    # if 'locale' in session and session['locale'] in current_app.config['LANGUAGES']:
-    #    return session['locale']
     best_match = request.accept_languages.best_match(current_app.config['LANGUAGES'].keys())
     if best_match:
         return best_match
@@ -38,12 +35,20 @@ def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
-    # Lie les extensions à l'instance de l'application créée
     db.init_app(app)
     migrate.init_app(app, db)
     login.init_app(app)
-    # Initialise Babel AVEC l'app ET le sélecteur
-    babel.init_app(app, locale_selector=get_locale)
+
+    # <<< MODIFICATION ICI: Passe explicitement le dossier de traduction >>>
+    # Utilise la variable définie dans config.py
+    babel.init_app(app, locale_selector=get_locale,
+                   default_locale=app.config.get('BABEL_DEFAULT_LOCALE', 'fr'),
+                   default_timezone=app.config.get('BABEL_DEFAULT_TIMEZONE', 'UTC'))
+                   # Le chemin est généralement détecté automatiquement si BABEL_TRANSLATION_DIRECTORIES est dans config,
+                   # mais on peut le forcer si besoin :
+                   # translation_directories=app.config.get('BABEL_TRANSLATION_DIRECTORIES')
+    # <<< FIN MODIFICATION >>>
+
 
     # --- Configuration du dossier d'upload ---
     upload_folder = app.config.get('UPLOAD_FOLDER', os.path.join(app.root_path, 'static/uploads'))
@@ -54,10 +59,6 @@ def create_app(config_class=Config):
     @app.before_request
     def before_request():
         selected_locale = get_locale()
-        # Stocke dans la session si on veut la persistance (commenté)
-        # lang_code = request.args.get('lang')
-        # if lang_code and lang_code in app.config['LANGUAGES']:
-        #    session['locale'] = lang_code
         g.locale = str(selected_locale)
         g.locale_display_name = app.config['LANGUAGES'].get(g.locale, g.locale)
         g.current_year = datetime.now(timezone.utc).year
