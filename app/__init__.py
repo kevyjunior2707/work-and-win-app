@@ -1,7 +1,7 @@
-# app/__init__.py (VERSION COMPLÈTE v11 - Simplification get_locale)
+# app/__init__.py (VERSION COMPLÈTE v12 - Vérification Init Babel)
 
 import os
-from flask import Flask, request, g, current_app, session # session reste importé mais non utilisé pour locale
+from flask import Flask, request, g, current_app, session
 from config import Config
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -11,25 +11,26 @@ from sqlalchemy import select, func
 from datetime import datetime, timezone
 import json
 
-# Initialisation des extensions
+# Initialisation des extensions (SANS app)
 db = SQLAlchemy()
 migrate = Migrate()
 login = LoginManager()
 login.login_view = 'auth.login'
 login.login_message = _l('Veuillez vous connecter pour accéder à cette page.')
 login.login_message_category = 'info'
-babel = Babel()
+babel = Babel() # Initialisation globale SANS app
 
-# Fonction de sélection de la langue (SIMPLIFIÉE)
+# Fonction de sélection de la langue (Utilise current_app)
 def get_locale():
-    # 1. Essayer d'obtenir la langue depuis l'URL (?lang=...)
     lang = request.args.get('lang')
-    # print(f"DEBUG get_locale: lang from URL = {lang}") # DEBUG
     if lang and lang in current_app.config['LANGUAGES']:
-        # print(f"DEBUG get_locale: Using locale from URL: {lang}") # DEBUG
-        return lang
-    # 2. Sinon, utiliser la langue par défaut (français)
-    # print(f"DEBUG get_locale: Using default locale: fr") # DEBUG
+         return lang
+    # Tente la session si on veut la persistance (commenté pour l'instant pour simplifier)
+    # if 'locale' in session and session['locale'] in current_app.config['LANGUAGES']:
+    #    return session['locale']
+    best_match = request.accept_languages.best_match(current_app.config['LANGUAGES'].keys())
+    if best_match:
+        return best_match
     return current_app.config.get('BABEL_DEFAULT_LOCALE', 'fr')
 
 # --- Fonction Factory pour créer l'application ---
@@ -37,14 +38,14 @@ def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
+    # Lie les extensions à l'instance de l'application créée
     db.init_app(app)
     migrate.init_app(app, db)
     login.init_app(app)
-    babel.init_app(app)
+    # Initialise Babel AVEC l'app ET le sélecteur
+    babel.init_app(app, locale_selector=get_locale)
 
-    # Enregistre la fonction localeselector APRÈS init_app
-    babel.localeselector_func = get_locale
-
+    # --- Configuration du dossier d'upload ---
     upload_folder = app.config.get('UPLOAD_FOLDER', os.path.join(app.root_path, 'static/uploads'))
     os.makedirs(upload_folder, exist_ok=True)
     os.makedirs(os.path.join(upload_folder, 'tasks'), exist_ok=True)
@@ -52,18 +53,20 @@ def create_app(config_class=Config):
     # Met la locale choisie et l'année actuelle à disposition des templates via 'g'
     @app.before_request
     def before_request():
-        # <<< MODIFIÉ : Ne modifie PLUS la session ici >>>
-        selected_locale = get_locale() # Appel pour obtenir la locale basée sur URL ou défaut
-        # print(f"DEBUG before_request: Effective locale for g = {selected_locale}") # DEBUG
+        selected_locale = get_locale()
+        # Stocke dans la session si on veut la persistance (commenté)
+        # lang_code = request.args.get('lang')
+        # if lang_code and lang_code in app.config['LANGUAGES']:
+        #    session['locale'] = lang_code
         g.locale = str(selected_locale)
         g.locale_display_name = app.config['LANGUAGES'].get(g.locale, g.locale)
         g.current_year = datetime.now(timezone.utc).year
 
-    # Context Processor pour Notifications Non Lues (inchangé)
+    # --- Context Processor pour Notifications Non Lues ---
     @app.context_processor
     def inject_notifications():
         unread_count = 0
-        from .models import Notification
+        from .models import Notification # Import local
         if current_user.is_authenticated and not current_user.is_admin:
             try:
                 with app.app_context():
@@ -76,7 +79,7 @@ def create_app(config_class=Config):
                 unread_count = 0
         return dict(unread_notification_count=unread_count)
 
-    # Enregistrement des Blueprints (inchangé)
+    # --- Enregistrement des Blueprints ---
     from app.auth import bp as auth_bp
     app.register_blueprint(auth_bp, url_prefix='/auth')
     from app.main import bp as main_bp
@@ -84,7 +87,7 @@ def create_app(config_class=Config):
     from app.admin import bp as admin_bp
     app.register_blueprint(admin_bp, url_prefix='/admin')
 
-    # Log de démarrage (inchangé)
+    # --- Log de démarrage ---
     if not app.debug and not app.testing:
         pass
     app.logger.info('Work and Win startup')
