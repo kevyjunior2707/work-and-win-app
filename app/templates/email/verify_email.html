@@ -1,0 +1,29 @@
+{# app/templates/email/verify_email.html #}
+<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>{{ _('Vérifiez votre Email') }}</title>
+    <style>
+      /* Styles CSS simples pour l'email */
+      body { font-family: sans-serif; line-height: 1.5; }
+      .container { padding: 20px; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 5px; }
+      .button { display: inline-block; padding: 10px 20px; background-color: #2d92d0; color: #ffffff !important; text-decoration: none; border-radius: 3px; font-weight: bold; }
+      .footer { margin-top: 20px; font-size: 0.8em; color: #888; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>{{ _('Bienvenue sur Work and Win, %(name)s !', name=user.full_name) }}</h2>
+      <p>{{ _('Merci de vous être inscrit. Pour finaliser la création de votre compte et commencer à gagner, veuillez cliquer sur le bouton ci-dessous pour vérifier votre adresse email :') }}</p>
+      <p style="text-align: center; margin: 30px 0;">
+        <a href="{{ url_for('auth.verify_email', token=token, _external=True) }}" class="button">{{ _('Vérifier mon Adresse Email') }}</a>
+      </p>
+      <p>{{ _('Si le bouton ne fonctionne pas, copiez et collez le lien suivant dans votre navigateur :') }}</p>
+      <p><a href="{{ url_for('auth.verify_email', token=token, _external=True) }}">{{ url_for('auth.verify_email', token=token, _external=True) }}</a></p>
+      <p>{{ _('Si vous n\'avez pas créé de compte sur Work and Win, veuillez ignorer cet email.') }}</p>
+      <p class="footer">{{ _('Ce lien est valide pendant 30 minutes.') }}<br>&copy; {{ g.current_year }} Work and Win</p>
+    </div>
+  </body>
+</html>

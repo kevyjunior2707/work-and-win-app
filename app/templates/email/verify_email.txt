@@ -1,0 +1,12 @@
+{# app/templates/email/verify_email.txt #}
+Cher/Chère {{ user.full_name }},
+
+Bienvenue sur Work and Win ! Pour activer votre compte, veuillez cliquer sur le lien suivant ou le copier dans votre navigateur :
+{{ url_for('auth.verify_email', token=token, _external=True) }}
+
+Si vous n'avez pas créé de compte sur Work and Win, veuillez ignorer cet email.
+
+Ce lien expirera dans 30 minutes.
+
+Merci,
+L'équipe Work and Win

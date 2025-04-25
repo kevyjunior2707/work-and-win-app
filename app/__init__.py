@@ -1,4 +1,4 @@
-# app/__init__.py (VERSION COMPLÈTE v13 - Explicit Translation Dir)
+# app/__init__.py (VERSION COMPLÈTE v13 - Ajout Flask-Mail)
 
 import os
 from flask import Flask, request, g, current_app, session
@@ -7,6 +7,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager, current_user
 from flask_babel import Babel, lazy_gettext as _l
+from flask_mail import Mail # <<< Import ajouté >>>
 from sqlalchemy import select, func
 from datetime import datetime, timezone
 import json
@@ -18,9 +19,10 @@ login = LoginManager()
 login.login_view = 'auth.login'
 login.login_message = _l('Veuillez vous connecter pour accéder à cette page.')
 login.login_message_category = 'info'
-babel = Babel() # Initialisation globale
+babel = Babel()
+mail = Mail() # <<< Initialisation ajoutée >>>
 
-# Fonction de sélection de la langue (Utilise current_app)
+# Fonction de sélection de la langue
 def get_locale():
     lang = request.args.get('lang')
     if lang and lang in current_app.config['LANGUAGES']:
@@ -35,20 +37,15 @@ def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
+    # Lie les extensions à l'instance de l'application créée
     db.init_app(app)
     migrate.init_app(app, db)
     login.init_app(app)
+    babel.init_app(app, locale_selector=get_locale)
+    mail.init_app(app) # <<< Liaison ajoutée >>>
 
-    # <<< MODIFICATION ICI: Passe explicitement le dossier de traduction >>>
-    # Utilise la variable définie dans config.py
-    babel.init_app(app, locale_selector=get_locale,
-                   default_locale=app.config.get('BABEL_DEFAULT_LOCALE', 'fr'),
-                   default_timezone=app.config.get('BABEL_DEFAULT_TIMEZONE', 'UTC'))
-                   # Le chemin est généralement détecté automatiquement si BABEL_TRANSLATION_DIRECTORIES est dans config,
-                   # mais on peut le forcer si besoin :
-                   # translation_directories=app.config.get('BABEL_TRANSLATION_DIRECTORIES')
-    # <<< FIN MODIFICATION >>>
-
+    # Enregistre la fonction localeselector APRÈS init_app
+    # babel.localeselector_func = get_locale # Plus nécessaire si passé à init_app
 
     # --- Configuration du dossier d'upload ---
     upload_folder = app.config.get('UPLOAD_FOLDER', os.path.join(app.root_path, 'static/uploads'))

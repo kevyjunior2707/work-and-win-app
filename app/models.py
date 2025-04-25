@@ -1,4 +1,4 @@
-# app/models.py (VERSION COMPLÈTE v15 - Ajout image_filename + back_populates)
+# app/models.py (VERSION COMPLÈTE v16 - Ajout telegram + is_verified)
 
 import secrets
 from datetime import datetime, timezone
@@ -13,7 +13,7 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     full_name = db.Column(db.String(150), index=True)
     email = db.Column(db.String(120), index=True, unique=True)
-    phone_number = db.Column(db.String(30), nullable=True)
+    phone_number = db.Column(db.String(30), nullable=True) # Stockera le numéro complet (indicatif+local)
     country = db.Column(db.String(100))
     device = db.Column(db.String(50))
     password_hash = db.Column(db.String(256))
@@ -27,6 +27,9 @@ class User(UserMixin, db.Model):
     is_banned = db.Column(db.Boolean, default=False, nullable=False)
     referred_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     completed_task_count = db.Column(db.Integer, default=0, nullable=False)
+    # <<< NOUVEAUX CHAMPS >>>
+    telegram_username = db.Column(db.String(100), nullable=True, index=True)
+    is_verified = db.Column(db.Boolean, default=False, nullable=False, index=True) # Pour la vérification email
 
     # --- Relations ---
     referrer = relationship('User', remote_side=[id], back_populates='referred_users')
@@ -41,18 +44,57 @@ class User(UserMixin, db.Model):
     commissions_earned = relationship('ReferralCommission', back_populates='referrer', lazy='dynamic', foreign_keys='ReferralCommission.referrer_id')
     commissions_generated = relationship('ReferralCommission', back_populates='referred_user', lazy='dynamic', foreign_keys='ReferralCommission.referred_user_id')
 
+
     # --- Méthodes ---
-    def __init__(self, **kwargs): super().__init__(**kwargs); self._generate_referral_code()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._generate_referral_code()
+
     def _generate_referral_code(self):
-        if not self.referral_code: self.referral_code = secrets.token_hex(8)
-    def set_password(self, password): self.password_hash = generate_password_hash(password)
-    def check_password(self, password): return check_password_hash(self.password_hash, password) if self.password_hash else False
-    def __repr__(self): return f'<User {self.full_name} ({self.email})>'
+        if not self.referral_code:
+            self.referral_code = secrets.token_hex(8)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password) if self.password_hash else False
+
+    # <<< NOUVEAU : Méthodes pour générer/vérifier token email >>>
+    # Nécessite l'import de itsdangerous et current_app depuis flask
+    def get_verification_token(self, expires_sec=1800):
+        from flask import current_app
+        from itsdangerous import URLSafeTimedSerializer as Serializer
+        s = Serializer(current_app.config['SECRET_KEY'])
+        return s.dumps({'user_id': self.id})
+
+    @staticmethod
+    def verify_verification_token(token, expires_sec=1800):
+        from flask import current_app
+        from itsdangerous import URLSafeTimedSerializer as Serializer
+        from itsdangerous import SignatureExpired, BadSignature
+
+        s = Serializer(current_app.config['SECRET_KEY'])
+        try:
+            data = s.loads(token, max_age=expires_sec)
+            user_id = data.get('user_id')
+        except SignatureExpired:
+            return None # Token expiré
+        except BadSignature:
+            return None # Token invalide
+        except Exception:
+             return None # Autre erreur
+        return db.session.get(User, user_id)
+    # <<< FIN NOUVEAU >>>
+
+    def __repr__(self):
+        return f'<User {self.full_name} ({self.email})>'
 
 @login.user_loader
-def load_user(id): return db.session.get(User, int(id))
+def load_user(id):
+    return db.session.get(User, int(id))
 
-# --- Modèle Tâche (MODIFIÉ) ---
+# --- Modèle Tâche ---
 class Task(db.Model):
     __tablename__ = 'task'
     id = db.Column(db.Integer, primary_key=True)
@@ -66,8 +108,7 @@ class Task(db.Model):
     proof_type_required = db.Column(db.String(50), default='text')
     is_active = db.Column(db.Boolean, default=True)
     creation_date = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    # <<< CHAMP AJOUTÉ ICI >>>
-    image_filename = db.Column(db.String(256), nullable=True) # Nom du fichier image optionnel
+    image_filename = db.Column(db.String(256), nullable=True) # Ajouté précédemment
 
     # Relations
     completions = db.relationship('UserTaskCompletion', back_populates='task', lazy='dynamic', foreign_keys='UserTaskCompletion.task_id')
