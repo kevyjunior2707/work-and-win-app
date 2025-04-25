@@ -1,14 +1,15 @@
-# app/__init__.py (VERSION COMPLÈTE v8 - Correction NameError current_app)
+# app/__init__.py (VERSION COMPLÈTE v9 - Ajout Debugging pour get_locale)
 
 import os
-from flask import Flask, request, g, current_app # <<< current_app ajouté à l'import flask >>>
+from flask import Flask, request, g, current_app # current_app ajouté
 from config import Config
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager, current_user
 from flask_babel import Babel, lazy_gettext as _l
 from sqlalchemy import select, func
-from datetime import datetime, timezone # Import datetime déplacé ici pour être sûr
+from datetime import datetime, timezone
+import json # Ajout import json
 
 # Initialisation des extensions
 db = SQLAlchemy()
@@ -19,17 +20,26 @@ login.login_message = _l('Veuillez vous connecter pour accéder à cette page.')
 login.login_message_category = 'info'
 babel = Babel()
 
-# Fonction de sélection de la langue
+# Fonction de sélection de la langue (AVEC DEBUG)
 def get_locale():
-    # 1. Essayer d'obtenir la langue depuis l'URL (?lang=en)
-    lang = request.args.get('lang')
-    # Utilise current_app importé
-    if lang and lang in current_app.config['LANGUAGES']:
-         return lang
+    # 1. Essayer d'obtenir la langue depuis l'URL (?lang=...)
+    lang_from_url = request.args.get('lang')
+    print(f"DEBUG get_locale: lang_from_url = {lang_from_url}") # DEBUG
+    if lang_from_url and lang_from_url in current_app.config['LANGUAGES']:
+        print(f"DEBUG get_locale: Using locale from URL: {lang_from_url}") # DEBUG
+        return lang_from_url
+
     # 2. Essayer d'obtenir la langue depuis l'en-tête Accept-Language du navigateur
-    return request.accept_languages.best_match(current_app.config['LANGUAGES'].keys())
-    # 3. Utiliser la langue par défaut si aucune correspondance
-    # return current_app.config['BABEL_DEFAULT_LOCALE']
+    best_match = request.accept_languages.best_match(current_app.config['LANGUAGES'].keys())
+    print(f"DEBUG get_locale: best_match from browser = {best_match}") # DEBUG
+    if best_match:
+        print(f"DEBUG get_locale: Using locale from browser: {best_match}") # DEBUG
+        return best_match
+
+    # 3. Utiliser la langue par défaut
+    default_locale = current_app.config.get('BABEL_DEFAULT_LOCALE', 'en') # Default to 'en' if not set
+    print(f"DEBUG get_locale: Using default locale: {default_locale}") # DEBUG
+    return default_locale
 
 # --- Fonction Factory pour créer l'application ---
 def create_app(config_class=Config):
@@ -54,7 +64,9 @@ def create_app(config_class=Config):
     # Met la locale choisie et l'année actuelle à disposition des templates via 'g'
     @app.before_request
     def before_request():
-        g.locale = str(get_locale())
+        selected_locale = get_locale() # Appel pour obtenir la locale
+        print(f"DEBUG before_request: Selected locale = {selected_locale}") # DEBUG
+        g.locale = str(selected_locale)
         g.locale_display_name = app.config['LANGUAGES'].get(g.locale, g.locale)
         g.current_year = datetime.now(timezone.utc).year
 
