@@ -1,35 +1,91 @@
-{# app/templates/auth/register.html (ALIGNEMENT CORRIGÉ) #}
+{# app/templates/auth/register.html (Utilise phone_code et phone_local_number) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center mt-4 mb-5"> {# Ajout marges verticales #}
+<div class="row justify-content-center mt-4 mb-5">
     <div class="col-md-8 col-lg-7"> {# Colonne qui contient TOUT #}
          <h1 class="text-center mb-4">{{ _('Créer un compte') }}</h1>
 
-         {# Alerte Information Importante #}
-         <div class="alert alert-warning mb-4" role="alert"> {# Ajout marge en bas #}
-           <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> {{ _('Information Importante') }}</h4>
-           <p>{{ _("Veuillez fournir des informations exactes concernant votre pays de résidence et l'appareil principal que vous utilisez.") }}</p>
+         {# Avertissement #}
+         <div class="alert alert-warning mb-4" role="alert">
+           <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> {{ _('Informations Importantes pour l\'Inscription') }}</h4>
+           <p>{{ _("Veuillez utiliser vos informations réelles et exactes. Votre nom, email et numéro de téléphone pourront être utilisés pour vérifier votre identité et pour vous envoyer vos gains.") }}</p>
+           <p class="fw-bold">{{ _("Fournir des informations incorrectes ou utiliser un VPN/proxy peut entraîner le rejet de vos retraits et le bannissement de votre compte.") }}</p>
            <hr>
-           <p class="mb-0">{{ _("Ces informations sont utilisées pour vous proposer des tâches adaptées. Fournir des informations incorrectes pourrait entraîner des difficultés lors de la validation de vos gains ou le bannissement de votre compte.") }}</p> {# Message renforcé #}
+           <p class="mb-0">{{ _("Le nom d'utilisateur Telegram est optionnel mais peut faciliter le contact avec le support.") }}</p>
          </div>
+         {# Fin Avertissement #}
 
         {# Carte contenant le formulaire #}
         <div class="card shadow-sm auth-card" style="max-width: 600px; margin: auto;">
             <div class="card-body">
                 <form action="" method="post" novalidate>
                     {{ form.hidden_tag() }}
-                    {# Champs du formulaire (inchangés) #}
-                    <div class="mb-3"> {{ form.full_name.label(class="form-label") }} {{ form.full_name(class="form-control" + (" is-invalid" if form.full_name.errors else ""), size=32) }} {% if form.full_name.errors %}<div class="invalid-feedback">{% for error in form.full_name.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %} </div>
-                    <div class="mb-3"> {{ form.email.label(class="form-label") }} {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""), size=64) }} {% if form.email.errors %}<div class="invalid-feedback">{% for error in form.email.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %} </div>
-                    <div class="mb-3"> {{ form.phone_number.label(class="form-label") }} {{ form.phone_number(class="form-control" + (" is-invalid" if form.phone_number.errors else ""), size=32) }} </div>
-                    <div class="mb-3"> {{ form.country.label(class="form-label") }} {{ form.country(class="form-select" + (" is-invalid" if form.country.errors else "")) }} {% if form.country.errors %}<div class="invalid-feedback">{% for error in form.country.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %} </div>
-                    <div class="mb-3"> {{ form.device.label(class="form-label") }} {{ form.device(class="form-select" + (" is-invalid" if form.device.errors else "")) }} {% if form.device.errors %}<div class="invalid-feedback">{% for error in form.device.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %} </div>
-                    <div class="mb-3"> {{ form.password.label(class="form-label") }} {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), size=32) }} {% if form.password.errors %}<div class="invalid-feedback">{% for error in form.password.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %} </div>
-                    <div class="mb-3"> {{ form.password2.label(class="form-label") }} {{ form.password2(class="form-control" + (" is-invalid" if form.password2.errors else ""), size=32) }} {% if form.password2.errors %}<div class="invalid-feedback">{% for error in form.password2.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %} </div>
-                    <div class="d-grid mb-3"> {{ form.submit(class="btn btn-primary") }} </div>
+                    {# Nom Complet #}
+                    <div class="mb-3">
+                        {{ form.full_name.label(class="form-label") }}
+                        {{ form.full_name(class="form-control" + (" is-invalid" if form.full_name.errors else "")) }}
+                        {% if form.full_name.errors %}<div class="invalid-feedback">{% for error in form.full_name.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+                    </div>
+                    {# Email #}
+                    <div class="mb-3">
+                        {{ form.email.label(class="form-label") }}
+                        {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else "")) }}
+                        {% if form.email.errors %}<div class="invalid-feedback">{% for error in form.email.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+                    </div>
+
+                    {# --- Champs Téléphone Modifiés --- #}
+                    <label class="form-label">{{ _('Numéro de téléphone') }}</label> {# Label général #}
+                    <div class="input-group mb-3">
+                        {# Champ Indicatif #}
+                        {{ form.phone_code(class="form-select" + (" is-invalid" if form.phone_code.errors else ""), style="max-width: 150px;") }}
+                        {# Champ Numéro Local #}
+                        {{ form.phone_local_number(class="form-control" + (" is-invalid" if form.phone_local_number.errors else ""), placeholder=_l("Votre numéro")) }}
+                        {# Affichage erreurs pour les deux champs #}
+                        {% if form.phone_code.errors or form.phone_local_number.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.phone_code.errors %}<span>{{ error }}</span>{% endfor %}
+                            {% for error in form.phone_local_number.errors %}<span>{{ error }}</span>{% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {# --- Fin Champs Téléphone --- #}
+
+                    {# Telegram #}
+                    <div class="mb-3">
+                        {{ form.telegram_username.label(class="form-label") }}
+                        {{ form.telegram_username(class="form-control" + (" is-invalid" if form.telegram_username.errors else ""), placeholder="@pseudo") }}
+                        {% if form.telegram_username.errors %}<div class="invalid-feedback">{% for error in form.telegram_username.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+                    </div>
+                    {# Pays #}
+                    <div class="mb-3">
+                        {{ form.country.label(class="form-label") }}
+                        {{ form.country(class="form-select" + (" is-invalid" if form.country.errors else "")) }}
+                        {% if form.country.errors %}<div class="invalid-feedback">{% for error in form.country.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+                    </div>
+                    {# Appareil #}
+                    <div class="mb-3">
+                        {{ form.device.label(class="form-label") }}
+                        {{ form.device(class="form-select" + (" is-invalid" if form.device.errors else "")) }}
+                        {% if form.device.errors %}<div class="invalid-feedback">{% for error in form.device.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+                    </div>
+                    {# Mot de passe #}
+                    <div class="mb-3">
+                        {{ form.password.label(class="form-label") }}
+                        {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else "")) }}
+                        {% if form.password.errors %}<div class="invalid-feedback">{% for error in form.password.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+                    </div>
+                    {# Confirmation Mot de passe #}
+                    <div class="mb-3">
+                        {{ form.password2.label(class="form-label") }}
+                        {{ form.password2(class="form-control" + (" is-invalid" if form.password2.errors else "")) }}
+                        {% if form.password2.errors %}<div class="invalid-feedback">{% for error in form.password2.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+                    </div>
+                    <div class="d-grid mb-3">
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
                 </form>
                 <div class="text-center"> <p>{{ _('Déjà inscrit?') }} <a href="{{ url_for('auth.login') }}">{{ _('Connectez-vous ici!') }}</a></p> </div>
             </div> {# Fin card-body #}
