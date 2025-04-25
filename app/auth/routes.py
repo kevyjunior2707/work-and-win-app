@@ -10,7 +10,7 @@ from flask_babel import _
 from datetime import datetime, timezone
 from sqlalchemy import select
 # <<< Import de la fonction d'envoi d'email >>>
-from app.email import send_verification_email
+from app.mailer import send_verification_email
 
 @bp.route('/register', methods=['GET', 'POST'])
 def register():
