@@ -1,4 +1,4 @@
-# app/main/routes.py (VERSION COMPLÈTE v18 - Passage warning_message confirmé)
+# app/main/routes.py (VERSION COMPLÈTE v19 - Correction Pré-remplissage Profil)
 
 from flask import render_template, redirect, url_for, flash, request, abort, current_app, send_from_directory
 from flask_login import login_required, current_user
@@ -16,6 +16,8 @@ import json
 import os
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash
+# Import pour l'email
+from app.mailer import send_verification_email
 
 # --- Fonction utilitaire pour vérifier l'extension de fichier ---
 def allowed_file(filename):
@@ -26,14 +28,14 @@ def allowed_file(filename):
 @bp.route('/')
 @bp.route('/index')
 def index():
-    return render_template('index.html', title=_('Accueil'))
+    warning_message = _("Nous appliquons une politique de tolérance zéro envers la triche, l'utilisation de VPN/proxys, ou la création de comptes multiples. Toute violation entraînera un bannissement permanent et la perte des gains.")
+    return render_template('index.html', title=_('Accueil'), warning_message=warning_message)
 
-# --- Route Tableau de Bord Utilisateur (Passe warning_message) ---
+# --- Route Tableau de Bord Utilisateur ---
 @bp.route('/dashboard')
 @login_required
 def dashboard():
     if current_user.is_admin: return redirect(url_for('admin.index'))
-    # Définit le message d'avertissement ici
     warning_message = _("Nous appliquons une politique de tolérance zéro envers la triche, l'utilisation de VPN/proxys, ou la création de comptes multiples. Toute violation entraînera un bannissement permanent et la perte des gains.")
     return render_template('dashboard.html', title=_('Tableau de Bord'), warning_message=warning_message)
 
@@ -208,22 +210,64 @@ def view_upload(filename):
     if not current_user.is_admin: abort(403)
     upload_dir = current_app.config['UPLOAD_FOLDER']; return send_from_directory(upload_dir, filename)
 
-# --- Routes Profil Utilisateur ---
+# --- Routes Profil Utilisateur (MODIFIÉE) ---
 @bp.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():
     edit_form = EditProfileForm(current_user.email); password_form = ChangePasswordForm()
+
+    # Traitement du formulaire de modification de profil
     if edit_form.submit_profile.data and edit_form.validate_on_submit():
-        current_user.full_name = edit_form.full_name.data; current_user.email = edit_form.email.data; current_user.phone_number = edit_form.phone_number.data; current_user.country = edit_form.country.data; current_user.device = edit_form.device.data
-        try: db.session.commit(); flash(_('Votre profil a été mis à jour.'), 'success'); return redirect(url_for('main.profile'))
+        # <<< CORRECTION : Concaténer code et numéro >>>
+        phone_number_full = edit_form.phone_code.data + edit_form.phone_local_number.data
+        current_user.full_name = edit_form.full_name.data
+        current_user.email = edit_form.email.data
+        current_user.phone_number = phone_number_full # Enregistre le numéro complet
+        current_user.telegram_username = edit_form.telegram_username.data or None
+        current_user.country = edit_form.country.data
+        current_user.device = edit_form.device.data
+        try:
+            db.session.commit(); flash(_('Votre profil a été mis à jour.'), 'success')
+            return redirect(url_for('main.profile'))
         except Exception as e: db.session.rollback(); flash(_('Erreur lors de la mise à jour du profil: %(error)s', error=str(e)), 'danger')
+
+    # Traitement du formulaire de changement de mot de passe
     if password_form.submit_password.data and password_form.validate_on_submit():
         current_user.set_password(password_form.new_password.data)
-        try: db.session.commit(); flash(_('Votre mot de passe a été changé avec succès.'), 'success'); return redirect(url_for('main.profile'))
+        try:
+            db.session.commit(); flash(_('Votre mot de passe a été changé avec succès.'), 'success')
+            return redirect(url_for('main.profile'))
         except Exception as e: db.session.rollback(); flash(_('Erreur lors du changement de mot de passe: %(error)s', error=str(e)), 'danger')
+
+    # Pré-remplissage des formulaires pour la requête GET
     if request.method == 'GET':
-        edit_form.full_name.data = current_user.full_name; edit_form.email.data = current_user.email; edit_form.phone_number.data = current_user.phone_number; edit_form.country.data = current_user.country; edit_form.device.data = current_user.device
-    return render_template('edit_profile.html', title=_('Modifier Mon Profil'), edit_form=edit_form, password_form=password_form)
+        edit_form.full_name.data = current_user.full_name
+        edit_form.email.data = current_user.email
+        edit_form.telegram_username.data = current_user.telegram_username
+        edit_form.country.data = current_user.country
+        edit_form.device.data = current_user.device
+        # <<< CORRECTION : Pré-remplir phone_code et phone_local_number >>>
+        # Essaye de séparer l'indicatif du numéro stocké
+        current_phone = current_user.phone_number or ''
+        found_code = ''
+        local_num = current_phone
+        # Cherche le plus long indicatif correspondant au début du numéro
+        # (Simpliste, une vraie bibliothèque de numéros serait mieux)
+        from app.forms import country_codes # Importe la liste des codes
+        possible_codes = sorted([c[0] for c in country_codes if c[0]], key=len, reverse=True) # Trie par longueur desc
+        for code in possible_codes:
+            if current_phone.startswith(code):
+                found_code = code
+                local_num = current_phone[len(code):]
+                break
+        edit_form.phone_code.data = found_code
+        edit_form.phone_local_number.data = local_num
+        # <<< FIN CORRECTION >>>
+
+    return render_template('edit_profile.html',
+                           title=_('Modifier Mon Profil'),
+                           edit_form=edit_form,
+                           password_form=password_form)
 
 # --- Route pour infos mot de passe oublié ---
 @bp.route('/forgot-password-info')

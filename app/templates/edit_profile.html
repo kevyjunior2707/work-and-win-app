@@ -1,10 +1,10 @@
-{# app/templates/edit_profile.html (AVEC CONTAINER) #}
+{# app/templates/edit_profile.html (Utilise phone_code/phone_local_number) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
 
 {% block content %}
-<div class="container mt-4 mb-5"> {# <<< Conteneur principal ajouté >>> #}
+<div class="container mt-4 mb-5"> {# Conteneur principal #}
     <h1><i class="bi bi-person-gear"></i> {{ title }}</h1>
     <hr>
 
@@ -16,20 +16,40 @@
       <p class="mb-0">{{ _("Utiliser un pays ou un appareil incorrect peut vous empêcher de voir des tâches disponibles et pourrait entraîner des problèmes lors de la validation de vos gains.") }}</p>
     </div>
 
-    <div class="row g-5 mt-2"> {# Ajout marge top + g-5 pour plus d'espace entre colonnes #}
+    <div class="row g-5 mt-2">
         {# Colonne pour Modifier le Profil #}
         <div class="col-md-6">
-            <div class="card shadow-sm h-100"> {# Ajout carte #}
+            <div class="card shadow-sm h-100">
                 <div class="card-body">
                     <h2 class="card-title mb-4">{{ _('Modifier mes Informations') }}</h2>
                     <form action="{{ url_for('main.profile') }}" method="post" novalidate>
-                        {{ edit_form.hidden_tag() }} {# CSRF pour ce formulaire #}
+                        {{ edit_form.hidden_tag() }}
+                        {# Nom Complet #}
                         <div class="mb-3"> {{ edit_form.full_name.label(class="form-label") }} {{ edit_form.full_name(class="form-control" + (" is-invalid" if edit_form.full_name.errors else "")) }} {% if edit_form.full_name.errors %}<div class="invalid-feedback">{% for error in edit_form.full_name.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %} </div>
+                        {# Email #}
                         <div class="mb-3"> {{ edit_form.email.label(class="form-label") }} {{ edit_form.email(class="form-control" + (" is-invalid" if edit_form.email.errors else "")) }} {% if edit_form.email.errors %}<div class="invalid-feedback">{% for error in edit_form.email.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %} </div>
-                        <div class="mb-3"> {{ edit_form.phone_number.label(class="form-label") }} {{ edit_form.phone_number(class="form-control" + (" is-invalid" if edit_form.phone_number.errors else "")) }} </div>
+
+                        {# --- Champs Téléphone Modifiés --- #}
+                        <label class="form-label">{{ _('Numéro de téléphone') }}</label>
+                        <div class="input-group mb-3">
+                            {{ edit_form.phone_code(class="form-select" + (" is-invalid" if edit_form.phone_code.errors else ""), style="max-width: 150px;") }}
+                            {{ edit_form.phone_local_number(class="form-control" + (" is-invalid" if edit_form.phone_local_number.errors else ""), placeholder=_("Votre numéro")) }}
+                            {% if edit_form.phone_code.errors or edit_form.phone_local_number.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in edit_form.phone_code.errors %}<span>{{ error }}</span>{% endfor %}
+                                {% for error in edit_form.phone_local_number.errors %}<span>{{ error }}</span>{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {# --- Fin Champs Téléphone --- #}
+
+                        {# Telegram #}
+                        <div class="mb-3"> {{ edit_form.telegram_username.label(class="form-label") }} {{ edit_form.telegram_username(class="form-control" + (" is-invalid" if edit_form.telegram_username.errors else ""), placeholder="@pseudo") }} {% if edit_form.telegram_username.errors %}<div class="invalid-feedback">{% for error in edit_form.telegram_username.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %} </div>
+                        {# Pays #}
                         <div class="mb-3"> {{ edit_form.country.label(class="form-label") }} {{ edit_form.country(class="form-select" + (" is-invalid" if edit_form.country.errors else "")) }} {% if edit_form.country.errors %}<div class="invalid-feedback">{% for error in edit_form.country.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %} </div>
+                        {# Appareil #}
                         <div class="mb-3"> {{ edit_form.device.label(class="form-label") }} {{ edit_form.device(class="form-select" + (" is-invalid" if edit_form.device.errors else "")) }} {% if edit_form.device.errors %}<div class="invalid-feedback">{% for error in edit_form.device.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %} </div>
-                        <div class="d-grid"> {# Bouton pleine largeur #}
+                        <div class="d-grid">
                             {{ edit_form.submit_profile(class="btn btn-primary") }}
                         </div>
                     </form>
@@ -39,15 +59,15 @@
 
         {# Colonne pour Changer le Mot de Passe #}
         <div class="col-md-6">
-             <div class="card shadow-sm h-100"> {# Ajout carte #}
+             <div class="card shadow-sm h-100">
                 <div class="card-body">
                     <h2 class="card-title mb-4">{{ _('Changer mon Mot de Passe') }}</h2>
                      <form action="{{ url_for('main.profile') }}" method="post" novalidate>
-                        {{ password_form.hidden_tag() }} {# CSRF pour ce formulaire #}
+                        {{ password_form.hidden_tag() }}
                         <div class="mb-3"> {{ password_form.current_password.label(class="form-label") }} {{ password_form.current_password(class="form-control" + (" is-invalid" if password_form.current_password.errors else "")) }} {% if password_form.current_password.errors %}<div class="invalid-feedback">{% for error in password_form.current_password.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %} </div>
                         <div class="mb-3"> {{ password_form.new_password.label(class="form-label") }} {{ password_form.new_password(class="form-control" + (" is-invalid" if password_form.new_password.errors else "")) }} {% if password_form.new_password.errors %}<div class="invalid-feedback">{% for error in password_form.new_password.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %} </div>
                         <div class="mb-3"> {{ password_form.new_password2.label(class="form-label") }} {{ password_form.new_password2(class="form-control" + (" is-invalid" if password_form.new_password2.errors else "")) }} {% if password_form.new_password2.errors %}<div class="invalid-feedback">{% for error in password_form.new_password2.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %} </div>
-                        <div class="d-grid"> {# Bouton pleine largeur #}
+                        <div class="d-grid">
                             {{ password_form.submit_password(class="btn btn-secondary") }}
                         </div>
                     </form>
@@ -56,8 +76,7 @@
         </div>
     </div>
 
-     {# Lien retour #}
-    <div class="mt-5 text-center"> {# Marge top augmentée #}
+    <div class="mt-5 text-center">
          <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left-circle"></i> {{ _('Retour au Tableau de Bord') }}</a>
     </div>
 
