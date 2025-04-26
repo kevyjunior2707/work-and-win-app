@@ -1,14 +1,14 @@
-# app/auth/routes.py (VERSION COMPLÈTE v12 - Ajout Resend Verification)
+# app/auth/routes.py (VERSION COMPLÈTE v13 - Ajout import func)
 from flask import render_template, redirect, url_for, flash, request, current_app
 from urllib.parse import urlparse
 from app import db
 from app.auth import bp
 from app.forms import RegistrationForm, LoginForm
 from app.models import User
-from flask_login import login_user, logout_user, current_user, login_required # login_required ajouté
+from flask_login import login_user, logout_user, current_user, login_required
 from flask_babel import _
 from datetime import datetime, timezone
-from sqlalchemy import select
+from sqlalchemy import select, func # <<< func ajouté ici >>>
 from app.mailer import send_verification_email
 
 @bp.route('/register', methods=['GET', 'POST'])
@@ -20,10 +20,14 @@ def register():
     if form.validate_on_submit():
         phone_number_full = form.phone_code.data + form.phone_local_number.data
         user = User(
-            full_name=form.full_name.data, email=form.email.data.lower(),
-            phone_number=phone_number_full, telegram_username=form.telegram_username.data or None,
-            country=form.country.data, device=form.device.data,
-            referred_by_id=(referrer.id if referrer else None), is_verified=False
+            full_name=form.full_name.data,
+            email=form.email.data.lower(),
+            phone_number=phone_number_full,
+            telegram_username=form.telegram_username.data or None,
+            country=form.country.data,
+            device=form.device.data,
+            referred_by_id=(referrer.id if referrer else None),
+            is_verified=False
         )
         user.set_password(form.password.data)
         try:
@@ -48,7 +52,10 @@ def login():
     if current_user.is_authenticated: return redirect(url_for('admin.index') if current_user.is_admin else url_for('main.dashboard'))
     form = LoginForm()
     if form.validate_on_submit():
-        user = db.session.scalar(db.select(User).where(func.lower(User.email) == form.email.data.lower()))
+        # Utilise func.lower() pour comparaison insensible à la casse
+        user = db.session.scalar(
+            db.select(User).where(func.lower(User.email) == form.email.data.lower())
+        )
         if user and user.is_banned: flash(_('Votre compte a été banni. Contactez le support.'), 'danger'); return redirect(url_for('auth.login'))
         if user is None or not user.check_password(form.password.data): flash(_('Email ou mot de passe invalide.'), 'danger'); return redirect(url_for('auth.login'))
         # Optionnel: Bloquer connexion si non vérifié
@@ -71,7 +78,7 @@ def logout():
 def forgot_password():
     return render_template('auth/forgot_password.html', title=_('Mot de Passe Oublié'))
 
-# Route pour traiter le clic sur le lien de vérification
+# --- Route pour traiter le clic sur le lien de vérification ---
 @bp.route('/verify/<token>')
 def verify_email(token):
     user = User.verify_verification_token(token)
@@ -91,9 +98,9 @@ def verify_email(token):
         flash(_('Une erreur est survenue lors de la vérification. Veuillez réessayer ou contacter le support.'), 'danger')
     return redirect(url_for('auth.login'))
 
-# <<< NOUVELLE ROUTE : Renvoyer Email Vérification >>>
+# --- Route pour renvoyer l'Email de Vérification ---
 @bp.route('/resend-verification', methods=['POST'])
-@login_required # L'utilisateur doit être connecté pour renvoyer son propre email
+@login_required
 def resend_verification_email():
     if current_user.is_verified:
         flash(_('Votre compte est déjà vérifié.'), 'info')
@@ -105,4 +112,3 @@ def resend_verification_email():
         current_app.logger.error(f"Erreur renvoi email vérification pour {current_user.email}: {e}")
         flash(_('Erreur lors de l\'envoi de l\'email. Veuillez réessayer ou contacter le support.'), 'danger')
     return redirect(url_for('main.dashboard'))
-# <<< FIN NOUVELLE ROUTE >>>
