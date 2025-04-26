@@ -1,5 +1,5 @@
-# app/auth/routes.py (VERSION COMPLÈTE v10 - Avec Envoi Email Vérification)
-from flask import render_template, redirect, url_for, flash, request, current_app # current_app ajouté pour logger
+# app/auth/routes.py (VERSION COMPLÈTE v11 - Connexion Case-Insensitive)
+from flask import render_template, redirect, url_for, flash, request, current_app
 from urllib.parse import urlparse
 from app import db
 from app.auth import bp
@@ -8,8 +8,8 @@ from app.models import User
 from flask_login import login_user, logout_user, current_user
 from flask_babel import _
 from datetime import datetime, timezone
-from sqlalchemy import select
-# <<< Import de la fonction d'envoi d'email >>>
+from sqlalchemy import select, func # <<< func ajouté ici >>>
+# Import de la fonction d'envoi d'email
 from app.mailer import send_verification_email
 
 @bp.route('/register', methods=['GET', 'POST'])
@@ -22,7 +22,7 @@ def register():
         phone_number_full = form.phone_code.data + form.phone_local_number.data
         user = User(
             full_name=form.full_name.data,
-            email=form.email.data.lower(),
+            email=form.email.data.lower(), # Enregistre en minuscules
             phone_number=phone_number_full,
             telegram_username=form.telegram_username.data or None,
             country=form.country.data,
@@ -33,14 +33,13 @@ def register():
         user.set_password(form.password.data)
         try:
             db.session.add(user)
-            db.session.commit() # Commit l'utilisateur d'abord
+            db.session.commit()
 
             # --- ENVOI EMAIL VÉRIFICATION ---
             try:
                 send_verification_email(user)
                 flash(_('Inscription réussie ! Un email de vérification a été envoyé. Veuillez cliquer sur le lien dans l\'email pour activer votre compte.'), 'info')
             except Exception as e:
-                # Log l'erreur côté serveur pour investigation
                 current_app.logger.error(f"Erreur envoi email vérification pour {user.email}: {e}")
                 flash(_('Inscription réussie, mais l\'email de vérification n\'a pas pu être envoyé. Contactez le support pour activer votre compte.'), 'warning')
             # --- FIN ENVOI EMAIL ---
@@ -59,15 +58,18 @@ def login():
     if current_user.is_authenticated: return redirect(url_for('admin.index') if current_user.is_admin else url_for('main.dashboard'))
     form = LoginForm()
     if form.validate_on_submit():
-        user = db.session.scalar(db.select(User).where(User.email == form.email.data.lower()))
+        # <<< CORRECTION ICI : Utilise func.lower() pour la comparaison >>>
+        user = db.session.scalar(
+            db.select(User).where(func.lower(User.email) == form.email.data.lower())
+        )
+        # <<< FIN CORRECTION >>>
+
         if user and user.is_banned: flash(_('Votre compte a été banni. Contactez le support.'), 'danger'); return redirect(url_for('auth.login'))
         if user is None or not user.check_password(form.password.data): flash(_('Email ou mot de passe invalide.'), 'danger'); return redirect(url_for('auth.login'))
 
-        # Optionnel: Bloquer la connexion si non vérifié (à décommenter si souhaité)
+        # Optionnel: Bloquer la connexion si non vérifié
         # if not user.is_verified:
         #     flash(_('Votre compte n\'est pas encore vérifié. Veuillez cliquer sur le lien dans l\'email d\'inscription ou contacter le support.'), 'warning')
-        #     # On pourrait ajouter un bouton pour renvoyer l'email ici
-        #     # send_verification_email(user) # Attention aux abus
         #     return redirect(url_for('auth.login'))
 
         login_user(user, remember=form.remember_me.data); next_page = request.args.get('next'); is_safe_next = next_page and urlparse(next_page).netloc == ''
@@ -89,8 +91,7 @@ def forgot_password():
 # --- Route pour traiter le clic sur le lien de vérification ---
 @bp.route('/verify/<token>')
 def verify_email(token):
-    # Pas besoin d'être connecté pour vérifier
-    user = User.verify_verification_token(token) # Utilise la méthode statique du modèle User
+    user = User.verify_verification_token(token)
 
     if not user:
         flash(_('Le lien de vérification est invalide ou a expiré.'), 'danger')
@@ -100,7 +101,6 @@ def verify_email(token):
          flash(_('Votre compte est déjà vérifié. Vous pouvez vous connecter.'), 'info')
          return redirect(url_for('auth.login'))
 
-    # Marque l'utilisateur comme vérifié
     user.is_verified = True
     try:
         db.session.commit()
