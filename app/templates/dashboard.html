@@ -1,4 +1,4 @@
-{# app/templates/dashboard.html (Structure Bootstrap Standard pour Taille Égale) #}
+{# app/templates/dashboard.html (Ajout Alerte Vérification Email) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -6,6 +6,27 @@
 {% block content %}
 <div class="container mt-4 mb-5"> {# Conteneur principal #}
     <h1 class="mb-4"><i class="bi bi-speedometer2"></i> {{ title }}</h1>
+
+    {# <<< NOUVEAU : Alerte si compte non vérifié >>> #}
+    {% if not current_user.is_verified %}
+    <div class="alert alert-danger border-danger shadow-sm" role="alert">
+      <h4 class="alert-heading"><i class="bi bi-envelope-exclamation-fill"></i> {{ _('Action Requise : Vérifiez Votre Email !') }}</h4>
+      <p>{{ _("Votre adresse email n'a pas encore été vérifiée. Vous devez cliquer sur le lien de vérification que nous vous avons envoyé lors de l'inscription.") }}</p>
+      <p>{{ _("Vérifiez votre boîte de réception ainsi que votre dossier spam/courrier indésirable pour l'email de 'Work and Win'.") }}</p>
+      <p class="fw-bold">{{ _("La vérification est nécessaire pour pouvoir demander des retraits de vos gains.") }}</p>
+      <hr>
+      <p class="mb-0">
+        {{ _("Si vous n'avez pas reçu l'email ou si le lien a expiré (valide 30 min), ou si vous avez changé d'email dans votre profil, cliquez ici pour renvoyer l'email de vérification :") }}
+        {# Formulaire pour renvoyer l'email #}
+        <form action="{{ url_for('auth.resend_verification_email') }}" method="post" class="d-inline">
+             {# CSRF Token est géré globalement par Flask-WTF si activé #}
+             <button type="submit" class="btn btn-warning btn-sm ms-2">{{ _('Renvoyer l\'email de vérification') }}</button>
+        </form>
+      </p>
+    </div>
+    {% endif %}
+    {# <<< FIN NOUVEAU >>> #}
+
     <p class="lead">{{ _('Bienvenue, %(username)s ! Gérez vos tâches et vos gains ici.', username=current_user.full_name) }}</p>
     <hr>
 
@@ -16,47 +37,38 @@
        <a href="{{ url_for('main.withdraw') }}" class="btn btn-sm btn-outline-success ms-3">{{ _('Voir / Demander Retrait') }}</a>
     </div>
 
-
     {# Actions dans des cartes avec icônes #}
-    {# row-cols-lg-3: 3 colonnes sur grand écran #}
-    {# row-cols-md-2: 2 colonnes sur moyen écran #}
-    {# row-cols-1: 1 colonne sur petit écran #}
-    {# g-4: Espacement entre les cartes #}
     <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-
-        {# Carte 1 : Tâches Disponibles #}
-        <div class="col d-flex align-items-stretch"> {# d-flex align-items-stretch pour hauteur égale dans la ligne #}
-            <div class="card h-100 shadow-sm text-center border-0"> {# h-100 pour remplir la hauteur de la colonne #}
-                <div class="card-body d-flex flex-column"> {# flex-column pour aligner bouton en bas #}
-                    <div class="mb-3"><i class="bi bi-card-checklist fs-1 text-primary"></i></div> {# Icône #}
+        {# Carte Tâches Disponibles #}
+        <div class="col d-flex align-items-stretch">
+            <div class="card h-100 shadow-sm text-center border-0">
+                <div class="card-body d-flex flex-column">
+                    <div class="mb-3"><i class="bi bi-card-checklist fs-1 text-primary"></i></div>
                     <h5 class="card-title">{{ _('Tâches Disponibles') }}</h5>
-                    <p class="card-text flex-grow-1"><small>{{ _('Voir les nouvelles tâches qui vous attendent maintenant.') }}</small></p> {# flex-grow-1 pour occuper l'espace #}
-                    <a href="{{ url_for('main.available_tasks') }}" class="btn btn-primary mt-auto">{{ _('Voir les tâches') }}</a> {# mt-auto pour pousser en bas #}
+                    <p class="card-text flex-grow-1"><small>{{ _('Voir les nouvelles tâches qui vous attendent maintenant.') }}</small></p>
+                    <a href="{{ url_for('main.available_tasks') }}" class="btn btn-primary mt-auto">{{ _('Voir les tâches') }}</a>
                 </div>
             </div>
         </div>
-
-         {# Carte 2 : Tâches Accomplies #}
+         {# Carte Tâches Accomplies #}
         <div class="col d-flex align-items-stretch">
             <div class="card h-100 shadow-sm text-center border-0">
                  <div class="card-body d-flex flex-column">
                     <div class="mb-3"><i class="bi bi-check2-square fs-1 text-success"></i></div>
                     <h5 class="card-title">{{ _('Mes Tâches Accomplies') }}</h5>
-                    <p class="card-text flex-grow-1"><small>{{ _('Consultez l\'historique de vos gains et les tâches déjà accomplir.') }}</small></p>
-                    <a href="{{ url_for('main.completed_tasks') }}" class="btn btn-success mt-auto">{{ _('Voir l\'historique / Tâches accomplir') }}</a>
+                    <p class="card-text flex-grow-1"><small>{{ _('Consultez l\'historique détaillé de vos gains et des tâches que vous avez terminées avec succès.') }}</small></p>
+                    <a href="{{ url_for('main.completed_tasks') }}" class="btn btn-success mt-auto">{{ _('Voir l\'historique') }}</a>
                 </div>
             </div>
         </div>
-
-         {# Carte 3 : Parrainage #}
+         {# Carte Parrainage #}
          <div class="col d-flex align-items-stretch">
             <div class="card h-100 shadow-sm text-center border-0 bg-light">
                  <div class="card-body d-flex flex-column">
                     <div class="mb-3"><i class="bi bi-person-plus-fill fs-1 text-info"></i></div>
                     <h5 class="card-title">{{ _('Inviter des Amis') }}</h5>
-                     {# Utilise flex-grow-1 sur le conteneur pour pousser le bouton #}
                      <div class="flex-grow-1 d-flex flex-column justify-content-center">
-                         <p class="card-text mb-1"><small>{{ _('Votre Code de parrainage pour gagner des commissions grâce à vos filleuls :') }}</small><br><strong class="fs-5 user-select-all">{{ current_user.referral_code }}</strong></p>
+                         <p class="card-text mb-1"><small>{{ _('Votre Code Parrainage Unique:') }}</small><br><strong class="fs-5 user-select-all">{{ current_user.referral_code }}</strong></p>
                      </div>
                      {% set reg_link = url_for('auth.register', ref=current_user.referral_code, _external=True) %}
                      <button class="btn btn-sm btn-outline-info mt-auto" type="button" onclick="copyToClipboard('{{ reg_link }}')" title="{{ _('Copier le lien d\'invitation') }}">
@@ -65,46 +77,42 @@
                 </div>
             </div>
         </div>
-
-         {# Carte 4 : Notifications #}
+         {# Carte Notifications #}
          <div class="col d-flex align-items-stretch">
             <div class="card h-100 shadow-sm text-center border-0">
                  <div class="card-body d-flex flex-column">
                     <div class="mb-3"><i class="bi bi-bell fs-1 text-warning"></i></div>
                     <h5 class="card-title">{{ _('Notifications') }}</h5>
-                    <p class="card-text flex-grow-1"><small>{{ _('Voir les messages importants, notifications et les mises à jour du systèmes et des administrateurs.') }}</small></p>
+                    <p class="card-text flex-grow-1"><small>{{ _('Consultez les messages importants, les mises à jour de statut et les confirmations de bonus ou d\'avertissements.') }}</small></p>
                     <a href="{{ url_for('main.notifications') }}" class="btn btn-warning mt-auto">{{ _('Voir les notifications') }}</a>
                 </div>
             </div>
         </div>
-
-        {# Carte 5 : Modifier Profil #}
+        {# Carte Modifier Profil #}
         <div class="col d-flex align-items-stretch">
             <div class="card h-100 shadow-sm text-center border-0">
                 <div class="card-body d-flex flex-column">
                    <div class="mb-3"><i class="bi bi-person-fill-gear fs-1 text-secondary"></i></div>
                    <h5 class="card-title">{{ _('Modifier Mon Profil') }}</h5>
-                   <p class="card-text flex-grow-1"><small>{{ _('Mettez à jour vos informations personnelles ou votre mot de passe.') }}</small></p>
+                   <p class="card-text flex-grow-1"><small>{{ _('Mettez à jour vos informations personnelles (email, pays, appareil) ou changez votre mot de passe.') }}</small></p>
                    <a href="{{ url_for('main.profile') }}" class="btn btn-secondary mt-auto">{{ _('Modifier Profil') }}</a>
                </div>
            </div>
        </div>
-
-       {# Carte 6 : Retrait #}
+       {# Carte Retrait #}
        <div class="col d-flex align-items-stretch">
             <div class="card h-100 shadow-sm text-center border-0">
                 <div class="card-body d-flex flex-column">
                    <div class="mb-3"><i class="bi bi-cash-coin fs-1 text-success"></i></div>
                    <h5 class="card-title">{{ _('Retrait') }}</h5>
-                   <p class="card-text flex-grow-1"><small>{{ _('Consultez votre solde et demandez le retrait de vos gains.') }}</small></p>
+                   <p class="card-text flex-grow-1"><small>{{ _('Vérifiez votre éligibilité, consultez l\'historique de vos paiements reçus et contactez le support pour demander un retrait.') }}</small></p>
                    <a href="{{ url_for('main.withdraw') }}" class="btn btn-success mt-auto">{{ _('Voir / Demander Retrait') }}</a>
                </div>
            </div>
        </div>
-
     </div> {# Fin row g-4 #}
 
-    {# --- Message Règles Importantes --- #}
+    {# Message Règles Importantes (gardé) #}
     {% if warning_message %}
     <div class="alert alert-warning mt-5 shadow-sm" role="alert">
       <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> {{ _('Règles Importantes') }}</h4>
@@ -113,7 +121,6 @@
       <p class="mb-0">{{ _("Jouez juste !") }}</p>
     </div>
     {% endif %}
-    {# --- Fin Message Règles --- #}
 
 </div> {# <<< Fin Conteneur >>> #}
 {% endblock %}
