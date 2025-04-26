@@ -1,4 +1,4 @@
-{# app/admin/templates/user_list.html (CSRF TOKEN RE-ADDED) #}
+{# app/admin/templates/user_list.html (Affichage Tel/Telegram) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -29,15 +29,36 @@
     {% else %}
         <div class="table-responsive">
             <table class="table table-striped table-hover table-sm align-middle">
-                <thead> <tr> <th>ID</th><th>{{ _('Nom') }}</th><th>{{ _('Email') }}</th><th>{{ _('Pays') }}</th> <th>{{ _('Appareil') }}</th><th>{{ _('Solde') }}</th><th>{{ _('Inscrit le') }}</th> <th>{{ _('Dern. Vue') }}</th><th>{{ _('Statut') }}</th><th>{{ _('Actions') }}</th> </tr> </thead>
+                <thead>
+                    <tr>
+                        <th>{{ _('Nom') }}</th>
+                        <th>{{ _('Email') }}</th>
+                        {# <<< NOUVELLES COLONNES >>> #}
+                        <th>{{ _('Téléphone') }}</th>
+                        <th>{{ _('Telegram') }}</th>
+                        {# <<< FIN NOUVELLES COLONNES >>> #}
+                        <th>{{ _('Pays') }}</th>
+                        <th>{{ _('Appareil') }}</th>
+                        <th>{{ _('Solde') }}</th>
+                        <th>{{ _('Statut') }}</th>
+                        <th>{{ _('Vérifié?') }}</th>
+                        <th>{{ _('Actions') }}</th>
+                    </tr>
+                </thead>
                 <tbody>
                     {% for user in users %}
                     <tr class="{{ 'table-danger' if user.is_banned else '' }}">
-                        <td>{{ user.id }}</td><td>{{ user.full_name }}</td><td>{{ user.email }}</td><td>{{ user.country }}</td>
-                        <td>{{ user.device }}</td><td><strong>$ {{ "%.2f"|format(user.balance) }}</strong></td>
-                        <td>{{ user.registration_date.strftime('%Y-%m-%d') if user.registration_date else ''}}</td>
-                        <td>{{ user.last_seen.strftime('%Y-%m-%d %H:%M') if user.last_seen else _('Jamais') }}</td>
+                        <td>{{ user.full_name }}</td>
+                        <td>{{ user.email }}</td>
+                        {# <<< NOUVELLES CELLULES >>> #}
+                        <td>{{ user.phone_number or '-' }}</td>
+                        <td>{{ user.telegram_username or '-' }}</td>
+                        {# <<< FIN NOUVELLES CELLULES >>> #}
+                        <td>{{ user.country }}</td>
+                        <td>{{ user.device }}</td>
+                        <td><strong>$ {{ "%.2f"|format(user.balance) }}</strong></td>
                         <td> {% if user.is_banned %}<span class="badge bg-danger">{{ _('Banni') }}</span>{% else %}<span class="badge bg-success">{{ _('Actif') }}</span>{% endif %} </td>
+                        <td> {% if user.is_verified %}<span class="badge bg-success"><i class="bi bi-check-circle-fill"></i> {{ _('Oui') }}</span>{% else %}<span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split"></i> {{ _('Non') }}</span>{% endif %} </td>
                         <td class="text-nowrap">
                             {# Boutons Ban/Unban #}
                             {% if user.is_banned %} <form action="{{ url_for('admin.unban_user', user_id=user.id) }}" method="post" style="display: inline;"> <button type="submit" class="btn btn-sm btn-success" title="{{ _('Débannir') }}" onclick="return confirm('{{ _('Êtes-vous sûr de vouloir débannir cet utilisateur ?') }}');"><i class="bi bi-unlock-fill"></i></button> </form>
@@ -46,47 +67,13 @@
                             <button type="button" class="btn btn-sm btn-warning" title="{{ _('Réduire Solde / Avertir') }}" data-bs-toggle="modal" data-bs-target="#reduceBalanceModal{{ user.id }}"> <i class="bi bi-currency-dollar"></i><i class="bi bi-dash-circle"></i> </button>
                             <button type="button" class="btn btn-sm btn-info text-white" title="{{ _('Ajouter Solde / Bonus') }}" data-bs-toggle="modal" data-bs-target="#addBalanceModal{{ user.id }}"> <i class="bi bi-currency-dollar"></i><i class="bi bi-plus-circle"></i> </button>
                             {# Bouton Reset MDP #}
-                            <button type="button" class="btn btn-sm btn-secondary" title="{{ _('Réinitialiser Mot de Passe') }}" data-bs-toggle="modal" data-bs-target="#resetPasswordModal{{ user.id }}">
-                                <i class="bi bi-key-fill"></i>
-                            </button>
+                            <button type="button" class="btn btn-sm btn-secondary" title="{{ _('Réinitialiser Mot de Passe') }}" data-bs-toggle="modal" data-bs-target="#resetPasswordModal{{ user.id }}"> <i class="bi bi-key-fill"></i> </button>
+                            {# Le bouton Renvoyer Email a été supprimé #}
 
-                            {# --- Modales existantes (Réduire/Ajouter Solde) --- #}
-                            <div class="modal fade" id="reduceBalanceModal{{ user.id }}" tabindex="-1"> <div class="modal-dialog"> <div class="modal-content"> <form action="{{ url_for('admin.reduce_balance', user_id=user.id) }}" method="post"> <div class="modal-header"> <h5 class="modal-title">{{ _('Action Fraude: %(user_name)s', user_name=user.full_name) }}</h5> <button type="button" class="btn-close" data-bs-dismiss="modal"></button> </div> <div class="modal-body"> <p>{{ _('Solde actuel: $ %(balance)s', balance= ("%.2f"|format(user.balance)) ) }}</p> <div class="mb-3"> <label for="reduction_amount_{{ user.id }}" class="form-label">{{ _('Montant à réduire ($)') }}</label> <input type="number" step="0.01" min="0.01" class="form-control" id="reduction_amount_{{ user.id }}" name="reduction_amount" required> </div> <div class="mb-3"> <label for="warning_message_{{ user.id }}" class="form-label">{{ _('Message d\'avertissement pour l\'utilisateur') }}</label> <textarea class="form-control" id="warning_message_{{ user.id }}" name="warning_message" rows="3" required></textarea> </div> <p class="text-muted"><small>{{ _('La réduction sera appliquée au solde et l\'avertissement sera enregistré.') }}</small></p> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Annuler') }}</button> <button type="submit" class="btn btn-danger">{{ _('Appliquer Réduction et Avertir') }}</button> </div> </form> </div> </div> </div>
-                            <div class="modal fade" id="addBalanceModal{{ user.id }}" tabindex="-1"> <div class="modal-dialog"> <div class="modal-content"> <form action="{{ url_for('admin.add_balance', user_id=user.id) }}" method="post"> <div class="modal-header"> <h5 class="modal-title">{{ _('Ajouter Solde/Bonus: %(user_name)s', user_name=user.full_name) }}</h5> <button type="button" class="btn-close" data-bs-dismiss="modal"></button> </div> <div class="modal-body"> <p>{{ _('Solde actuel: $ %(balance)s', balance= ("%.2f"|format(user.balance)) ) }}</p> <div class="mb-3"> <label for="amount_to_add_{{ user.id }}" class="form-label">{{ _('Montant à ajouter ($)') }}</label> <input type="number" step="0.01" min="0.01" class="form-control" id="amount_to_add_{{ user.id }}" name="amount_to_add" required> </div> <div class="mb-3"> <label for="reason_message_{{ user.id }}" class="form-label">{{ _('Raison / Description (pour l\'utilisateur)') }}</label> <textarea class="form-control" id="reason_message_{{ user.id }}" name="reason_message" rows="3" required></textarea> </div> <p class="text-muted"><small>{{ _('Le montant sera ajouté au solde et une notification sera enregistrée.') }}</small></p> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Annuler') }}</button> <button type="submit" class="btn btn-success">{{ _('Ajouter au Solde') }}</button> </div> </form> </div> </div> </div>
-
-                            {# --- Modale Reset MDP (AVEC CSRF TOKEN PASSÉ PAR LA ROUTE) --- #}
-                            <div class="modal fade" id="resetPasswordModal{{ user.id }}" tabindex="-1" aria-labelledby="resetPasswordModalLabel{{ user.id }}" aria-hidden="true">
-                              <div class="modal-dialog">
-                                <div class="modal-content">
-                                  <form action="{{ url_for('admin.admin_reset_user_password', user_id=user.id) }}" method="post">
-                                    {# <<< Utilise la variable csrf_token passée par la route >>> #}
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/>
-
-                                    <div class="modal-header">
-                                      <h5 class="modal-title" id="resetPasswordModalLabel{{ user.id }}">{{ _('Réinitialiser MDP pour: %(user_name)s', user_name=user.full_name) }}</h5>
-                                      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <p class="text-danger text-wrap">{{ _("Attention : Ceci définira un nouveau mot de passe pour l'utilisateur. Vous devrez lui communiquer ce nouveau mot de passe manuellement (ex: via Telegram).") }}</p>
-                                        <div class="mb-3">
-                                            <label for="new_password_{{ user.id }}" class="form-label">{{ _('Nouveau Mot de Passe Temporaire') }}</label>
-                                            <input type="password" class="form-control" id="new_password_{{ user.id }}" name="new_password" required minlength="8">
-                                        </div>
-                                        <div class="mb-3">
-                                             <label for="confirm_password_{{ user.id }}" class="form-label">{{ _('Confirmer le Nouveau Mot de Passe') }}</label>
-                                             <input type="password" class="form-control" id="confirm_password_{{ user.id }}" name="confirm_password" required minlength="8">
-                                        </div>
-                                    </div>
-                                    <div class="modal-footer">
-                                      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Annuler') }}</button>
-                                      <button type="submit" class="btn btn-danger">{{ _('Réinitialiser le Mot de Passe') }}</button>
-                                    </div>
-                                  </form>
-                                </div>
-                              </div>
-                            </div>
-                            {# --- Fin Modale Reset MDP --- #}
-
+                            {# --- Modales (inchangées) --- #}
+                            <div class="modal fade" id="reduceBalanceModal{{ user.id }}" tabindex="-1"> <div class="modal-dialog"> <div class="modal-content"> <form action="{{ url_for('admin.reduce_balance', user_id=user.id) }}" method="post"> <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/> <div class="modal-header"> <h5 class="modal-title">{{ _('Action Fraude: %(user_name)s', user_name=user.full_name) }}</h5> <button type="button" class="btn-close" data-bs-dismiss="modal"></button> </div> <div class="modal-body"> <p>{{ _('Solde actuel: $ %(balance)s', balance= ("%.2f"|format(user.balance)) ) }}</p> <div class="mb-3"> <label for="reduction_amount_{{ user.id }}" class="form-label">{{ _('Montant à réduire ($)') }}</label> <input type="number" step="0.01" min="0.01" class="form-control" id="reduction_amount_{{ user.id }}" name="reduction_amount" required> </div> <div class="mb-3"> <label for="warning_message_{{ user.id }}" class="form-label">{{ _('Message d\'avertissement pour l\'utilisateur') }}</label> <textarea class="form-control" id="warning_message_{{ user.id }}" name="warning_message" rows="3" required></textarea> </div> <p class="text-muted"><small>{{ _('La réduction sera appliquée au solde et l\'avertissement sera enregistré.') }}</small></p> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Annuler') }}</button> <button type="submit" class="btn btn-danger">{{ _('Appliquer Réduction et Avertir') }}</button> </div> </form> </div> </div> </div>
+                            <div class="modal fade" id="addBalanceModal{{ user.id }}" tabindex="-1"> <div class="modal-dialog"> <div class="modal-content"> <form action="{{ url_for('admin.add_balance', user_id=user.id) }}" method="post"> <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/> <div class="modal-header"> <h5 class="modal-title">{{ _('Ajouter Solde/Bonus: %(user_name)s', user_name=user.full_name) }}</h5> <button type="button" class="btn-close" data-bs-dismiss="modal"></button> </div> <div class="modal-body"> <p>{{ _('Solde actuel: $ %(balance)s', balance= ("%.2f"|format(user.balance)) ) }}</p> <div class="mb-3"> <label for="amount_to_add_{{ user.id }}" class="form-label">{{ _('Montant à ajouter ($)') }}</label> <input type="number" step="0.01" min="0.01" class="form-control" id="amount_to_add_{{ user.id }}" name="amount_to_add" required> </div> <div class="mb-3"> <label for="reason_message_{{ user.id }}" class="form-label">{{ _('Raison / Description (pour l\'utilisateur)') }}</label> <textarea class="form-control" id="reason_message_{{ user.id }}" name="reason_message" rows="3" required></textarea> </div> <p class="text-muted"><small>{{ _('Le montant sera ajouté au solde et une notification sera enregistrée.') }}</small></p> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Annuler') }}</button> <button type="submit" class="btn btn-success">{{ _('Ajouter au Solde') }}</button> </div> </form> </div> </div> </div>
+                            <div class="modal fade" id="resetPasswordModal{{ user.id }}" tabindex="-1"> <div class="modal-dialog"> <div class="modal-content"> <form action="{{ url_for('admin.admin_reset_user_password', user_id=user.id) }}" method="post"> <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/> <div class="modal-header"> <h5 class="modal-title">{{ _('Réinitialiser MDP pour: %(user_name)s', user_name=user.full_name) }}</h5> <button type="button" class="btn-close" data-bs-dismiss="modal"></button> </div> <div class="modal-body"> <p class="text-danger text-wrap">{{ _("Attention : Ceci définira un nouveau mot de passe pour l'utilisateur. Vous devrez lui communiquer ce nouveau mot de passe manuellement (ex: via Telegram).") }}</p> <div class="mb-3"> <label for="new_password_{{ user.id }}" class="form-label">{{ _('Nouveau Mot de Passe Temporaire') }}</label> <input type="password" class="form-control" id="new_password_{{ user.id }}" name="new_password" required minlength="8"> </div> <div class="mb-3"> <label for="confirm_password_{{ user.id }}" class="form-label">{{ _('Confirmer le Nouveau Mot de Passe') }}</label> <input type="password" class="form-control" id="confirm_password_{{ user.id }}" name="confirm_password" required minlength="8"> </div> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Annuler') }}</button> <button type="submit" class="btn btn-danger">{{ _('Réinitialiser le Mot de Passe') }}</button> </div> </form> </div> </div> </div>
                         </td>
                     </tr>
                     {% endfor %}
