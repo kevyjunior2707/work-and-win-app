@@ -1,0 +1,119 @@
+{# app/admin/templates/manage_banners.html (NOUVEAU FICHIER) #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5"> {# Conteneur principal #}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1><i class="bi bi-images"></i> {{ title }}</h1>
+        {# Bouton pour aller à la page de création, ou on garde le formulaire ici ? #}
+        {# Pour l'instant, le formulaire d'ajout est sur cette page. #}
+    </div>
+    <p>{{ _('Gérez les bannières publicitaires affichées sur le site.')}}</p>
+    <hr>
+
+    {# Section pour Ajouter une Nouvelle Bannière #}
+    <h2>{{ _('Ajouter une Nouvelle Bannière') }}</h2>
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form action="{{ url_for('admin.manage_banners') }}" method="post" novalidate enctype="multipart/form-data">
+                {{ form.hidden_tag() }}
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        {{ form.banner_image.label(class="form-label") }}
+                        {{ form.banner_image(class="form-control form-control-sm" + (" is-invalid" if form.banner_image.errors else "")) }}
+                        {% if form.banner_image.errors %}<div class="invalid-feedback d-block">{% for error in form.banner_image.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.destination_url.label(class="form-label") }}
+                        {{ form.destination_url(class="form-control form-control-sm" + (" is-invalid" if form.destination_url.errors else ""), placeholder="https://...") }}
+                        {% if form.destination_url.errors %}<div class="invalid-feedback d-block">{% for error in form.destination_url.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.display_location.label(class="form-label") }}
+                        {{ form.display_location(class="form-select form-select-sm" + (" is-invalid" if form.display_location.errors else "")) }}
+                        {% if form.display_location.errors %}<div class="invalid-feedback d-block">{% for error in form.display_location.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+                    </div>
+                    <div class="col-md-12">
+                        <div class="form-check mt-2">
+                            {{ form.is_active(class="form-check-input") }}
+                            {{ form.is_active.label(class="form-check-label") }}
+                        </div>
+                    </div>
+                    <div class="col-md-12 text-end">
+                        {{ form.submit(class="btn btn-success btn-sm") }}
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {# Section pour Lister les Bannières Existantes #}
+    <h2>{{ _('Bannières Actuelles') }}</h2>
+    {% if not banners %}
+        <div class="alert alert-info">
+            {{ _('Aucune bannière n\'a été ajoutée pour le moment.') }}
+        </div>
+    {% else %}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover table-sm align-middle">
+                <thead>
+                    <tr>
+                        <th>{{ _('Aperçu') }}</th>
+                        <th>{{ _('URL Destination') }}</th>
+                        <th>{{ _('Emplacement') }}</th>
+                        <th>{{ _('Statut') }}</th>
+                        <th>{{ _('Actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for banner in banners %}
+                    <tr>
+                        <td>
+                            <img src="{{ url_for('static', filename='uploads/banners/' + banner.image_filename) }}" alt="{{ _('Bannière') }}" class="img-thumbnail" style="max-height: 50px; max-width: 150px; object-fit: contain;">
+                        </td>
+                        <td>
+                            {% if banner.destination_url %}
+                                <a href="{{ banner.destination_url }}" target="_blank">{{ banner.destination_url | truncate(30) }}</a>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if banner.display_location == 'top' %} {{ _('Haut') }}
+                            {% elif banner.display_location == 'bottom' %} {{ _('Bas') }}
+                            {% elif banner.display_location == 'top_bottom' %} {{ _('Haut et Bas') }}
+                            {% else %} {{ banner.display_location }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if banner.is_active %}
+                                <span class="badge bg-success">{{ _('Active') }}</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ _('Inactive') }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-nowrap">
+                            <a href="{{ url_for('admin.edit_banner', banner_id=banner.id) }}" class="btn btn-sm btn-outline-primary" title="{{ _('Modifier') }}"><i class="bi bi-pencil-square"></i></a>
+                            <form action="{{ url_for('admin.toggle_banner_active', banner_id=banner.id) }}" method="post" style="display: inline;">
+                                <button type="submit" class="btn btn-sm {% if banner.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}" title="{{ _('Activer/Désactiver') }}">
+                                    {% if banner.is_active %}<i class="bi bi-toggle-off"></i>{% else %}<i class="bi bi-toggle-on"></i>{% endif %}
+                                </button>
+                            </form>
+                            <form action="{{ url_for('admin.delete_banner', banner_id=banner.id) }}" method="post" style="display: inline;">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="{{ _('Supprimer') }}" onclick="return confirm('{{ _('Êtes-vous sûr de vouloir supprimer cette bannière ?') }}');"><i class="bi bi-trash3"></i></button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+
+    <div class="mt-4">
+        <a href="{{ url_for('admin.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left-circle"></i> {{ _('Retour au Panel Admin') }}</a>
+    </div>
+</div> {# <<< Fin Conteneur >>> #}
+{% endblock %}

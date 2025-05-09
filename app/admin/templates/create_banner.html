@@ -1,0 +1,90 @@
+{# app/admin/templates/create_banner.html (NOUVEAU FICHIER) #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5"> {# Conteneur principal #}
+    <h1>
+        {% if is_edit %}
+            <i class="bi bi-pencil-square"></i> {{ _('Modifier la Bannière') }} #{{ banner.id }}
+        {% else %}
+            <i class="bi bi-plus-circle-fill"></i> {{ _('Ajouter une Nouvelle Bannière') }}
+        {% endif %}
+    </h1>
+    <p>
+        {% if is_edit %}
+            {{ _('Modifiez les informations de la bannière ci-dessous.') }}
+        {% else %}
+            {{ _('Remplissez les informations ci-dessous pour ajouter une nouvelle bannière publicitaire.') }}
+        {% endif %}
+    </p>
+    <hr>
+
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-7">
+            {# Important: enctype="multipart/form-data" pour permettre l'upload de fichiers #}
+            <form method="post" novalidate enctype="multipart/form-data">
+                {{ form.hidden_tag() }}
+
+                {# Champ Image #}
+                <div class="mb-3">
+                    {{ form.banner_image.label(class="form-label") }}
+                    {{ form.banner_image(class="form-control" + (" is-invalid" if form.banner_image.errors else "")) }}
+                    {% if form.banner_image.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.banner_image.errors %}<span>{{ error }}</span>{% endfor %}
+                        </div>
+                    {% endif %}
+                    {% if is_edit and current_image %}
+                        <div class="mt-2">
+                            <small>{{ _('Image actuelle:') }}</small><br>
+                            <img src="{{ url_for('static', filename='uploads/banners/' + current_image) }}" alt="{{ _('Image actuelle de la bannière') }}" class="img-thumbnail mt-1" style="max-height: 100px; max-width: 300px; object-fit: contain;">
+                            <p><small class="text-muted">{{ _('Uploader une nouvelle image la remplacera.') }}</small></p>
+                        </div>
+                    {% endif %}
+                    <small class="form-text text-muted">{{ _('Dimensions recommandées : Largeur flexible, hauteur ~90px. Optimisez la taille du fichier.') }}</small>
+                </div>
+
+                {# URL de Destination #}
+                <div class="mb-3">
+                    {{ form.destination_url.label(class="form-label") }}
+                    {{ form.destination_url(class="form-control" + (" is-invalid" if form.destination_url.errors else ""), placeholder="https://www.example.com") }}
+                    {% if form.destination_url.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.destination_url.errors %}<span>{{ error }}</span>{% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                {# Emplacement d'Affichage #}
+                <div class="mb-3">
+                    {{ form.display_location.label(class="form-label") }}
+                    {{ form.display_location(class="form-select" + (" is-invalid" if form.display_location.errors else "")) }}
+                    {% if form.display_location.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.display_location.errors %}<span>{{ error }}</span>{% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                {# Activer la Bannière #}
+                <div class="mb-3 form-check">
+                    {{ form.is_active(class="form-check-input") }}
+                    {{ form.is_active.label(class="form-check-label") }}
+                </div>
+
+                {# Bouton Submit #}
+                <div class="mb-3">
+                    {% if is_edit %}
+                        {{ form.submit(value=_('Enregistrer les Modifications'), class="btn btn-primary") }}
+                    {% else %}
+                        {{ form.submit(value=_('Ajouter la Bannière'), class="btn btn-success") }}
+                    {% endif %}
+                    <a href="{{ url_for('admin.manage_banners') }}" class="btn btn-secondary">{{ _('Annuler') }}</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div> {# <<< Fin Conteneur >>> #}
+{% endblock %}

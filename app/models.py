@@ -1,4 +1,4 @@
-# app/models.py (VERSION COMPLÈTE v17 - Ajout is_daily à Task)
+# app/models.py (VERSION COMPLÈTE v18 - Ajout Modèle Banner)
 
 import secrets
 from datetime import datetime, timezone
@@ -35,15 +35,26 @@ class User(UserMixin, db.Model):
     is_verified = db.Column(db.Boolean, default=False, nullable=False, index=True)
 
     # --- Relations ---
+    # Relation vers l'utilisateur qui a parrainé CET utilisateur
     referrer = relationship('User', remote_side=[id], back_populates='referred_users')
+    # Relation vers les utilisateurs que CET utilisateur a parrainés
     referred_users = relationship('User', back_populates='referrer', foreign_keys=[referred_by_id])
+
+    # Relation vers les accomplissements faits par cet utilisateur
     completed_tasks_rel = relationship('UserTaskCompletion', back_populates='user', lazy='dynamic', foreign_keys='UserTaskCompletion.user_id')
+    # Relation vers les soumissions externes référées par cet utilisateur
     referred_completions = relationship('ExternalTaskCompletion', back_populates='referrer_user', lazy='dynamic', foreign_keys='ExternalTaskCompletion.referrer_user_id')
+    # Relation vers les retraits demandés par cet utilisateur
     withdrawals = relationship('Withdrawal', back_populates='requester', lazy='dynamic', foreign_keys='Withdrawal.user_id')
+    # Relation vers les notifications de cet utilisateur
     notifications = relationship('Notification', back_populates='user', lazy='dynamic', foreign_keys='Notification.user_id')
+
+    # Relations inverses (Admin)
     processed_withdrawals = relationship('Withdrawal', back_populates='processed_by_admin', lazy='dynamic', foreign_keys='Withdrawal.processed_by_admin_id')
     processed_external_completions = relationship('ExternalTaskCompletion', back_populates='processed_by_ext_admin', lazy='dynamic', foreign_keys='ExternalTaskCompletion.processed_by_admin_id')
     processed_commissions = relationship('ReferralCommission', back_populates='processed_by_admin', lazy='dynamic', foreign_keys='ReferralCommission.processed_by_admin_id')
+
+    # Relations pour les commissions de parrainage (inscription)
     commissions_earned = relationship('ReferralCommission', back_populates='referrer', lazy='dynamic', foreign_keys='ReferralCommission.referrer_id')
     commissions_generated = relationship('ReferralCommission', back_populates='referred_user', lazy='dynamic', foreign_keys='ReferralCommission.referred_user_id')
 
@@ -84,7 +95,7 @@ class User(UserMixin, db.Model):
 def load_user(id):
     return db.session.get(User, int(id))
 
-# --- Modèle Tâche (MODIFIÉ) ---
+# --- Modèle Tâche ---
 class Task(db.Model):
     __tablename__ = 'task'
     id = db.Column(db.Integer, primary_key=True)
@@ -98,9 +109,8 @@ class Task(db.Model):
     # proof_type_required = db.Column(db.String(50), default='text') # Ce champ n'est plus utilisé activement
     is_active = db.Column(db.Boolean, default=True)
     creation_date = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    image_filename = db.Column(db.String(256), nullable=True) # Ajouté précédemment
-    # <<< CHAMP AJOUTÉ ICI >>>
-    is_daily = db.Column(db.Boolean, default=False, nullable=False) # Tâche répétable quotidiennement ?
+    image_filename = db.Column(db.String(256), nullable=True) # Pour l'image mise en avant
+    is_daily = db.Column(db.Boolean, default=False, nullable=False) # Pour tâche quotidienne
 
     # Relations
     completions = db.relationship('UserTaskCompletion', back_populates='task', lazy='dynamic', foreign_keys='UserTaskCompletion.task_id')
@@ -187,3 +197,18 @@ class ReferralCommission(db.Model):
     originating_completion = relationship('UserTaskCompletion', back_populates='referral_commission_generated', foreign_keys=[originating_completion_id])
     processed_by_admin = relationship('User', back_populates='processed_commissions', foreign_keys=[processed_by_admin_id])
     def __repr__(self): return f'<ReferralCommission {self.id} - Referrer {self.referrer_id} from User {self.referred_user_id} - Amount {self.commission_amount} - Status {self.status}>'
+
+# <<< NOUVEAU MODÈLE Banner >>>
+class Banner(db.Model):
+    __tablename__ = 'banner'
+    id = db.Column(db.Integer, primary_key=True)
+    image_filename = db.Column(db.String(256), nullable=False) # Nom du fichier image
+    destination_url = db.Column(db.String(500), nullable=True) # URL si la bannière est cliquable
+    display_location = db.Column(db.String(50), nullable=False, default='top_bottom') # Ex: 'top', 'bottom', 'top_bottom'
+    is_active = db.Column(db.Boolean, default=False, nullable=False, index=True) # Pour activer/désactiver
+    uploaded_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    # clicks = db.Column(db.Integer, default=0) # Optionnel: pour suivre les clics
+
+    def __repr__(self):
+        return f'<Banner {self.id} - {self.image_filename} - Active: {self.is_active}>'
+# <<< FIN NOUVEAU MODÈLE Banner >>>

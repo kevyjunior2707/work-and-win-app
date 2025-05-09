@@ -1,61 +1,55 @@
-# app/admin/routes.py (VERSION COMPLÈTE v40 - Gestion is_daily Task)
+# app/admin/routes.py (VERSION COMPLÈTE v42 - Incluant is_daily et Gestion Bannières)
 
 from flask import render_template, redirect, url_for, flash, request, abort, current_app, send_from_directory
 from flask_login import login_required, current_user
 from flask_babel import _
 from app import db
 from app.admin import bp
-# Ajout AdminResetPasswordForm et AddAdminForm
-from app.forms import TaskForm, countries_choices_multi, devices_choices_multi, countries_choices_single, devices_choices_single, AdminResetPasswordForm, AddAdminForm
-# Ajout ReferralCommission et Withdrawal
-from app.models import Task, UserTaskCompletion, ExternalTaskCompletion, User, Withdrawal, Notification, ReferralCommission
-# Ajout super_admin_required
+# Ajout de BannerForm
+from app.forms import TaskForm, countries_choices_multi, devices_choices_multi, countries_choices_single, devices_choices_single, AdminResetPasswordForm, AddAdminForm, BannerForm
+# Ajout du modèle Banner
+from app.models import Task, UserTaskCompletion, ExternalTaskCompletion, User, Withdrawal, Notification, ReferralCommission, Banner
 from app.decorators import admin_required, super_admin_required
 from sqlalchemy import select, or_, func
 from sqlalchemy.orm import joinedload
-from datetime import datetime, timezone, timedelta # Ajout timedelta
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal, InvalidOperation
 import json
 import os
-import secrets # Ajout pour nom fichier image aléatoire
+import secrets
 from werkzeug.utils import secure_filename
-# Import pour générer le token CSRF
 from flask_wtf.csrf import generate_csrf
-# Ajout pour allowed_file (déjà présent dans main.routes, on le met ici aussi pour clarté)
-# Assurez-vous que cette fonction existe bien dans app/main/routes.py
-# Si ce n'est pas le cas, il faudra la copier ici ou la définir globalement.
-# Pour l'instant, on assume qu'elle est accessible via l'import.
+# Assurez-vous que cette fonction est bien définie dans app/main/routes.py
 from app.main.routes import allowed_file
 
-# --- Fonction utilitaire pour sauvegarder l'image de tâche ---
-def save_task_picture(form_picture):
+# --- Fonctions utilitaires pour images (tâches et bannières) ---
+def save_picture(form_picture, subfolder='tasks'):
     random_hex = secrets.token_hex(8)
     _, f_ext = os.path.splitext(form_picture.filename)
     picture_fn = random_hex + f_ext
-    upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'static/uploads'))
-    task_image_folder = os.path.join(upload_folder, 'tasks')
-    os.makedirs(task_image_folder, exist_ok=True)
-    picture_path = os.path.join(task_image_folder, picture_fn)
+    upload_folder_base = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'static/uploads'))
+    picture_folder = os.path.join(upload_folder_base, subfolder)
+    os.makedirs(picture_folder, exist_ok=True)
+    picture_path = os.path.join(picture_folder, picture_fn)
     try:
         form_picture.save(picture_path)
         return picture_fn
     except Exception as e:
-        print(f"Erreur sauvegarde image tâche: {e}")
-        flash(_('Erreur lors de la sauvegarde de l\'image de la tâche.'), 'danger')
+        print(f"Erreur sauvegarde image dans {subfolder}: {e}")
+        flash(_('Erreur lors de la sauvegarde de l\'image.'), 'danger')
         return None
 
-# --- Fonction utilitaire pour supprimer l'image de tâche ---
-def delete_task_picture(filename):
+def delete_picture(filename, subfolder='tasks'):
     if not filename: return
     try:
-        upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'static/uploads'))
-        task_image_folder = os.path.join(upload_folder, 'tasks')
-        file_path = os.path.join(task_image_folder, filename)
+        upload_folder_base = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'static/uploads'))
+        picture_folder = os.path.join(upload_folder_base, subfolder)
+        file_path = os.path.join(picture_folder, filename)
         if os.path.exists(file_path):
             os.remove(file_path)
-            print(f"Image tâche supprimée: {filename}")
+            print(f"Image supprimée de {subfolder}: {filename}")
     except Exception as e:
-        print(f"Erreur suppression image tâche {filename}: {e}")
+        print(f"Erreur suppression image {filename} de {subfolder}: {e}")
 
 # --- Route pour l'accueil Admin (Avec Graphiques) ---
 @bp.route('/')
@@ -90,9 +84,9 @@ def index():
     comp_dict = {row.month: row.count for row in completions_data}
     earn_dict = {row.month: float(row.total_reward or 0.0) for row in earnings_data}
     chart_labels = []
-    current_month = datetime.now(timezone.utc)
+    current_month_date = datetime.now(timezone.utc)
     for i in range(12):
-        month_label = (current_month - timedelta(days=i*30)).strftime('%Y-%m')
+        month_label = (current_month_date - timedelta(days=i*30)).strftime('%Y-%m')
         chart_labels.append(month_label)
     chart_labels.reverse()
     registrations_chart_data = [reg_dict.get(month, 0) for month in chart_labels]
@@ -104,11 +98,9 @@ def index():
         'completions': completions_chart_data,
         'earnings': earnings_chart_data
     }
-    return render_template('admin_home.html',
-                           title=_('Panneau Administrateur'),
-                           chart_data=chart_data)
+    return render_template('admin_home.html', title=_('Panneau Administrateur'), chart_data=chart_data)
 
-# --- Routes pour la gestion des Tâches (MODIFIÉES pour is_daily) ---
+# --- Routes pour la gestion des Tâches ---
 @bp.route('/tasks/new', methods=['GET', 'POST'])
 @login_required
 @admin_required
@@ -117,34 +109,32 @@ def create_task():
     if form.validate_on_submit():
         image_file = None
         if form.task_image.data:
-            image_file = save_task_picture(form.task_image.data)
+            image_file = save_picture(form.task_image.data, subfolder='tasks')
             if not image_file: return redirect(url_for('admin.create_task'))
-
         selected_countries = form.target_countries.data; countries_to_save = 'ALL' if 'ALL' in selected_countries or not selected_countries else ','.join(selected_countries)
         selected_devices = form.target_devices.data; devices_to_save = 'ALL' if 'ALL' in selected_devices or not selected_devices else ','.join(selected_devices)
-        is_active_task = form.is_active.data
         new_task = Task(
             title=form.title.data, description=form.description.data,
             instructions=form.instructions.data, task_link=form.task_link.data,
             reward_amount=form.reward_amount.data, target_countries=countries_to_save,
-            target_devices=devices_to_save, is_active=is_active_task,
+            target_devices=devices_to_save, is_active=form.is_active.data,
             image_filename=image_file,
-            is_daily=form.is_daily.data # <<< is_daily AJOUTÉ ICI >>>
+            is_daily=form.is_daily.data
         )
         try:
             db.session.add(new_task)
             db.session.commit()
             flash(_('La nouvelle tâche "%(title)s" a été créée avec succès !', title=new_task.title), 'success')
-            if is_active_task: # Logique de notification inchangée
+            if new_task.is_active:
                 target_country_list = countries_to_save.split(',') if countries_to_save != 'ALL' else []
                 target_device_list = devices_to_save.split(',') if devices_to_save != 'ALL' else []
-                query = select(User.id).where(User.is_admin == False, User.is_banned == False)
-                if countries_to_save != 'ALL' and target_country_list: query = query.where(User.country.in_(target_country_list))
-                if devices_to_save != 'ALL' and target_device_list: query = query.where(User.device.in_(target_device_list))
-                eligible_user_ids = db.session.scalars(query).all()
+                user_query = select(User.id).where(User.is_admin == False, User.is_banned == False)
+                if countries_to_save != 'ALL' and target_country_list: user_query = user_query.where(User.country.in_(target_country_list))
+                if devices_to_save != 'ALL' and target_device_list: user_query = user_query.where(User.device.in_(target_device_list))
+                eligible_user_ids = db.session.scalars(user_query).all()
                 if eligible_user_ids:
                     notifications_to_add = []
-                    for user_id_notif in eligible_user_ids: # Renommé user_id pour éviter conflit
+                    for user_id_notif in eligible_user_ids:
                         notif = Notification(user_id=user_id_notif, name='new_task_available', payload_json=json.dumps({'task_id': new_task.id, 'task_title': new_task.title}))
                         notifications_to_add.append(notif)
                     if notifications_to_add:
@@ -154,7 +144,7 @@ def create_task():
             return redirect(url_for('admin.list_tasks'))
         except Exception as e:
             db.session.rollback()
-            if image_file: delete_task_picture(image_file)
+            if image_file: delete_picture(image_file, subfolder='tasks')
             flash(_("Erreur lors de la création de la tâche : %(error)s", error=str(e)), 'danger')
     return render_template('create_task.html', title=_('Créer une Nouvelle Tâche'), form=form, is_edit=False)
 
@@ -177,40 +167,38 @@ def edit_task(task_id):
     task = db.session.get(Task, task_id) or abort(404)
     form = TaskForm(obj=task if request.method == 'GET' else None)
     old_image_filename = task.image_filename
-
     if request.method == 'GET':
         form.target_countries.data = task.target_countries.split(',') if task.target_countries and task.target_countries != 'ALL' else (['ALL'] if task.target_countries == 'ALL' else [])
         form.target_devices.data = task.target_devices.split(',') if task.target_devices and task.target_devices != 'ALL' else (['ALL'] if task.target_devices == 'ALL' else [])
-        form.is_daily.data = task.is_daily # <<< Pré-remplit is_daily >>>
-
+        form.is_daily.data = task.is_daily
     if form.validate_on_submit():
         new_image_filename = None
         if form.task_image.data:
-            new_image_filename = save_task_picture(form.task_image.data)
+            new_image_filename = save_picture(form.task_image.data, subfolder='tasks')
             if not new_image_filename:
                  return render_template('create_task.html', title=_('Modifier la Tâche'), form=form, is_edit=True, task_id=task_id, current_image=old_image_filename)
             else:
-                if old_image_filename: delete_task_picture(old_image_filename)
+                if old_image_filename: delete_picture(old_image_filename, subfolder='tasks')
                 task.image_filename = new_image_filename
         
         old_status = task.is_active
         selected_countries = form.target_countries.data; countries_to_save = 'ALL' if 'ALL' in selected_countries or not selected_countries else ','.join(selected_countries)
         selected_devices = form.target_devices.data; devices_to_save = 'ALL' if 'ALL' in selected_devices or not selected_devices else ','.join(selected_devices)
         task.title=form.title.data; task.description=form.description.data; task.instructions=form.instructions.data; task.task_link=form.task_link.data; task.reward_amount=form.reward_amount.data; task.target_countries=countries_to_save; task.target_devices=devices_to_save; task.is_active=form.is_active.data
-        task.is_daily=form.is_daily.data # <<< Met à jour is_daily >>>
+        task.is_daily=form.is_daily.data
         try:
             db.session.commit()
             flash(_('Tâche "%(title)s" mise à jour avec succès !', title=task.title), 'success')
-            if not old_status and task.is_active: # Logique de notification inchangée
+            if not old_status and task.is_active:
                 target_country_list = countries_to_save.split(',') if countries_to_save != 'ALL' else []
                 target_device_list = devices_to_save.split(',') if devices_to_save != 'ALL' else []
-                query = select(User.id).where(User.is_admin == False, User.is_banned == False)
-                if countries_to_save != 'ALL' and target_country_list: query = query.where(User.country.in_(target_country_list))
-                if devices_to_save != 'ALL' and target_device_list: query = query.where(User.device.in_(target_device_list))
-                eligible_user_ids = db.session.scalars(query).all()
+                user_query = select(User.id).where(User.is_admin == False, User.is_banned == False)
+                if countries_to_save != 'ALL' and target_country_list: user_query = user_query.where(User.country.in_(target_country_list))
+                if devices_to_save != 'ALL' and target_device_list: user_query = user_query.where(User.device.in_(target_device_list))
+                eligible_user_ids = db.session.scalars(user_query).all()
                 if eligible_user_ids:
                     notifications_to_add = [];
-                    for user_id_notif in eligible_user_ids: # Renommé user_id
+                    for user_id_notif in eligible_user_ids:
                         already_done = db.session.scalar(select(UserTaskCompletion.id).where(UserTaskCompletion.user_id==user_id_notif, UserTaskCompletion.task_id==task.id))
                         if not already_done:
                             notifications_to_add.append(Notification(user_id=user_id_notif, name='new_task_available', payload_json=json.dumps({'task_id': task.id, 'task_title': task.title})))
@@ -221,7 +209,7 @@ def edit_task(task_id):
             return redirect(url_for('admin.list_tasks'))
         except Exception as e:
             db.session.rollback()
-            if new_image_filename: delete_task_picture(new_image_filename)
+            if new_image_filename: delete_picture(new_image_filename, subfolder='tasks')
             flash(_("Erreur lors de la mise à jour de la tâche : %(error)s", error=str(e)), 'danger')
     return render_template('create_task.html', title=_('Modifier la Tâche'), form=form, is_edit=True, task_id=task_id, current_image=old_image_filename)
 
@@ -237,7 +225,7 @@ def delete_task(task_id):
         ec_stmt = db.delete(ExternalTaskCompletion).where(ExternalTaskCompletion.task_id == task_id); db.session.execute(ec_stmt)
         db.session.delete(task_to_delete)
         db.session.commit()
-        if image_to_delete: delete_task_picture(image_to_delete)
+        if image_to_delete: delete_picture(image_to_delete, subfolder='tasks')
         flash(_('Tâche "%(title)s" supprimée avec succès.', title=title_copy), 'success')
     except Exception as e: db.session.rollback(); flash(_('Erreur lors de la suppression : %(error)s', error=str(e)), 'danger')
     return redirect(url_for('admin.list_tasks'))
@@ -396,7 +384,7 @@ def send_message():
         try:
             if target_user_ids:
                 notifications_to_add = [];
-                for user_id_notif in target_user_ids: # Renommé user_id
+                for user_id_notif in target_user_ids:
                     notifications_to_add.append(Notification(user_id=user_id_notif, name='admin_message', payload_json=json.dumps({'subject': subject.strip(), 'message': body.strip()})))
                 if notifications_to_add:
                     db.session.add_all(notifications_to_add)
@@ -428,7 +416,7 @@ def approve_referral(completion_id):
     referrer = submission.referrer_user; task = submission.task
     if not referrer or not task: flash(_('Erreur : Utilisateur parrain ou tâche associée introuvable.'), 'danger'); return redirect(url_for('admin.list_pending_referrals'))
     try:
-        bonus_amount = Decimal(str(task.reward_amount or 0.0)) * Decimal('0.85'); # Bonus à 85%
+        bonus_amount = Decimal(str(task.reward_amount or 0.0)) * Decimal('0.85');
         referrer_balance_decimal = Decimal(str(referrer.balance or 0.0))
         submission.status = 'Approved'; submission.processed_timestamp = datetime.now(timezone.utc); submission.processed_by_admin_id = current_user.id; referrer.balance = float(referrer_balance_decimal + bonus_amount)
         notif = Notification(user_id=referrer.id, name='referral_bonus', payload_json=json.dumps({'message': _('Votre parrainage pour la tâche "%(task_title)s" a été approuvé !', task_title=task.title), 'amount': str(bonus_amount.quantize(Decimal("0.01")))}))
@@ -509,7 +497,7 @@ def statistics():
     if search_country: query_table = query_table.where(User.country == search_country)
     if search_device: query_table = query_table.where(User.device == search_device)
     query_table = query_table.order_by(User.country, User.device); results_table = db.session.execute(query_table).all()
-    date_format_string = 'YYYY-MM'
+    date_format_string = 'YYYY-MM' # Pour PostgreSQL
     registrations_by_month_query = db.select(func.to_char(User.registration_date, date_format_string).label('month'), func.count(User.id).label('count')).where(User.is_admin == False).group_by(func.to_char(User.registration_date, date_format_string)).order_by(func.to_char(User.registration_date, date_format_string))
     registrations_data = db.session.execute(registrations_by_month_query).all()
     completions_by_month_query = db.select(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string).label('month'), func.count(UserTaskCompletion.id).label('count')).group_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string)).order_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string))
@@ -531,9 +519,7 @@ def admin_reset_user_password(user_id):
     if user_to_reset.is_admin:
         flash(_('Vous ne pouvez pas réinitialiser le mot de passe d\'un administrateur via cette interface.'), 'danger')
         return redirect(url_for('admin.list_users'))
-
     form = AdminResetPasswordForm()
-
     if form.validate_on_submit():
         try:
             user_to_reset.set_password(form.new_password.data)
@@ -548,7 +534,6 @@ def admin_reset_user_password(user_id):
             for error in errors: error_msg = error; break
             break
         flash(error_msg, 'danger')
-
     return redirect(url_for('admin.list_users'))
 
 # --- Routes pour la Gestion des Admins (Super Admin Uniquement) ---
@@ -575,7 +560,6 @@ def manage_admins():
                 flash(_('Erreur lors de la promotion de l\'administrateur: %(error)s', error=str(e)), 'danger')
         else:
              flash(_('Utilisateur non trouvé.'), 'danger')
-
     admins = db.session.scalars(select(User).where(User.is_admin == True).order_by(User.full_name)).all()
     return render_template('manage_admins.html',
                            title=_('Gérer les Administrateurs'),
@@ -645,3 +629,105 @@ def demote_admin(user_id):
         db.session.rollback()
         flash(_('Erreur lors de la rétrogradation: %(error)s', error=str(e)), 'danger')
     return redirect(url_for('admin.manage_admins'))
+
+# <<< NOUVELLES ROUTES POUR LA GESTION DES BANNIÈRES >>>
+@bp.route('/banners', methods=['GET', 'POST'])
+@login_required
+@admin_required # Ou @super_admin_required si seul le super admin peut gérer
+def manage_banners():
+    form = BannerForm()
+    if form.validate_on_submit():
+        image_file = None
+        if form.banner_image.data:
+            image_file = save_picture(form.banner_image.data, subfolder='banners') # Sauvegarde dans static/uploads/banners/
+            if not image_file:
+                return redirect(url_for('admin.manage_banners'))
+
+        new_banner = Banner(
+            image_filename=image_file,
+            destination_url=form.destination_url.data or None,
+            display_location=form.display_location.data,
+            is_active=form.is_active.data
+        )
+        try:
+            db.session.add(new_banner)
+            db.session.commit()
+            flash(_('Nouvelle bannière ajoutée avec succès !'), 'success')
+            return redirect(url_for('admin.manage_banners'))
+        except Exception as e:
+            db.session.rollback()
+            if image_file: delete_picture(image_file, subfolder='banners')
+            flash(_("Erreur lors de l'ajout de la bannière : %(error)s", error=str(e)), 'danger')
+
+    banners = db.session.scalars(select(Banner).order_by(Banner.uploaded_at.desc())).all()
+    return render_template('manage_banners.html', title=_('Gérer les Bannières Publicitaires'), form=form, banners=banners)
+
+@bp.route('/banner/<int:banner_id>/edit', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_banner(banner_id):
+    banner = db.session.get(Banner, banner_id) or abort(404)
+    form = BannerForm(obj=banner if request.method == 'GET' else None)
+    old_image_filename = banner.image_filename
+
+    if form.validate_on_submit():
+        new_image_filename = None
+        if form.banner_image.data: # Si une nouvelle image est uploadée
+            new_image_filename = save_picture(form.banner_image.data, subfolder='banners')
+            if not new_image_filename:
+                return render_template('create_banner.html', title=_('Modifier la Bannière'), form=form, banner=banner, is_edit=True, current_image=old_image_filename)
+            else:
+                if old_image_filename:
+                    delete_picture(old_image_filename, subfolder='banners')
+                banner.image_filename = new_image_filename
+
+        banner.destination_url = form.destination_url.data or None
+        banner.display_location = form.display_location.data
+        banner.is_active = form.is_active.data
+        try:
+            db.session.commit()
+            flash(_('Bannière mise à jour avec succès !'), 'success')
+            return redirect(url_for('admin.manage_banners'))
+        except Exception as e:
+            db.session.rollback()
+            if new_image_filename and new_image_filename != old_image_filename:
+                delete_picture(new_image_filename, subfolder='banners')
+            flash(_("Erreur lors de la mise à jour de la bannière : %(error)s", error=str(e)), 'danger')
+    
+    # Pour GET, on ne pré-remplit pas form.banner_image.data car c'est un FileField
+    # Les autres champs sont pré-remplis par obj=banner
+    return render_template('create_banner.html', title=_('Modifier la Bannière'), form=form, banner=banner, is_edit=True, current_image=old_image_filename)
+
+
+@bp.route('/banner/<int:banner_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_banner(banner_id):
+    banner_to_delete = db.session.get(Banner, banner_id) or abort(404)
+    image_to_delete = banner_to_delete.image_filename
+    try:
+        db.session.delete(banner_to_delete)
+        db.session.commit()
+        if image_to_delete:
+            delete_picture(image_to_delete, subfolder='banners')
+        flash(_('Bannière supprimée avec succès.'), 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(_('Erreur lors de la suppression de la bannière : %(error)s', error=str(e)), 'danger')
+    return redirect(url_for('admin.manage_banners'))
+
+@bp.route('/banner/<int:banner_id>/toggle_active', methods=['POST'])
+@login_required
+@admin_required
+def toggle_banner_active(banner_id):
+    banner = db.session.get(Banner, banner_id) or abort(404)
+    try:
+        banner.is_active = not banner.is_active
+        db.session.commit()
+        status_msg = _('activée') if banner.is_active else _('désactivée')
+        flash(_('Bannière %(id)s %(status)s.', id=banner.id, status=status_msg), 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(_('Erreur lors du changement de statut de la bannière: %(error)s', error=str(e)), 'danger')
+    return redirect(url_for('admin.manage_banners'))
+# <<< FIN NOUVELLES ROUTES BANNIÈRES >>>
