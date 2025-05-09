@@ -1,14 +1,17 @@
-# app/admin/routes.py (VERSION COMPLÈTE v42 - Incluant is_daily et Gestion Bannières)
+# app/admin/routes.py (VERSION COMPLÈTE v43 - Blog + Toutes Fonctionnalités Précédentes)
 
 from flask import render_template, redirect, url_for, flash, request, abort, current_app, send_from_directory
 from flask_login import login_required, current_user
 from flask_babel import _
 from app import db
 from app.admin import bp
-# Ajout de BannerForm
-from app.forms import TaskForm, countries_choices_multi, devices_choices_multi, countries_choices_single, devices_choices_single, AdminResetPasswordForm, AddAdminForm, BannerForm
-# Ajout du modèle Banner
-from app.models import Task, UserTaskCompletion, ExternalTaskCompletion, User, Withdrawal, Notification, ReferralCommission, Banner
+# Ajout de BannerForm et PostForm
+from app.forms import (TaskForm, countries_choices_multi, devices_choices_multi,
+                       countries_choices_single, devices_choices_single,
+                       AdminResetPasswordForm, AddAdminForm, BannerForm, PostForm)
+# Ajout des modèles Banner et Post, et de la fonction slugify
+from app.models import (Task, UserTaskCompletion, ExternalTaskCompletion, User,
+                        Withdrawal, Notification, ReferralCommission, Banner, Post, slugify, Comment) # Comment ajouté
 from app.decorators import admin_required, super_admin_required
 from sqlalchemy import select, or_, func
 from sqlalchemy.orm import joinedload
@@ -19,10 +22,10 @@ import os
 import secrets
 from werkzeug.utils import secure_filename
 from flask_wtf.csrf import generate_csrf
-# Assurez-vous que cette fonction est bien définie dans app/main/routes.py
+# Assurez-vous que cette fonction est bien définie
 from app.main.routes import allowed_file
 
-# --- Fonctions utilitaires pour images (tâches et bannières) ---
+# --- Fonctions utilitaires pour images (tâches, bannières, articles) ---
 def save_picture(form_picture, subfolder='tasks'):
     random_hex = secrets.token_hex(8)
     _, f_ext = os.path.splitext(form_picture.filename)
@@ -51,34 +54,18 @@ def delete_picture(filename, subfolder='tasks'):
     except Exception as e:
         print(f"Erreur suppression image {filename} de {subfolder}: {e}")
 
-# --- Route pour l'accueil Admin (Avec Graphiques) ---
+# --- Route pour l'accueil Admin ---
 @bp.route('/')
 @login_required
 @admin_required
 def index():
     twelve_months_ago = datetime.now(timezone.utc) - timedelta(days=365)
     date_format_string = 'YYYY-MM'
-    registrations_by_month_query = db.select(
-            func.to_char(User.registration_date, date_format_string).label('month'),
-            func.count(User.id).label('count')
-        ).where(User.is_admin == False, User.registration_date >= twelve_months_ago)\
-        .group_by(func.to_char(User.registration_date, date_format_string))\
-        .order_by(func.to_char(User.registration_date, date_format_string))
+    registrations_by_month_query = db.select(func.to_char(User.registration_date, date_format_string).label('month'), func.count(User.id).label('count')).where(User.is_admin == False, User.registration_date >= twelve_months_ago).group_by(func.to_char(User.registration_date, date_format_string)).order_by(func.to_char(User.registration_date, date_format_string))
     registrations_data = db.session.execute(registrations_by_month_query).all()
-    completions_by_month_query = db.select(
-            func.to_char(UserTaskCompletion.completion_timestamp, date_format_string).label('month'),
-            func.count(UserTaskCompletion.id).label('count')
-        ).where(UserTaskCompletion.completion_timestamp >= twelve_months_ago)\
-        .group_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string))\
-        .order_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string))
+    completions_by_month_query = db.select(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string).label('month'), func.count(UserTaskCompletion.id).label('count')).where(UserTaskCompletion.completion_timestamp >= twelve_months_ago).group_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string)).order_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string))
     completions_data = db.session.execute(completions_by_month_query).all()
-    earnings_by_month_query = db.select(
-            func.to_char(UserTaskCompletion.completion_timestamp, date_format_string).label('month'),
-            func.sum(Task.reward_amount).label('total_reward')
-        ).join(Task, UserTaskCompletion.task_id == Task.id)\
-        .where(UserTaskCompletion.completion_timestamp >= twelve_months_ago)\
-        .group_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string))\
-        .order_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string))
+    earnings_by_month_query = db.select(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string).label('month'), func.sum(Task.reward_amount).label('total_reward')).join(Task, UserTaskCompletion.task_id == Task.id).where(UserTaskCompletion.completion_timestamp >= twelve_months_ago).group_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string)).order_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string))
     earnings_data = db.session.execute(earnings_by_month_query).all()
     reg_dict = {row.month: row.count for row in registrations_data}
     comp_dict = {row.month: row.count for row in completions_data}
@@ -230,7 +217,6 @@ def delete_task(task_id):
     except Exception as e: db.session.rollback(); flash(_('Erreur lors de la suppression : %(error)s', error=str(e)), 'danger')
     return redirect(url_for('admin.list_tasks'))
 
-# --- Route pour voir l'historique des accomplissements ---
 @bp.route('/completions')
 @login_required
 @admin_required
@@ -242,7 +228,6 @@ def list_completions():
     query = query.order_by(UserTaskCompletion.completion_timestamp.desc()); pagination = db.paginate(query, page=page, per_page=current_app.config['COMPLETIONS_PER_PAGE'], error_out=False); completions = pagination.items
     return render_template('completion_list.html', title=_('Historique des Accomplissements'), completions=completions, pagination=pagination, user_search=user_search, task_search=task_search)
 
-# --- Route pour afficher les utilisateurs/soldes et enregistrer les retraits ---
 @bp.route('/withdrawals')
 @login_required
 @admin_required
@@ -272,7 +257,6 @@ def list_withdrawals():
                            search_name=search_name,
                            search_email=search_email)
 
-# --- Route pour ENREGISTRER un retrait manuel ---
 @bp.route('/withdrawal/record/<int:user_id>', methods=['POST'])
 @login_required
 @admin_required
@@ -291,7 +275,6 @@ def record_withdrawal(user_id):
     except (InvalidOperation, ValueError, TypeError, Exception) as e: db.session.rollback(); flash(_('Erreur lors de l\'enregistrement du retrait : %(error)s', error=str(e)), 'danger')
     return redirect(url_for('admin.list_withdrawals', page_users=page_users))
 
-# --- Routes Gestion Utilisateurs ---
 @bp.route('/users')
 @login_required
 @admin_required
@@ -369,7 +352,6 @@ def add_balance(user_id):
     except (InvalidOperation, ValueError, TypeError, Exception) as e: db.session.rollback(); flash(_('Erreur : %(error)s', error=str(e)), 'danger')
     return redirect(url_for('admin.list_users'))
 
-# --- Route Messagerie Ciblée ---
 @bp.route('/messaging', methods=['GET', 'POST'])
 @login_required
 @admin_required
@@ -399,7 +381,6 @@ def send_message():
         return redirect(url_for('admin.send_message'))
     return render_template('send_message.html', title=_('Envoyer un Message Ciblé'), countries_list=countries_choices_single, devices_list=devices_choices_single)
 
-# --- Routes Approbation Parrainage (Lien Externe) ---
 @bp.route('/referrals/pending')
 @login_required
 @admin_required
@@ -438,7 +419,6 @@ def reject_referral(completion_id):
     except Exception as e: db.session.rollback(); flash(_('Erreur lors du rejet : %(error)s', error=str(e)), 'danger')
     return redirect(url_for('admin.list_pending_referrals'))
 
-# --- Routes Approbation Commissions (Parrainage Inscription) ---
 @bp.route('/commissions/pending')
 @login_required
 @admin_required
@@ -479,7 +459,6 @@ def reject_commission(commission_id):
     except Exception as e: db.session.rollback(); flash(_('Erreur lors du rejet de la commission : %(error)s', error=str(e)), 'danger')
     return redirect(url_for('admin.list_pending_commissions'))
 
-# --- Route Statistiques ---
 @bp.route('/statistics')
 @login_required
 @admin_required
@@ -497,7 +476,7 @@ def statistics():
     if search_country: query_table = query_table.where(User.country == search_country)
     if search_device: query_table = query_table.where(User.device == search_device)
     query_table = query_table.order_by(User.country, User.device); results_table = db.session.execute(query_table).all()
-    date_format_string = 'YYYY-MM' # Pour PostgreSQL
+    date_format_string = 'YYYY-MM'
     registrations_by_month_query = db.select(func.to_char(User.registration_date, date_format_string).label('month'), func.count(User.id).label('count')).where(User.is_admin == False).group_by(func.to_char(User.registration_date, date_format_string)).order_by(func.to_char(User.registration_date, date_format_string))
     registrations_data = db.session.execute(registrations_by_month_query).all()
     completions_by_month_query = db.select(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string).label('month'), func.count(UserTaskCompletion.id).label('count')).group_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string)).order_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string))
@@ -510,7 +489,6 @@ def statistics():
     chart_data = {'labels': chart_labels, 'registrations': registrations_chart_data, 'completions': completions_chart_data, 'earnings': earnings_chart_data}
     return render_template('statistics.html', title=_('Statistiques Détaillées'), stats=stats_summary, results=results_table, countries_list=countries_choices_single, devices_list=devices_choices_single, search_country=search_country, search_device=search_device, chart_data=chart_data)
 
-# --- Route pour que l'Admin réinitialise le MDP d'un utilisateur ---
 @bp.route('/user/<int:user_id>/reset-password', methods=['POST'])
 @login_required
 @admin_required
@@ -536,7 +514,6 @@ def admin_reset_user_password(user_id):
         flash(error_msg, 'danger')
     return redirect(url_for('admin.list_users'))
 
-# --- Routes pour la Gestion des Admins (Super Admin Uniquement) ---
 @bp.route('/manage-admins', methods=['GET', 'POST'])
 @login_required
 @super_admin_required
@@ -630,19 +607,18 @@ def demote_admin(user_id):
         flash(_('Erreur lors de la rétrogradation: %(error)s', error=str(e)), 'danger')
     return redirect(url_for('admin.manage_admins'))
 
-# <<< NOUVELLES ROUTES POUR LA GESTION DES BANNIÈRES >>>
+# --- Routes pour la Gestion des Bannières ---
 @bp.route('/banners', methods=['GET', 'POST'])
 @login_required
-@admin_required # Ou @super_admin_required si seul le super admin peut gérer
+@admin_required
 def manage_banners():
     form = BannerForm()
     if form.validate_on_submit():
         image_file = None
         if form.banner_image.data:
-            image_file = save_picture(form.banner_image.data, subfolder='banners') # Sauvegarde dans static/uploads/banners/
+            image_file = save_picture(form.banner_image.data, subfolder='banners')
             if not image_file:
                 return redirect(url_for('admin.manage_banners'))
-
         new_banner = Banner(
             image_filename=image_file,
             destination_url=form.destination_url.data or None,
@@ -658,7 +634,6 @@ def manage_banners():
             db.session.rollback()
             if image_file: delete_picture(image_file, subfolder='banners')
             flash(_("Erreur lors de l'ajout de la bannière : %(error)s", error=str(e)), 'danger')
-
     banners = db.session.scalars(select(Banner).order_by(Banner.uploaded_at.desc())).all()
     return render_template('manage_banners.html', title=_('Gérer les Bannières Publicitaires'), form=form, banners=banners)
 
@@ -669,10 +644,9 @@ def edit_banner(banner_id):
     banner = db.session.get(Banner, banner_id) or abort(404)
     form = BannerForm(obj=banner if request.method == 'GET' else None)
     old_image_filename = banner.image_filename
-
     if form.validate_on_submit():
         new_image_filename = None
-        if form.banner_image.data: # Si une nouvelle image est uploadée
+        if form.banner_image.data:
             new_image_filename = save_picture(form.banner_image.data, subfolder='banners')
             if not new_image_filename:
                 return render_template('create_banner.html', title=_('Modifier la Bannière'), form=form, banner=banner, is_edit=True, current_image=old_image_filename)
@@ -680,7 +654,6 @@ def edit_banner(banner_id):
                 if old_image_filename:
                     delete_picture(old_image_filename, subfolder='banners')
                 banner.image_filename = new_image_filename
-
         banner.destination_url = form.destination_url.data or None
         banner.display_location = form.display_location.data
         banner.is_active = form.is_active.data
@@ -693,11 +666,7 @@ def edit_banner(banner_id):
             if new_image_filename and new_image_filename != old_image_filename:
                 delete_picture(new_image_filename, subfolder='banners')
             flash(_("Erreur lors de la mise à jour de la bannière : %(error)s", error=str(e)), 'danger')
-    
-    # Pour GET, on ne pré-remplit pas form.banner_image.data car c'est un FileField
-    # Les autres champs sont pré-remplis par obj=banner
     return render_template('create_banner.html', title=_('Modifier la Bannière'), form=form, banner=banner, is_edit=True, current_image=old_image_filename)
-
 
 @bp.route('/banner/<int:banner_id>/delete', methods=['POST'])
 @login_required
@@ -730,4 +699,131 @@ def toggle_banner_active(banner_id):
         db.session.rollback()
         flash(_('Erreur lors du changement de statut de la bannière: %(error)s', error=str(e)), 'danger')
     return redirect(url_for('admin.manage_banners'))
-# <<< FIN NOUVELLES ROUTES BANNIÈRES >>>
+
+# <<< NOUVELLES ROUTES POUR LA GESTION DES ARTICLES DE BLOG >>>
+@bp.route('/blog/posts', methods=['GET', 'POST'])
+@login_required
+@admin_required # Ou @super_admin_required si vous voulez limiter
+def manage_posts():
+    form = PostForm()
+    if form.validate_on_submit():
+        image_file = None
+        if form.post_image.data:
+            image_file = save_picture(form.post_image.data, subfolder='blog_posts') # Sauvegarde dans static/uploads/blog_posts/
+            if not image_file:
+                # L'erreur flash est déjà dans save_picture
+                return redirect(url_for('admin.manage_posts')) # Redirige pour afficher le formulaire avec l'erreur
+
+        new_post = Post(
+            title=form.title.data,
+            content=form.content.data, # Pour l'instant, texte brut. Éditeur riche plus tard.
+            user_id=current_user.id, # L'admin connecté est l'auteur
+            image_filename=image_file,
+            allow_comments=form.allow_comments.data,
+            is_published=form.is_published.data,
+            slug=slugify(form.title.data) # Génère le slug à partir du titre
+        )
+        try:
+            db.session.add(new_post)
+            db.session.commit()
+            flash(_('Nouvel article de blog créé avec succès !'), 'success')
+            return redirect(url_for('admin.manage_posts'))
+        except Exception as e:
+            db.session.rollback()
+            if image_file: delete_picture(image_file, subfolder='blog_posts')
+            flash(_("Erreur lors de la création de l'article : %(error)s", error=str(e)), 'danger')
+
+    # Récupère tous les articles pour les afficher dans la liste
+    # On pourrait ajouter une pagination ici si la liste devient longue
+    posts = db.session.scalars(select(Post).order_by(Post.timestamp.desc())).all()
+    return render_template('manage_posts.html', title=_('Gérer les Articles de Blog'), form=form, posts=posts)
+
+@bp.route('/blog/post/<int:post_id>/edit', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_post(post_id):
+    post_to_edit = db.session.get(Post, post_id) or abort(404)
+    form = PostForm(obj=post_to_edit if request.method == 'GET' else None)
+    old_image_filename = post_to_edit.image_filename
+
+    if form.validate_on_submit():
+        new_image_filename = None
+        if form.post_image.data: # Si une nouvelle image est uploadée
+            new_image_filename = save_picture(form.post_image.data, subfolder='blog_posts')
+            if not new_image_filename:
+                # Reste sur la page d'édition pour afficher l'erreur
+                return render_template('create_post.html', title=_('Modifier l\'Article'), form=form, post=post_to_edit, is_edit=True, current_image=old_image_filename)
+            else:
+                if old_image_filename:
+                    delete_picture(old_image_filename, subfolder='blog_posts')
+                post_to_edit.image_filename = new_image_filename
+
+        post_to_edit.title = form.title.data
+        post_to_edit.slug = slugify(form.title.data) # Regénère le slug si le titre change
+        post_to_edit.content = form.content.data
+        post_to_edit.allow_comments = form.allow_comments.data
+        post_to_edit.is_published = form.is_published.data
+        # post_to_edit.user_id ne change pas (l'auteur reste le même)
+        try:
+            db.session.commit()
+            flash(_('Article "%(title)s" mis à jour avec succès !', title=post_to_edit.title), 'success')
+            return redirect(url_for('admin.manage_posts'))
+        except Exception as e:
+            db.session.rollback()
+            if new_image_filename and new_image_filename != old_image_filename:
+                delete_picture(new_image_filename, subfolder='blog_posts')
+            flash(_("Erreur lors de la mise à jour de l'article : %(error)s", error=str(e)), 'danger')
+    
+    # Pour GET, pré-remplit le formulaire (sauf le champ image)
+    return render_template('create_post.html', title=_('Modifier l\'Article'), form=form, post=post_to_edit, is_edit=True, current_image=old_image_filename)
+
+@bp.route('/blog/post/<int:post_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_post(post_id):
+    post_to_delete = db.session.get(Post, post_id) or abort(404)
+    title_copy = post_to_delete.title
+    image_to_delete = post_to_delete.image_filename
+    try:
+        # Supprime d'abord les commentaires associés (à cause de cascade="all, delete-orphan")
+        # Si on supprime le post, les commentaires liés seront aussi supprimés par SQLAlchemy
+        db.session.delete(post_to_delete)
+        db.session.commit()
+        if image_to_delete:
+            delete_picture(image_to_delete, subfolder='blog_posts')
+        flash(_('Article "%(title)s" et ses commentaires supprimés avec succès.', title=title_copy), 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(_('Erreur lors de la suppression de l\'article : %(error)s', error=str(e)), 'danger')
+    return redirect(url_for('admin.manage_posts'))
+
+@bp.route('/blog/post/<int:post_id>/toggle_published', methods=['POST'])
+@login_required
+@admin_required
+def toggle_post_published(post_id):
+    post = db.session.get(Post, post_id) or abort(404)
+    try:
+        post.is_published = not post.is_published
+        db.session.commit()
+        status_msg = _('publié') if post.is_published else _('dépublié (brouillon)')
+        flash(_('Article "%(title)s" maintenant %(status)s.', title=post.title, status=status_msg), 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(_('Erreur lors du changement de statut de publication: %(error)s', error=str(e)), 'danger')
+    return redirect(url_for('admin.manage_posts'))
+
+@bp.route('/blog/post/<int:post_id>/toggle_comments', methods=['POST'])
+@login_required
+@admin_required
+def toggle_post_comments(post_id):
+    post = db.session.get(Post, post_id) or abort(404)
+    try:
+        post.allow_comments = not post.allow_comments
+        db.session.commit()
+        status_msg = _('autorisés') if post.allow_comments else _('désactivés')
+        flash(_('Commentaires pour l\'article "%(title)s" maintenant %(status)s.', title=post.title, status=status_msg), 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(_('Erreur lors du changement de statut des commentaires: %(error)s', error=str(e)), 'danger')
+    return redirect(url_for('admin.manage_posts'))
+# <<< FIN NOUVELLES ROUTES BLOG >>>

@@ -1,4 +1,4 @@
-{# app/admin/templates/admin_home.html (Texte 85%) #}
+{# app/admin/templates/admin_home.html (Ajout Lien Gestion Articles Blog) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -87,10 +87,8 @@
             <div class="card h-100 shadow-sm w-100">
                  <div class="card-body d-flex flex-column">
                     <h5 class="card-title"><i class="bi bi-patch-question-fill"></i> {{ _('Approbations Parrainages') }}</h5>
-                    {# <<< CORRECTION TEXTE ICI >>> #}
                     <p class="card-text flex-grow-1"><small>{{ _('Approuver/rejeter les preuves externes (bonus 85%%) et les commissions (3%%).') }}</small></p>
                     <div class="mt-auto">
-                        {# <<< CORRECTION TEXTE ICI >>> #}
                         <a href="{{ url_for('admin.list_pending_referrals') }}" class="btn btn-warning btn-sm">{{ _('Soumissions Externes (85%%)') }}</a>
                         <a href="{{ url_for('admin.list_pending_commissions') }}" class="btn btn-warning btn-sm mt-1">{{ _('Commissions Filleuls (3%%)') }}</a>
                     </div>
@@ -124,10 +122,10 @@
          {# Gestion Admins (Conditionnel) #}
          {% if current_user.is_super_admin %}
          <div class="col-md-6 col-lg-4 d-flex align-items-stretch">
-            <div class="card h-100 shadow-sm border-danger w-100"> {# Bordure rouge pour Super Admin #}
+            <div class="card h-100 shadow-sm border-danger w-100">
                  <div class="card-body d-flex flex-column">
                     <h5 class="card-title text-danger"><i class="bi bi-person-badge"></i> {{ _('Gérer les Admins') }}</h5>
-                    <p class="card-text flex-grow-1"><small>{{ _('Ajouter, promouvoir ou retirer des privilèges administrateur (Super Admin requis).') }}</small></p>
+                    <p class="card-text flex-grow-1"><small>{{ _('Ajouter, promouvoir ou retirer des privilèges administrateur.') }}</small></p>
                     <div class="mt-auto">
                         <a href="{{ url_for('admin.manage_admins') }}" class="btn btn-danger btn-sm">{{ _('Gérer les Admins') }}</a>
                     </div>
@@ -135,6 +133,31 @@
             </div>
         </div>
         {% endif %}
+        {# Gestion des Bannières #}
+        <div class="col-md-6 col-lg-4 d-flex align-items-stretch">
+            <div class="card h-100 shadow-sm w-100">
+                 <div class="card-body d-flex flex-column">
+                    <h5 class="card-title"><i class="bi bi-images"></i> {{ _('Gestion des Bannières') }}</h5>
+                    <p class="card-text flex-grow-1"><small>{{ _('Ajouter, modifier ou supprimer les bannières publicitaires du site.') }}</small></p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('admin.manage_banners') }}" class="btn btn-primary btn-sm">{{ _('Gérer les Bannières') }}</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {# <<< NOUVELLE CARTE : Gestion des Articles de Blog >>> #}
+        <div class="col-md-6 col-lg-4 d-flex align-items-stretch">
+            <div class="card h-100 shadow-sm w-100">
+                 <div class="card-body d-flex flex-column">
+                    <h5 class="card-title"><i class="bi bi-pencil-square"></i> {{ _('Gestion du Blog') }}</h5>
+                    <p class="card-text flex-grow-1"><small>{{ _('Écrire, modifier ou supprimer des articles de blog.') }}</small></p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('admin.manage_posts') }}" class="btn btn-primary btn-sm">{{ _('Gérer les Articles') }}</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {# <<< FIN NOUVELLE CARTE >>> #}
     </div>
     {# --- Fin Actions Rapides --- #}
 
@@ -168,7 +191,7 @@
                 createLineChart('completionsChart', '{{ _("Accomplissements") }}', chartData.completions, wwGray);
                 createLineChart('earningsChart', '{{ _("Gains ($)") }}', chartData.earnings, wwGreen);
             } else {
-                console.log("No chart data available to render.");
+                console.log("No chart data available to render for admin home.");
             }
         });
     </script>

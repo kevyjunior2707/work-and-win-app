@@ -1,0 +1,98 @@
+{# app/admin/templates/create_post.html (NOUVEAU FICHIER) #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5"> {# Conteneur principal #}
+    <h1>
+        {% if is_edit %}
+            <i class="bi bi-pencil-square"></i> {{ _('Modifier l\'Article') }} #{{ post.id }}
+        {% else %}
+            <i class="bi bi-file-earmark-plus-fill"></i> {{ _('Créer un Nouvel Article') }}
+        {% endif %}
+    </h1>
+    <p>
+        {% if is_edit %}
+            {{ _('Modifiez les informations de l\'article ci-dessous.') }}
+        {% else %}
+            {{ _('Remplissez les informations ci-dessous pour ajouter un nouvel article au blog.') }}
+        {% endif %}
+    </p>
+    <hr>
+
+    <div class="row justify-content-center">
+        <div class="col-md-10 col-lg-8"> {# Colonne un peu plus large pour l'éditeur de texte #}
+            {# Important: enctype="multipart/form-data" pour permettre l'upload de fichiers #}
+            <form method="post" novalidate enctype="multipart/form-data">
+                {{ form.hidden_tag() }}
+
+                {# Titre de l'article #}
+                <div class="mb-3">
+                    {{ form.title.label(class="form-label") }}
+                    {{ form.title(class="form-control" + (" is-invalid" if form.title.errors else "")) }}
+                    {% if form.title.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.title.errors %}<span>{{ error }}</span>{% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                {# Contenu de l'article #}
+                {# Pour l'instant, un simple TextArea. Un éditeur riche (WYSIWYG) comme TinyMCE ou CKEditor #}
+                {# nécessiterait une intégration JavaScript plus complexe. #}
+                <div class="mb-3">
+                    {{ form.content.label(class="form-label") }}
+                    {{ form.content(class="form-control" + (" is-invalid" if form.content.errors else ""), rows="15") }}
+                    {% if form.content.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.content.errors %}<span>{{ error }}</span>{% endfor %}
+                        </div>
+                    {% endif %}
+                    <small class="form-text text-muted">{{ _('Vous pouvez utiliser des balises HTML simples pour la mise en forme (ex: <b>gras</b>, <i>italique</i>, <br> pour saut de ligne, <a href="...">lien</a>).') }}</small>
+                </div>
+
+                {# Image Mise en Avant pour l'article #}
+                <div class="mb-3">
+                    {{ form.post_image.label(class="form-label") }}
+                    {{ form.post_image(class="form-control" + (" is-invalid" if form.post_image.errors else "")) }}
+                    {% if form.post_image.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.post_image.errors %}<span>{{ error }}</span>{% endfor %}
+                        </div>
+                    {% endif %}
+                    {% if is_edit and current_image %} {# current_image est passé depuis la route edit_post #}
+                        <div class="mt-2">
+                            <small>{{ _('Image actuelle:') }}</small><br>
+                            <img src="{{ url_for('static', filename='uploads/blog_posts/' + current_image) }}" alt="{{ _('Image actuelle de l\'article') }}" class="img-thumbnail mt-1" style="max-height: 150px; max-width: 400px; object-fit: contain;">
+                            <p><small class="text-muted">{{ _('Uploader une nouvelle image la remplacera.') }}</small></p>
+                        </div>
+                    {% endif %}
+                </div>
+
+                {# Autoriser les commentaires #}
+                <div class="mb-3 form-check">
+                    {{ form.allow_comments(class="form-check-input") }}
+                    {{ form.allow_comments.label(class="form-check-label") }}
+                </div>
+
+                {# Publier l'article #}
+                <div class="mb-3 form-check">
+                    {{ form.is_published(class="form-check-input") }}
+                    {{ form.is_published.label(class="form-check-label") }}
+                </div>
+
+                {# Bouton Submit #}
+                <div class="mb-3">
+                    {% if is_edit %}
+                        {{ form.submit(value=_('Enregistrer les Modifications'), class="btn btn-primary") }}
+                    {% else %}
+                        {{ form.submit(value=_('Créer l\'Article'), class="btn btn-success") }}
+                    {% endif %}
+                    <a href="{{ url_for('admin.manage_posts') }}" class="btn btn-secondary">{{ _('Annuler') }}</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div> {# <<< Fin Conteneur >>> #}
+{% endblock %}

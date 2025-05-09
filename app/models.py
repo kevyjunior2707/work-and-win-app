@@ -1,4 +1,4 @@
-# app/models.py (VERSION COMPLÈTE v18 - Ajout Modèle Banner)
+# app/models.py (VERSION COMPLÈTE v19 - Ajout Post et Comment)
 
 import secrets
 from datetime import datetime, timezone
@@ -6,10 +6,17 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 from sqlalchemy.orm import relationship
 from app import db, login
-# Ajout pour les tokens
-from flask import current_app
+from flask import current_app, url_for # url_for ajouté pour slug
 from itsdangerous import URLSafeTimedSerializer as Serializer
 from itsdangerous import SignatureExpired, BadSignature
+import re # Pour la génération de slug
+
+# --- Fonction pour générer un slug ---
+def slugify(text):
+    # Remplace les caractères non alphanumériques par des tirets
+    text = re.sub(r'[^\w\s-]', '', text).strip().lower()
+    text = re.sub(r'[-\s]+', '-', text)
+    return text
 
 # --- Modèle Utilisateur ---
 class User(UserMixin, db.Model):
@@ -35,67 +42,40 @@ class User(UserMixin, db.Model):
     is_verified = db.Column(db.Boolean, default=False, nullable=False, index=True)
 
     # --- Relations ---
-    # Relation vers l'utilisateur qui a parrainé CET utilisateur
     referrer = relationship('User', remote_side=[id], back_populates='referred_users')
-    # Relation vers les utilisateurs que CET utilisateur a parrainés
     referred_users = relationship('User', back_populates='referrer', foreign_keys=[referred_by_id])
-
-    # Relation vers les accomplissements faits par cet utilisateur
     completed_tasks_rel = relationship('UserTaskCompletion', back_populates='user', lazy='dynamic', foreign_keys='UserTaskCompletion.user_id')
-    # Relation vers les soumissions externes référées par cet utilisateur
     referred_completions = relationship('ExternalTaskCompletion', back_populates='referrer_user', lazy='dynamic', foreign_keys='ExternalTaskCompletion.referrer_user_id')
-    # Relation vers les retraits demandés par cet utilisateur
     withdrawals = relationship('Withdrawal', back_populates='requester', lazy='dynamic', foreign_keys='Withdrawal.user_id')
-    # Relation vers les notifications de cet utilisateur
     notifications = relationship('Notification', back_populates='user', lazy='dynamic', foreign_keys='Notification.user_id')
-
-    # Relations inverses (Admin)
     processed_withdrawals = relationship('Withdrawal', back_populates='processed_by_admin', lazy='dynamic', foreign_keys='Withdrawal.processed_by_admin_id')
     processed_external_completions = relationship('ExternalTaskCompletion', back_populates='processed_by_ext_admin', lazy='dynamic', foreign_keys='ExternalTaskCompletion.processed_by_admin_id')
     processed_commissions = relationship('ReferralCommission', back_populates='processed_by_admin', lazy='dynamic', foreign_keys='ReferralCommission.processed_by_admin_id')
-
-    # Relations pour les commissions de parrainage (inscription)
     commissions_earned = relationship('ReferralCommission', back_populates='referrer', lazy='dynamic', foreign_keys='ReferralCommission.referrer_id')
     commissions_generated = relationship('ReferralCommission', back_populates='referred_user', lazy='dynamic', foreign_keys='ReferralCommission.referred_user_id')
+    # <<< NOUVELLES RELATIONS BLOG >>>
+    posts = relationship('Post', back_populates='author', lazy='dynamic', foreign_keys='Post.user_id')
+    comments = relationship('Comment', back_populates='author', lazy='dynamic', foreign_keys='Comment.user_id')
 
-
-    # --- Méthodes ---
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._generate_referral_code()
-
+    def __init__(self, **kwargs): super().__init__(**kwargs); self._generate_referral_code()
     def _generate_referral_code(self):
-        if not self.referral_code:
-            self.referral_code = secrets.token_hex(8)
-
-    def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
-
-    def check_password(self, password):
-        return check_password_hash(self.password_hash, password) if self.password_hash else False
-
+        if not self.referral_code: self.referral_code = secrets.token_hex(8)
+    def set_password(self, password): self.password_hash = generate_password_hash(password)
+    def check_password(self, password): return check_password_hash(self.password_hash, password) if self.password_hash else False
     def get_verification_token(self, expires_sec=1800):
         s = Serializer(current_app.config['SECRET_KEY'])
         return s.dumps({'user_id': self.id})
-
     @staticmethod
     def verify_verification_token(token, expires_sec=1800):
         s = Serializer(current_app.config['SECRET_KEY'])
-        try:
-            data = s.loads(token, max_age=expires_sec)
-            user_id = data.get('user_id')
-        except (SignatureExpired, BadSignature, Exception): # Catching generic Exception too
-             return None
+        try: data = s.loads(token, max_age=expires_sec); user_id = data.get('user_id')
+        except (SignatureExpired, BadSignature, Exception): return None
         return db.session.get(User, user_id)
-
-    def __repr__(self):
-        return f'<User {self.full_name} ({self.email})>'
+    def __repr__(self): return f'<User {self.full_name} ({self.email})>'
 
 @login.user_loader
-def load_user(id):
-    return db.session.get(User, int(id))
+def load_user(id): return db.session.get(User, int(id))
 
-# --- Modèle Tâche ---
 class Task(db.Model):
     __tablename__ = 'task'
     id = db.Column(db.Integer, primary_key=True)
@@ -106,33 +86,27 @@ class Task(db.Model):
     reward_amount = db.Column(db.Float, nullable=False, default=0.0)
     target_countries = db.Column(db.Text, nullable=True)
     target_devices = db.Column(db.Text, nullable=True)
-    # proof_type_required = db.Column(db.String(50), default='text') # Ce champ n'est plus utilisé activement
     is_active = db.Column(db.Boolean, default=True)
     creation_date = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    image_filename = db.Column(db.String(256), nullable=True) # Pour l'image mise en avant
-    is_daily = db.Column(db.Boolean, default=False, nullable=False) # Pour tâche quotidienne
-
-    # Relations
+    image_filename = db.Column(db.String(256), nullable=True)
+    is_daily = db.Column(db.Boolean, default=False, nullable=False)
     completions = db.relationship('UserTaskCompletion', back_populates='task', lazy='dynamic', foreign_keys='UserTaskCompletion.task_id')
     external_completions = db.relationship('ExternalTaskCompletion', back_populates='task', lazy='dynamic', foreign_keys='ExternalTaskCompletion.task_id')
     def get_target_countries_list(self): return ['ALL'] if not self.target_countries or self.target_countries.upper() == 'ALL' else [c.strip().upper() for c in self.target_countries.split(',')]
     def get_target_devices_list(self): return ['ALL'] if not self.target_devices or self.target_devices.upper() == 'ALL' else [d.strip().capitalize() for d in self.target_devices.split(',')]
     def __repr__(self): return f'<Task {self.id}: {self.title}>'
 
-# --- Modèle UserTaskCompletion ---
 class UserTaskCompletion(db.Model):
     __tablename__ = 'user_task_completion'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     task_id = db.Column(db.Integer, db.ForeignKey('task.id'))
     completion_timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    # Relations
     user = relationship('User', back_populates='completed_tasks_rel', foreign_keys=[user_id])
     task = relationship('Task', back_populates='completions', foreign_keys=[task_id])
     referral_commission_generated = relationship('ReferralCommission', back_populates='originating_completion', uselist=False, foreign_keys='ReferralCommission.originating_completion_id')
     def __repr__(self): return f'<User {self.user_id} completed Task {self.task_id}>'
 
-# --- Modèle ExternalTaskCompletion ---
 class ExternalTaskCompletion(db.Model):
     __tablename__ = 'external_task_completion'
     id = db.Column(db.Integer, primary_key=True)
@@ -145,13 +119,11 @@ class ExternalTaskCompletion(db.Model):
     processed_timestamp = db.Column(db.DateTime, nullable=True)
     processed_by_admin_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     screenshot_filename = db.Column(db.String(256), nullable=True)
-    # Relations
     task = relationship('Task', back_populates='external_completions', foreign_keys=[task_id])
     referrer_user = relationship('User', back_populates='referred_completions', foreign_keys=[referrer_user_id])
     processed_by_ext_admin = relationship('User', back_populates='processed_external_completions', foreign_keys=[processed_by_admin_id])
     def __repr__(self): return f'<External Completion Task {self.task_id} via Referrer {self.referrer_user_id} - Status: {self.status}>'
 
-# --- Modèle Withdrawal ---
 class Withdrawal(db.Model):
     __tablename__ = 'withdrawal'
     id = db.Column(db.Integer, primary_key=True)
@@ -161,12 +133,10 @@ class Withdrawal(db.Model):
     processed_timestamp = db.Column(db.DateTime, nullable=True)
     status = db.Column(db.String(20), default='Pending')
     processed_by_admin_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
-    # Relations
     requester = relationship('User', back_populates='withdrawals', foreign_keys=[user_id])
     processed_by_admin = relationship('User', back_populates='processed_withdrawals', foreign_keys=[processed_by_admin_id])
     def __repr__(self): return f'<Withdrawal {self.id} - User {self.user_id} - Amount {self.amount} - Status: {self.status}>'
 
-# --- Modèle Notification ---
 class Notification(db.Model):
     __tablename__ = 'notification'
     id = db.Column(db.Integer, primary_key=True)
@@ -175,11 +145,9 @@ class Notification(db.Model):
     payload_json = db.Column(db.Text)
     timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     is_read = db.Column(db.Boolean, default=False)
-    # Relations
     user = relationship('User', back_populates='notifications', foreign_keys=[user_id])
     def __repr__(self): return f'<Notification {self.name} for User {self.user_id}>'
 
-# --- Modèle pour les Commissions de Parrainage (Inscription) ---
 class ReferralCommission(db.Model):
     __tablename__ = 'referral_commission'
     id = db.Column(db.Integer, primary_key=True)
@@ -191,24 +159,60 @@ class ReferralCommission(db.Model):
     creation_timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     processed_timestamp = db.Column(db.DateTime, nullable=True)
     processed_by_admin_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
-    # Relations
     referrer = relationship('User', back_populates='commissions_earned', foreign_keys=[referrer_id])
     referred_user = relationship('User', back_populates='commissions_generated', foreign_keys=[referred_user_id])
     originating_completion = relationship('UserTaskCompletion', back_populates='referral_commission_generated', foreign_keys=[originating_completion_id])
     processed_by_admin = relationship('User', back_populates='processed_commissions', foreign_keys=[processed_by_admin_id])
     def __repr__(self): return f'<ReferralCommission {self.id} - Referrer {self.referrer_id} from User {self.referred_user_id} - Amount {self.commission_amount} - Status {self.status}>'
 
-# <<< NOUVEAU MODÈLE Banner >>>
 class Banner(db.Model):
     __tablename__ = 'banner'
     id = db.Column(db.Integer, primary_key=True)
-    image_filename = db.Column(db.String(256), nullable=False) # Nom du fichier image
-    destination_url = db.Column(db.String(500), nullable=True) # URL si la bannière est cliquable
-    display_location = db.Column(db.String(50), nullable=False, default='top_bottom') # Ex: 'top', 'bottom', 'top_bottom'
-    is_active = db.Column(db.Boolean, default=False, nullable=False, index=True) # Pour activer/désactiver
+    image_filename = db.Column(db.String(256), nullable=False)
+    destination_url = db.Column(db.String(500), nullable=True)
+    display_location = db.Column(db.String(50), nullable=False, default='top_bottom')
+    is_active = db.Column(db.Boolean, default=False, nullable=False, index=True)
     uploaded_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    # clicks = db.Column(db.Integer, default=0) # Optionnel: pour suivre les clics
+    clicks = db.Column(db.Integer, default=0)
+    def __repr__(self): return f'<Banner {self.id} - {self.image_filename} - Active: {self.is_active}>'
+
+# <<< NOUVEAU MODÈLE Post >>>
+class Post(db.Model):
+    __tablename__ = 'post'
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(250), nullable=False)
+    slug = db.Column(db.String(250), nullable=False, unique=True, index=True) # Pour des URLs propres
+    content = db.Column(db.Text, nullable=False) # Sera du HTML depuis l'éditeur riche
+    timestamp = db.Column(db.DateTime, index=True, default=lambda: datetime.now(timezone.utc))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False) # Auteur de l'article
+    image_filename = db.Column(db.String(256), nullable=True) # Image mise en avant pour l'article
+    allow_comments = db.Column(db.Boolean, default=True, nullable=False)
+    is_published = db.Column(db.Boolean, default=False, nullable=False, index=True) # Pour brouillons/publiés
+
+    author = relationship('User', back_populates='posts')
+    comments = relationship('Comment', back_populates='post', lazy='dynamic', cascade="all, delete-orphan")
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if self.title and not self.slug: # Génère le slug si non fourni
+            self.slug = slugify(self.title)
 
     def __repr__(self):
-        return f'<Banner {self.id} - {self.image_filename} - Active: {self.is_active}>'
-# <<< FIN NOUVEAU MODÈLE Banner >>>
+        return f'<Post {self.title}>'
+
+# <<< NOUVEAU MODÈLE Comment >>>
+class Comment(db.Model):
+    __tablename__ = 'comment'
+    id = db.Column(db.Integer, primary_key=True)
+    body = db.Column(db.Text, nullable=False)
+    timestamp = db.Column(db.DateTime, index=True, default=lambda: datetime.now(timezone.utc))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False) # Auteur du commentaire
+    post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False) # Article commenté
+    is_approved = db.Column(db.Boolean, default=True, nullable=False) # Pour modération
+
+    author = relationship('User', back_populates='comments')
+    post = relationship('Post', back_populates='comments')
+
+    def __repr__(self):
+        return f'<Comment {self.id} by User {self.user_id} on Post {self.post_id}>'
+    

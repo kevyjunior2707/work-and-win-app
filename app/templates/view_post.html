@@ -1,0 +1,97 @@
+{# app/templates/view_post.html (NOUVEAU FICHIER) #}
+{% extends "base.html" %}
+
+{% block title %}{{ post.title }} - {{ _('Blog') }}{% endblock %}
+
+{% block head_extra %}
+{# Optionnel: Ajouter des méta-tags spécifiques pour le SEO de l'article ici si besoin #}
+<meta name="description" content="{{ post.content | striptags | truncate(160) }}">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8"> {# Colonne principale pour l'article #}
+
+            <article class="blog-post">
+                <h1 class="display-5 link-body-emphasis mb-1">{{ post.title }}</h1>
+                <p class="blog-post-meta text-muted">
+                    {{ _('Publié le %(date)s par %(author)s', date=post.timestamp.strftime('%d %B %Y'), author=post.author.full_name if post.author else _('Admin')) }}
+                </p>
+
+                {% if post.image_filename %}
+                <div class="mb-4 text-center">
+                    <img src="{{ url_for('static', filename='uploads/blog_posts/' + post.image_filename) }}" class="img-fluid rounded shadow-sm" alt="{{ post.title }}" style="max-height: 400px; object-fit: contain;">
+                </div>
+                {% endif %}
+
+                {# Le contenu de l'article, utilise |safe si vous permettez du HTML simple depuis l'éditeur admin #}
+                <div class="post-content">
+                    {{ post.content | safe }}
+                </div>
+            </article>
+
+            <hr class="my-4">
+
+            {# Section des Commentaires #}
+            <div class="comments-section">
+                <h3 class="mb-3">{{ _('Commentaires') }} ({{ comments | length }})</h3>
+
+                {% if post.allow_comments %}
+                    {% if current_user.is_authenticated %}
+                        {# Formulaire pour ajouter un commentaire (sera ajouté plus tard) #}
+                        {#
+                        <form method="POST" action="{{ url_for('main.add_comment', post_id=post.id) }}" class="mb-4">
+                            {{ comment_form.hidden_tag() }}
+                            <div class="mb-3">
+                                {{ comment_form.body.label(class="form-label") }}
+                                {{ comment_form.body(rows="3", class="form-control" + (" is-invalid" if comment_form.body.errors else "")) }}
+                                {% if comment_form.body.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in comment_form.body.errors %}<span>{{ error }}</span>{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            {{ comment_form.submit(class="btn btn-primary") }}
+                        </form>
+                        #}
+                        <p class="text-muted"><em>{{ _('La fonctionnalité pour ajouter des commentaires sera bientôt disponible.') }}</em></p>
+                    {% else %}
+                        <div class="alert alert-info">
+                            {{ _('Veuillez vous <a href="%s">connecter</a> ou vous <a href="%s">inscrire</a> pour laisser un commentaire.', url_for('auth.login', next=request.url), url_for('auth.register', next=request.url)) | safe }}
+                        </div>
+                    {% endif %}
+
+                    {# Affichage des commentaires existants (approuvés) #}
+                    {% if comments %}
+                        {% for comment in comments %}
+                            <div class="card mb-3 shadow-sm">
+                                <div class="card-body">
+                                    <p class="card-text">{{ comment.body | safe }}</p>
+                                    <small class="text-muted">
+                                        {{ _('Par %(author)s le %(date)s', author=comment.author.full_name if comment.author else _('Anonyme'), date=comment.timestamp.strftime('%d/%m/%Y à %H:%M')) }}
+                                    </small>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        {% if current_user.is_authenticated %} {# Affiche seulement si connecté et pas de commentaires #}
+                            <p>{{ _('Soyez le premier à commenter !') }}</p>
+                        {% endif %}
+                    {% endif %}
+                {% else %}
+                    <div class="alert alert-secondary">
+                        {{ _('Les commentaires sont désactivés pour cet article.') }}
+                    </div>
+                {% endif %}
+            </div>
+            {# Fin Section Commentaires #}
+
+            <div class="mt-4">
+                <a href="{{ url_for('main.blog_index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left-circle"></i> {{ _('Retour au Blog') }}</a>
+            </div>
+
+        </div> {# Fin col-lg-8 #}
+    </div> {# Fin row #}
+</div> {# Fin container #}
+{% endblock %}

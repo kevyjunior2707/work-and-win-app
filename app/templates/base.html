@@ -1,4 +1,4 @@
-{# app/templates/base.html (Avec Affichage Bannières) #}
+{# app/templates/base.html (Ajout Lien Blog Nav Principale) #}
 <!doctype html>
 <html lang="{{ g.locale }}">
   <head>
@@ -53,6 +53,11 @@
             <li class="nav-item">
               <a class="nav-link {% if request.endpoint == 'main.index' %}active{% endif %}" aria-current="page" href="{{ url_for('main.index') }}">{{ _('Accueil') }}</a>
             </li>
+            {# <<< NOUVEAU LIEN BLOG AJOUTÉ ICI >>> #}
+            <li class="nav-item">
+              <a class="nav-link {% if request.endpoint == 'main.blog_index' or request.endpoint == 'main.view_post' %}active{% endif %}" href="{{ url_for('main.blog_index') }}">{{ _('Blog') }}</a>
+            </li>
+            {# <<< FIN NOUVEAU LIEN BLOG >>> #}
             {% if current_user.is_anonymous %}
               <li class="nav-item">
                 <a class="nav-link {% if request.endpoint == 'auth.login' %}active{% endif %}" href="{{ url_for('auth.login') }}">{{ _('Connexion') }}</a>
@@ -116,7 +121,7 @@
     </nav>
     {# --- Fin Barre de Navigation --- #}
 
-    {# --- NOUVEAU : Bannière du Haut --- #}
+    {# --- Bannière du Haut --- #}
     {% if active_top_banner %}
     <div class="site-banner site-banner-top">
         {% if active_top_banner.destination_url %}
@@ -150,7 +155,7 @@
     </main>
     {# --- Fin Contenu Principal --- #}
 
-    {# --- NOUVEAU : Bannière du Bas --- #}
+    {# --- Bannière du Bas --- #}
     {% if active_bottom_banner %}
     <div class="site-banner site-banner-bottom">
         {% if active_bottom_banner.destination_url %}
