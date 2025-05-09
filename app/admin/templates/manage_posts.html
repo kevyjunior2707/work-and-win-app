@@ -26,19 +26,24 @@
             <table class="table table-striped table-hover table-sm align-middle">
                 <thead>
                     <tr>
-                        <th>{{ _('Titre') }}</th>
+                        <th style="width: 30%;">{{ _('Titre') }}</th>
                         <th>{{ _('Auteur') }}</th>
                         <th>{{ _('Date') }}</th>
                         <th>{{ _('Statut') }}</th>
                         <th>{{ _('Commentaires') }}</th>
-                        <th>{{ _('Actions') }}</th>
+                        <th class="text-end">{{ _('Actions') }}</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for post in posts %}
                     <tr>
                         <td>
-                            <a href="{{ url_for('main.view_post', slug=post.slug) }}" target="_blank">{{ post.title }}</a>
+                            {# Lien vers la vue publique de l'article s'il est publié #}
+                            {% if post.is_published %}
+                                <a href="{{ url_for('main.view_post', slug=post.slug) }}" target="_blank" title="{{ _('Voir l\'article (public)') }}">{{ post.title }}</a>
+                            {% else %}
+                                {{ post.title }}
+                            {% endif %}
                             {% if post.image_filename %}
                                 <i class="bi bi-image text-muted ms-1" title="{{ _('Avec image') }}"></i>
                             {% endif %}
@@ -59,22 +64,25 @@
                                 <span class="badge bg-light text-dark border">{{ _('Désactivés') }}</span>
                             {% endif %}
                         </td>
-                        <td class="text-nowrap">
+                        <td class="text-end text-nowrap">
                             <a href="{{ url_for('admin.edit_post', post_id=post.id) }}" class="btn btn-sm btn-outline-primary" title="{{ _('Modifier') }}"><i class="bi bi-pencil-fill"></i></a>
 
                             <form action="{{ url_for('admin.toggle_post_published', post_id=post.id) }}" method="post" style="display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                 <button type="submit" class="btn btn-sm {% if post.is_published %}btn-outline-secondary{% else %}btn-outline-success{% endif %}" title="{{ _('Publier/Dépublier') }}">
                                     {% if post.is_published %}<i class="bi bi-eye-slash"></i>{% else %}<i class="bi bi-eye"></i>{% endif %}
                                 </button>
                             </form>
 
                             <form action="{{ url_for('admin.toggle_post_comments', post_id=post.id) }}" method="post" style="display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                 <button type="submit" class="btn btn-sm {% if post.allow_comments %}btn-outline-secondary{% else %}btn-outline-primary{% endif %}" title="{{ _('Autoriser/Désactiver Commentaires') }}">
                                     {% if post.allow_comments %}<i class="bi bi-chat-dots-fill"></i>{% else %}<i class="bi bi-chat-dots"></i>{% endif %}
                                 </button>
                             </form>
 
                             <form action="{{ url_for('admin.delete_post', post_id=post.id) }}" method="post" style="display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                 <button type="submit" class="btn btn-sm btn-outline-danger" title="{{ _('Supprimer') }}" onclick="return confirm('{{ _('Êtes-vous sûr de vouloir supprimer cet article et tous ses commentaires ? Cette action est irréversible.') }}');"><i class="bi bi-trash3"></i></button>
                             </form>
                         </td>
@@ -84,6 +92,7 @@
             </table>
         </div>
         {# Ici, on pourrait ajouter une pagination pour les articles si la liste devient très longue #}
+        {# Exemple: {% include '_pagination.html' with context %} si on crée un macro de pagination #}
     {% endif %}
 
     <div class="mt-4">

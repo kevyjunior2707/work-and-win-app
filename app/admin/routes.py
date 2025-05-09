@@ -1,4 +1,4 @@
-# app/admin/routes.py (VERSION COMPLÈTE v43 - Blog + Toutes Fonctionnalités Précédentes)
+# app/admin/routes.py (VERSION COMPLÈTE v44 - Route create_post dédiée)
 
 from flask import render_template, redirect, url_for, flash, request, abort, current_app, send_from_directory
 from flask_login import login_required, current_user
@@ -11,7 +11,7 @@ from app.forms import (TaskForm, countries_choices_multi, devices_choices_multi,
                        AdminResetPasswordForm, AddAdminForm, BannerForm, PostForm)
 # Ajout des modèles Banner et Post, et de la fonction slugify
 from app.models import (Task, UserTaskCompletion, ExternalTaskCompletion, User,
-                        Withdrawal, Notification, ReferralCommission, Banner, Post, slugify, Comment) # Comment ajouté
+                        Withdrawal, Notification, ReferralCommission, Banner, Post, slugify, Comment)
 from app.decorators import admin_required, super_admin_required
 from sqlalchemy import select, or_, func
 from sqlalchemy.orm import joinedload
@@ -22,10 +22,9 @@ import os
 import secrets
 from werkzeug.utils import secure_filename
 from flask_wtf.csrf import generate_csrf
-# Assurez-vous que cette fonction est bien définie
 from app.main.routes import allowed_file
 
-# --- Fonctions utilitaires pour images (tâches, bannières, articles) ---
+# --- Fonctions utilitaires pour images ---
 def save_picture(form_picture, subfolder='tasks'):
     random_hex = secrets.token_hex(8)
     _, f_ext = os.path.splitext(form_picture.filename)
@@ -700,28 +699,34 @@ def toggle_banner_active(banner_id):
         flash(_('Erreur lors du changement de statut de la bannière: %(error)s', error=str(e)), 'danger')
     return redirect(url_for('admin.manage_banners'))
 
-# <<< NOUVELLES ROUTES POUR LA GESTION DES ARTICLES DE BLOG >>>
-@bp.route('/blog/posts', methods=['GET', 'POST'])
+# --- Routes pour la Gestion des Articles de Blog ---
+@bp.route('/blog/posts', methods=['GET']) # Modifié pour lister seulement
 @login_required
-@admin_required # Ou @super_admin_required si vous voulez limiter
+@admin_required
 def manage_posts():
+    posts = db.session.scalars(select(Post).order_by(Post.timestamp.desc())).all()
+    return render_template('manage_posts.html', title=_('Gérer les Articles de Blog'), posts=posts)
+
+@bp.route('/blog/post/new', methods=['GET', 'POST']) # Route dédiée pour créer
+@login_required
+@admin_required
+def create_post():
     form = PostForm()
     if form.validate_on_submit():
         image_file = None
         if form.post_image.data:
-            image_file = save_picture(form.post_image.data, subfolder='blog_posts') # Sauvegarde dans static/uploads/blog_posts/
+            image_file = save_picture(form.post_image.data, subfolder='blog_posts')
             if not image_file:
-                # L'erreur flash est déjà dans save_picture
-                return redirect(url_for('admin.manage_posts')) # Redirige pour afficher le formulaire avec l'erreur
+                return render_template('create_post.html', title=_('Créer un Nouvel Article'), form=form, is_edit=False)
 
         new_post = Post(
             title=form.title.data,
-            content=form.content.data, # Pour l'instant, texte brut. Éditeur riche plus tard.
-            user_id=current_user.id, # L'admin connecté est l'auteur
+            content=form.content.data,
+            user_id=current_user.id,
             image_filename=image_file,
             allow_comments=form.allow_comments.data,
             is_published=form.is_published.data,
-            slug=slugify(form.title.data) # Génère le slug à partir du titre
+            slug=slugify(form.title.data)
         )
         try:
             db.session.add(new_post)
@@ -732,11 +737,8 @@ def manage_posts():
             db.session.rollback()
             if image_file: delete_picture(image_file, subfolder='blog_posts')
             flash(_("Erreur lors de la création de l'article : %(error)s", error=str(e)), 'danger')
+    return render_template('create_post.html', title=_('Créer un Nouvel Article'), form=form, is_edit=False)
 
-    # Récupère tous les articles pour les afficher dans la liste
-    # On pourrait ajouter une pagination ici si la liste devient longue
-    posts = db.session.scalars(select(Post).order_by(Post.timestamp.desc())).all()
-    return render_template('manage_posts.html', title=_('Gérer les Articles de Blog'), form=form, posts=posts)
 
 @bp.route('/blog/post/<int:post_id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -748,10 +750,9 @@ def edit_post(post_id):
 
     if form.validate_on_submit():
         new_image_filename = None
-        if form.post_image.data: # Si une nouvelle image est uploadée
+        if form.post_image.data:
             new_image_filename = save_picture(form.post_image.data, subfolder='blog_posts')
             if not new_image_filename:
-                # Reste sur la page d'édition pour afficher l'erreur
                 return render_template('create_post.html', title=_('Modifier l\'Article'), form=form, post=post_to_edit, is_edit=True, current_image=old_image_filename)
             else:
                 if old_image_filename:
@@ -759,11 +760,10 @@ def edit_post(post_id):
                 post_to_edit.image_filename = new_image_filename
 
         post_to_edit.title = form.title.data
-        post_to_edit.slug = slugify(form.title.data) # Regénère le slug si le titre change
+        post_to_edit.slug = slugify(form.title.data)
         post_to_edit.content = form.content.data
         post_to_edit.allow_comments = form.allow_comments.data
         post_to_edit.is_published = form.is_published.data
-        # post_to_edit.user_id ne change pas (l'auteur reste le même)
         try:
             db.session.commit()
             flash(_('Article "%(title)s" mis à jour avec succès !', title=post_to_edit.title), 'success')
@@ -774,7 +774,13 @@ def edit_post(post_id):
                 delete_picture(new_image_filename, subfolder='blog_posts')
             flash(_("Erreur lors de la mise à jour de l'article : %(error)s", error=str(e)), 'danger')
     
-    # Pour GET, pré-remplit le formulaire (sauf le champ image)
+    if request.method == 'GET': # Pré-remplir pour GET
+        form.title.data = post_to_edit.title
+        form.content.data = post_to_edit.content
+        form.allow_comments.data = post_to_edit.allow_comments
+        form.is_published.data = post_to_edit.is_published
+        # Le champ image n'est pas pré-rempli
+
     return render_template('create_post.html', title=_('Modifier l\'Article'), form=form, post=post_to_edit, is_edit=True, current_image=old_image_filename)
 
 @bp.route('/blog/post/<int:post_id>/delete', methods=['POST'])
@@ -785,9 +791,7 @@ def delete_post(post_id):
     title_copy = post_to_delete.title
     image_to_delete = post_to_delete.image_filename
     try:
-        # Supprime d'abord les commentaires associés (à cause de cascade="all, delete-orphan")
-        # Si on supprime le post, les commentaires liés seront aussi supprimés par SQLAlchemy
-        db.session.delete(post_to_delete)
+        db.session.delete(post_to_delete) # SQLAlchemy devrait gérer la cascade pour les commentaires
         db.session.commit()
         if image_to_delete:
             delete_picture(image_to_delete, subfolder='blog_posts')
@@ -826,4 +830,3 @@ def toggle_post_comments(post_id):
         db.session.rollback()
         flash(_('Erreur lors du changement de statut des commentaires: %(error)s', error=str(e)), 'danger')
     return redirect(url_for('admin.manage_posts'))
-# <<< FIN NOUVELLES ROUTES BLOG >>>
