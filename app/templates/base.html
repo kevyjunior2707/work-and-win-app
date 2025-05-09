@@ -1,4 +1,4 @@
-{# app/templates/base.html (Correction Paramètre Langue) #}
+{# app/templates/base.html (Avec Affichage Bannières) #}
 <!doctype html>
 <html lang="{{ g.locale }}">
   <head>
@@ -15,6 +15,25 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 
+    {# Styles spécifiques pour les bannières #}
+    <style>
+      .site-banner {
+        width: 100%;
+        margin-bottom: 1rem; /* Espace après la bannière du haut */
+        text-align: center;
+      }
+      .site-banner img {
+        max-width: 100%;
+        height: auto; /* Garde les proportions */
+        max-height: 100px; /* Hauteur maximale, ajustez si besoin */
+        object-fit: contain; /* S'assure que l'image entière est visible */
+      }
+      .site-banner-bottom {
+        margin-top: 2rem; /* Espace avant la bannière du bas */
+        margin-bottom: 1rem;
+      }
+    </style>
+
     {% block head_extra %}{% endblock %}
   </head>
   <body class="d-flex flex-column min-vh-100">
@@ -24,7 +43,7 @@
       <div class="container">
         <a class="navbar-brand fw-bold" href="{{ url_for('main.index') }}">
           <img src="{{ url_for('static', filename='img/logo.png') }}" alt="{{ _('Logo Work and Win') }}" class="d-inline-block align-text-top me-2 navbar-logo-img">
-          {# Work and Win #} {# Texte enlevé pour logo seul #}
+          {# Work and Win #}
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>
@@ -50,14 +69,6 @@
                  <li class="nav-item">
                    <a class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}" href="{{ url_for('main.dashboard') }}">{{ _('Tableau de Bord') }}</a>
                  </li>
-                 {# Liens Tâches enlevés
-                 <li class="nav-item">
-                   <a class="nav-link {% if request.endpoint == 'main.available_tasks' %}active{% endif %}" href="{{ url_for('main.available_tasks') }}">{{ _('Tâches Disponibles') }}</a>
-                 </li>
-                  <li class="nav-item">
-                   <a class="nav-link {% if request.endpoint == 'main.completed_tasks' %}active{% endif %}" href="{{ url_for('main.completed_tasks') }}">{{ _('Mes Tâches') }}</a>
-                 </li>
-                 #}
                   <li class="nav-item">
                    <a class="nav-link {% if request.endpoint == 'main.withdraw' %}active{% endif %}" href="{{ url_for('main.withdraw') }}">{{ _('Retrait') }}</a>
                  </li>
@@ -95,7 +106,6 @@
                </a>
                <ul class="dropdown-menu dropdown-menu-end">
                  {% for lang_code, lang_name in config['LANGUAGES'].items() %}
-                   {# <<< CORRECTION ICI : lang_code= devient lang= >>> #}
                    <li><a class="dropdown-item {% if g.locale == lang_code %}active{% endif %}" href="{{ url_for(request.endpoint, lang=lang_code, **request.view_args) }}">{{ lang_name }}</a></li>
                  {% endfor %}
                </ul>
@@ -104,8 +114,25 @@
         </div>
       </div>
     </nav>
+    {# --- Fin Barre de Navigation --- #}
 
+    {# --- NOUVEAU : Bannière du Haut --- #}
+    {% if active_top_banner %}
+    <div class="site-banner site-banner-top">
+        {% if active_top_banner.destination_url %}
+            <a href="{{ active_top_banner.destination_url }}" target="_blank" rel="noopener noreferrer">
+                <img src="{{ url_for('static', filename='uploads/banners/' + active_top_banner.image_filename) }}" alt="{{ _('Bannière publicitaire') }}">
+            </a>
+        {% else %}
+            <img src="{{ url_for('static', filename='uploads/banners/' + active_top_banner.image_filename) }}" alt="{{ _('Bannière publicitaire') }}">
+        {% endif %}
+    </div>
+    {% endif %}
+    {# --- FIN Bannière du Haut --- #}
+
+    {# --- Contenu Principal de la Page --- #}
     <main class="flex-shrink-0">
+        {# Affichage des messages Flash #}
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             <div class="container mt-3">
@@ -118,9 +145,26 @@
             </div>
           {% endif %}
         {% endwith %}
+
         {% block content %}{% endblock %}
     </main>
+    {# --- Fin Contenu Principal --- #}
 
+    {# --- NOUVEAU : Bannière du Bas --- #}
+    {% if active_bottom_banner %}
+    <div class="site-banner site-banner-bottom">
+        {% if active_bottom_banner.destination_url %}
+            <a href="{{ active_bottom_banner.destination_url }}" target="_blank" rel="noopener noreferrer">
+                <img src="{{ url_for('static', filename='uploads/banners/' + active_bottom_banner.image_filename) }}" alt="{{ _('Bannière publicitaire') }}">
+            </a>
+        {% else %}
+            <img src="{{ url_for('static', filename='uploads/banners/' + active_bottom_banner.image_filename) }}" alt="{{ _('Bannière publicitaire') }}">
+        {% endif %}
+    </div>
+    {% endif %}
+    {# --- FIN Bannière du Bas --- #}
+
+    {# --- Pied de Page --- #}
     <footer class="footer mt-auto py-3 bg-light border-top">
       <div class="container text-center">
         <span class="text-muted">
@@ -132,7 +176,9 @@
         </span>
       </div>
     </footer>
+    {# --- Fin Pied de Page --- #}
 
+    {# --- Scripts JavaScript --- #}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     {% block scripts %}{% endblock %}
   </body>

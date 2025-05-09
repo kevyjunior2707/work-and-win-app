@@ -1,4 +1,4 @@
-# app/__init__.py (VERSION COMPLÈTE v13 - Ajout Flask-Mail)
+# app/__init__.py (VERSION COMPLÈTE v14 - Ajout Context Processor Bannières)
 
 import os
 from flask import Flask, request, g, current_app, session
@@ -7,10 +7,12 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager, current_user
 from flask_babel import Babel, lazy_gettext as _l
-from flask_mail import Mail # <<< Import ajouté >>>
+from flask_mail import Mail
 from sqlalchemy import select, func
 from datetime import datetime, timezone
 import json
+# <<< Import du modèle Banner >>>
+from .models import Notification, Banner # Ajout de Banner ici
 
 # Initialisation des extensions
 db = SQLAlchemy()
@@ -20,7 +22,7 @@ login.login_view = 'auth.login'
 login.login_message = _l('Veuillez vous connecter pour accéder à cette page.')
 login.login_message_category = 'info'
 babel = Babel()
-mail = Mail() # <<< Initialisation ajoutée >>>
+mail = Mail()
 
 # Fonction de sélection de la langue
 def get_locale():
@@ -37,22 +39,17 @@ def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
-    # Lie les extensions à l'instance de l'application créée
     db.init_app(app)
     migrate.init_app(app, db)
     login.init_app(app)
     babel.init_app(app, locale_selector=get_locale)
-    mail.init_app(app) # <<< Liaison ajoutée >>>
+    mail.init_app(app)
 
-    # Enregistre la fonction localeselector APRÈS init_app
-    # babel.localeselector_func = get_locale # Plus nécessaire si passé à init_app
-
-    # --- Configuration du dossier d'upload ---
     upload_folder = app.config.get('UPLOAD_FOLDER', os.path.join(app.root_path, 'static/uploads'))
     os.makedirs(upload_folder, exist_ok=True)
     os.makedirs(os.path.join(upload_folder, 'tasks'), exist_ok=True)
+    os.makedirs(os.path.join(upload_folder, 'banners'), exist_ok=True) # Crée dossier banners
 
-    # Met la locale choisie et l'année actuelle à disposition des templates via 'g'
     @app.before_request
     def before_request():
         selected_locale = get_locale()
@@ -60,14 +57,13 @@ def create_app(config_class=Config):
         g.locale_display_name = app.config['LANGUAGES'].get(g.locale, g.locale)
         g.current_year = datetime.now(timezone.utc).year
 
-    # --- Context Processor pour Notifications Non Lues ---
     @app.context_processor
     def inject_notifications():
         unread_count = 0
-        from .models import Notification # Import local
+        # from .models import Notification # Déjà importé en haut du fichier
         if current_user.is_authenticated and not current_user.is_admin:
             try:
-                with app.app_context():
+                with app.app_context(): # Assure d'être dans le contexte de l'app
                     unread_count = db.session.scalar(
                         db.select(func.count(Notification.id))
                         .where(Notification.user_id == current_user.id, Notification.is_read == False)
@@ -77,7 +73,39 @@ def create_app(config_class=Config):
                 unread_count = 0
         return dict(unread_notification_count=unread_count)
 
-    # --- Enregistrement des Blueprints ---
+    # <<< NOUVEAU CONTEXT PROCESSOR POUR LES BANNIÈRES >>>
+    @app.context_processor
+    def inject_banners():
+        # from .models import Banner # Déjà importé en haut du fichier
+        active_top_banner = None
+        active_bottom_banner = None
+        try:
+            with app.app_context(): # Assure d'être dans le contexte de l'app
+                # Cherche une bannière active pour le haut (ou haut et bas)
+                active_top_banner = db.session.scalars(
+                    select(Banner).where(
+                        Banner.is_active == True,
+                        Banner.display_location.in_(['top', 'top_bottom'])
+                    ).order_by(Banner.uploaded_at.desc()) # Prend la plus récente si plusieurs
+                ).first()
+
+                # Cherche une bannière active pour le bas (ou haut et bas)
+                active_bottom_banner = db.session.scalars(
+                    select(Banner).where(
+                        Banner.is_active == True,
+                        Banner.display_location.in_(['bottom', 'top_bottom'])
+                    ).order_by(Banner.uploaded_at.desc()) # Prend la plus récente si plusieurs
+                ).first()
+        except Exception as e:
+            print(f"Erreur lors de la récupération des bannières: {e}")
+            # Ne pas planter l'application si la base n'est pas prête (ex: pendant les migrations initiales)
+
+        return dict(
+            active_top_banner=active_top_banner,
+            active_bottom_banner=active_bottom_banner
+        )
+    # <<< FIN NOUVEAU CONTEXT PROCESSOR >>>
+
     from app.auth import bp as auth_bp
     app.register_blueprint(auth_bp, url_prefix='/auth')
     from app.main import bp as main_bp
@@ -85,12 +113,10 @@ def create_app(config_class=Config):
     from app.admin import bp as admin_bp
     app.register_blueprint(admin_bp, url_prefix='/admin')
 
-    # --- Log de démarrage ---
     if not app.debug and not app.testing:
         pass
     app.logger.info('Work and Win startup')
 
     return app
 
-# Importe les modèles à la fin
-from app import models
+from app import models # Garder cet import à la fin
