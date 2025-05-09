@@ -1,14 +1,12 @@
-{# app/admin/templates/create_post.html (Avec Éditeur Riche TinyMCE) #}
+{# app/admin/templates/create_post.html (Avec Éditeur Riche TinyMCE et Clé API) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
 
 {% block head_extra %}
-    {# Lien vers le CDN de TinyMCE #}
+    {# Lien vers le CDN de TinyMCE avec VOTRE clé API #}
+    {# <<< VOTRE CLÉ API EST INSÉRÉE ICI >>> #}
     <script src="https://cdn.tiny.cloud/1/5ug3w8eutv6r2nz1yd9lemsateyqzyl7rexxqmkzsm9fwk2h/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
-    {# Remplacez YOUR_TINYMCE_API_KEY par votre propre clé API gratuite obtenue sur tiny.cloud #}
-    {# Pour un test rapide sans clé API, vous pouvez utiliser 'no-api-key' mais cela affichera un avertissement #}
-    {# <script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script> #}
 {% endblock %}
 
 {% block content %}
@@ -65,7 +63,7 @@
                             {% for error in form.post_image.errors %}<span>{{ error }}</span>{% endfor %}
                         </div>
                     {% endif %}
-                    {% if is_edit and current_image %}
+                    {% if is_edit and current_image %} {# current_image est passé depuis la route edit_post #}
                         <div class="mt-2">
                             <small>{{ _('Image actuelle:') }}</small><br>
                             <img src="{{ url_for('static', filename='uploads/blog_posts/' + current_image) }}" alt="{{ _('Image actuelle de l\'article') }}" class="img-thumbnail mt-1" style="max-height: 150px; max-width: 400px; object-fit: contain;">
