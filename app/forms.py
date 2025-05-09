@@ -1,10 +1,9 @@
-# app/forms.py (VERSION COMPLÈTE v11 - Liste Indicatifs Étendue)
+# app/forms.py (VERSION COMPLÈTE v12 - Ajout is_daily à TaskForm)
 from flask_wtf import FlaskForm
 from wtforms import (StringField, PasswordField, SubmitField, SelectField,
                      BooleanField, TextAreaField, DecimalField, SelectMultipleField,
                      ValidationError)
 from wtforms import widgets
-# Ajout Regexp
 from wtforms.validators import (DataRequired, Email, EqualTo, Length, ValidationError,
                               NumberRange, Optional, URL, Regexp)
 from flask_wtf.file import FileField, FileAllowed
@@ -13,7 +12,7 @@ from app import db
 from flask_babel import lazy_gettext as _l
 from flask_login import current_user
 
-# --- Listes de Choix Pays (Noms) ---
+# --- Listes de Choix (Pays/Appareils/Indicatifs) ---
 try:
     import pycountry
     countries_raw = sorted([(c.alpha_2, c.name) for c in pycountry.countries], key=lambda x: x[1])
@@ -22,7 +21,6 @@ try:
 except Exception as e:
     print(f"ERREUR: pycountry: {e}. Utilisation liste réduite."); countries_choices_multi = [('ALL', _l('Tous les pays')), ('BJ', 'Bénin'), ('FR', 'France')]; countries_choices_single = [('', _l('--- Sélectionnez votre pays ---')), ('BJ', 'Bénin'), ('FR', 'France')]
 
-# --- Liste des Indicatifs Téléphoniques (Étendue) ---
 country_codes = [
     ('', _l('-- Indicatif --')),
     ('+93', 'Afghanistan (+93)'),
@@ -134,7 +132,7 @@ country_codes = [
     ('+81', 'Japon (+81)'),
     ('+44', 'Jersey (+44)'),
     ('+962', 'Jordanie (+962)'),
-    ('+7', 'Kazakhstan (+7)'), # Aussi +7
+    ('+7', 'Kazakhstan (+7)'),
     ('+254', 'Kenya (+254)'),
     ('+686', 'Kiribati (+686)'),
     ('+850', 'Corée du Nord (+850)'),
@@ -254,11 +252,10 @@ country_codes = [
     ('+380', 'Ukraine (+380)'),
     ('+971', 'Émirats arabes unis (+971)'),
     ('+44', 'Royaume-Uni (+44)'),
-    ('+1', 'États-Unis (+1)'),
     ('+598', 'Uruguay (+598)'),
     ('+998', 'Ouzbékistan (+998)'),
     ('+678', 'Vanuatu (+678)'),
-    ('+379', 'Vatican (+379)'), # Aussi +39
+    ('+379', 'Vatican (+379)'),
     ('+58', 'Venezuela (+58)'),
     ('+84', 'Viêt Nam (+84)'),
     ('+681', 'Wallis-et-Futuna (+681)'),
@@ -268,30 +265,15 @@ country_codes = [
     ('+263', 'Zimbabwe (+263)')
 ]
 
-# --- Liste des Appareils ---
-devices_choices_single = [
-    ('', _l('--- Sélectionnez votre appareil ---')),
-    ('Android', 'Android'),
-    ('iOS', 'iPhone (iOS)'),
-    ('PC', 'PC (Windows/Mac/Linux)')
-]
-devices_choices_multi = [
-    ('ALL', _l('Tous les appareils')),
-    ('Android', 'Android'),
-    ('iOS', 'iOS'),
-    ('PC', 'PC')
-]
+devices_choices_single = [('', _l('--- Sélectionnez votre appareil ---')), ('Android', 'Android'), ('iOS', 'iPhone (iOS)'), ('PC', 'PC (Windows/Mac/Linux)')]
+devices_choices_multi = [('ALL', _l('Tous les appareils')), ('Android', 'Android'), ('iOS', 'iOS'), ('PC', 'PC')]
 
-# --- Formulaire d'Inscription (Utilise la nouvelle liste d'indicatifs) ---
+# --- Formulaire d'Inscription ---
 class RegistrationForm(FlaskForm):
     full_name = StringField(_l('Nom complet'), validators=[DataRequired(_l('Le nom complet est requis.'))])
     email = StringField(_l('Adresse Email'), validators=[DataRequired(_l('L\'adresse email est requise.')), Email(_l('Adresse email invalide.'))])
-    # Utilise la nouvelle liste 'country_codes'
     phone_code = SelectField(_l('Indicatif Pays'), choices=country_codes, validators=[DataRequired(_l('Indicatif requis'))])
-    phone_local_number = StringField(_l('Numéro de téléphone (sans indicatif)'), validators=[
-        DataRequired(_l('Numéro requis')),
-        Regexp(r'^\d+$', message=_l('Entrez uniquement des chiffres.'))
-    ])
+    phone_local_number = StringField(_l('Numéro de téléphone (sans indicatif)'), validators=[DataRequired(_l('Numéro requis')), Regexp(r'^\d+$', message=_l('Entrez uniquement des chiffres.'))])
     telegram_username = StringField(_l('Nom d\'utilisateur Telegram (Optionnel, ex: @pseudo)'))
     country = SelectField(_l('Pays de Résidence'), choices=countries_choices_single, validators=[DataRequired(_l('Veuillez sélectionner votre pays.'))])
     device = SelectField(_l('Appareil Principal'), choices=devices_choices_single, validators=[DataRequired(_l('Veuillez sélectionner votre appareil.'))])
@@ -303,8 +285,7 @@ class RegistrationForm(FlaskForm):
         if email.data:
             email_lower = email.data.lower()
             user = db.session.scalar(db.select(User).where(User.email == email_lower))
-            if user is not None:
-                raise ValidationError(_l('Cette adresse email est déjà utilisée.'))
+            if user is not None: raise ValidationError(_l('Cette adresse email est déjà utilisée.'))
 
     def validate_telegram_username(self, telegram_username):
         if telegram_username.data and not telegram_username.data.startswith('@'):
@@ -318,10 +299,9 @@ class LoginForm(FlaskForm):
     submit = SubmitField(_l('Connexion'))
 
     def validate_email(self, email):
-        if email.data:
-            email.data = email.data.lower()
+        if email.data: email.data = email.data.lower()
 
-# --- Formulaire de Tâche ---
+# --- Formulaire de Tâche (MODIFIÉ) ---
 class TaskForm(FlaskForm):
     title = StringField(_l('Titre de la tâche'), validators=[DataRequired(_l('Le titre est requis.'))])
     description = TextAreaField(_l('Description détaillée'), validators=[DataRequired(_l('La description est requise.'))], render_kw={'rows': 5})
@@ -332,18 +312,16 @@ class TaskForm(FlaskForm):
     target_countries = SelectMultipleField(_l('Pays Cibles'), choices=countries_choices_multi, widget=widgets.ListWidget(prefix_label=False), option_widget=widgets.CheckboxInput(), coerce=str)
     target_devices = SelectMultipleField(_l('Appareils Cibles'), choices=devices_choices_multi, widget=widgets.ListWidget(prefix_label=False), option_widget=widgets.CheckboxInput(), coerce=str)
     is_active = BooleanField(_l('Activer cette tâche maintenant ?'), default='checked')
+    # <<< CHAMP AJOUTÉ ICI >>>
+    is_daily = BooleanField(_l('Tâche Quotidienne (Répétable chaque jour) ?'), default=False)
     submit = SubmitField(_l('Enregistrer la Tâche'))
 
 # --- Formulaire pour Modifier le Profil ---
 class EditProfileForm(FlaskForm):
     full_name = StringField(_l('Nom complet'), validators=[DataRequired(_l('Le nom complet est requis.'))])
     email = StringField(_l('Adresse Email'), validators=[DataRequired(_l('L\'adresse email est requise.')), Email(_l('Adresse email invalide.'))])
-    # Utilise la nouvelle liste 'country_codes'
     phone_code = SelectField(_l('Indicatif Pays'), choices=country_codes, validators=[DataRequired(_l('Indicatif requis'))])
-    phone_local_number = StringField(_l('Numéro de téléphone (sans indicatif)'), validators=[
-        DataRequired(_l('Numéro requis')),
-        Regexp(r'^\d+$', message=_l('Entrez uniquement des chiffres.'))
-    ])
+    phone_local_number = StringField(_l('Numéro de téléphone (sans indicatif)'), validators=[DataRequired(_l('Numéro requis')), Regexp(r'^\d+$', message=_l('Entrez uniquement des chiffres.'))])
     telegram_username = StringField(_l('Nom d\'utilisateur Telegram (Optionnel, ex: @pseudo)'))
     country = SelectField(_l('Pays de Résidence'), choices=countries_choices_single, validators=[DataRequired(_l('Veuillez sélectionner votre pays.'))])
     device = SelectField(_l('Appareil Principal'), choices=devices_choices_single, validators=[DataRequired(_l('Veuillez sélectionner votre appareil.'))])
@@ -358,8 +336,7 @@ class EditProfileForm(FlaskForm):
             email_lower = email.data.lower()
             if email_lower != self.original_email.lower():
                 user = db.session.scalar(db.select(User).where(User.email == email_lower))
-                if user is not None:
-                    raise ValidationError(_l('Cette adresse email est déjà utilisée par un autre compte.'))
+                if user is not None: raise ValidationError(_l('Cette adresse email est déjà utilisée par un autre compte.'))
             email.data = email_lower
 
     def validate_telegram_username(self, telegram_username):
@@ -370,7 +347,7 @@ class EditProfileForm(FlaskForm):
 class ChangePasswordForm(FlaskForm):
     current_password = PasswordField(_l('Mot de Passe Actuel'), validators=[DataRequired(_l('Requis'))])
     new_password = PasswordField(_l('Nouveau Mot de Passe'), validators=[DataRequired(_l('Requis')), Length(min=8, message=_l('Doit contenir au moins 8 caractères.'))])
-    new_password2 = PasswordField(_l('Confirmer Nouveau Mot de Passe'), validators=[DataRequired(_l('Requis')), EqualTo('new_password', message=_l('Les nouveaux mots de passe doivent correspondre.'))])
+    new_password2 = PasswordField(_l('Confirmer Nouveau Mot de Passe'), validators=[DataRequired(_l('Requis')), EqualTo('new_password', message=_l('Les mots de passe doivent correspondre.'))])
     submit_password = SubmitField(_l('Changer le Mot de Passe'))
 
     def validate_current_password(self, current_password):

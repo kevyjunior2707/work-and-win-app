@@ -1,4 +1,4 @@
-# app/models.py (VERSION COMPLÈTE v16 - Ajout telegram + is_verified)
+# app/models.py (VERSION COMPLÈTE v17 - Ajout is_daily à Task)
 
 import secrets
 from datetime import datetime, timezone
@@ -6,6 +6,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 from sqlalchemy.orm import relationship
 from app import db, login
+# Ajout pour les tokens
+from flask import current_app
+from itsdangerous import URLSafeTimedSerializer as Serializer
+from itsdangerous import SignatureExpired, BadSignature
 
 # --- Modèle Utilisateur ---
 class User(UserMixin, db.Model):
@@ -13,7 +17,7 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     full_name = db.Column(db.String(150), index=True)
     email = db.Column(db.String(120), index=True, unique=True)
-    phone_number = db.Column(db.String(30), nullable=True) # Stockera le numéro complet (indicatif+local)
+    phone_number = db.Column(db.String(30), nullable=True)
     country = db.Column(db.String(100))
     device = db.Column(db.String(50))
     password_hash = db.Column(db.String(256))
@@ -27,9 +31,8 @@ class User(UserMixin, db.Model):
     is_banned = db.Column(db.Boolean, default=False, nullable=False)
     referred_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     completed_task_count = db.Column(db.Integer, default=0, nullable=False)
-    # <<< NOUVEAUX CHAMPS >>>
     telegram_username = db.Column(db.String(100), nullable=True, index=True)
-    is_verified = db.Column(db.Boolean, default=False, nullable=False, index=True) # Pour la vérification email
+    is_verified = db.Column(db.Boolean, default=False, nullable=False, index=True)
 
     # --- Relations ---
     referrer = relationship('User', remote_side=[id], back_populates='referred_users')
@@ -60,32 +63,19 @@ class User(UserMixin, db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password) if self.password_hash else False
 
-    # <<< NOUVEAU : Méthodes pour générer/vérifier token email >>>
-    # Nécessite l'import de itsdangerous et current_app depuis flask
     def get_verification_token(self, expires_sec=1800):
-        from flask import current_app
-        from itsdangerous import URLSafeTimedSerializer as Serializer
         s = Serializer(current_app.config['SECRET_KEY'])
         return s.dumps({'user_id': self.id})
 
     @staticmethod
     def verify_verification_token(token, expires_sec=1800):
-        from flask import current_app
-        from itsdangerous import URLSafeTimedSerializer as Serializer
-        from itsdangerous import SignatureExpired, BadSignature
-
         s = Serializer(current_app.config['SECRET_KEY'])
         try:
             data = s.loads(token, max_age=expires_sec)
             user_id = data.get('user_id')
-        except SignatureExpired:
-            return None # Token expiré
-        except BadSignature:
-            return None # Token invalide
-        except Exception:
-             return None # Autre erreur
+        except (SignatureExpired, BadSignature, Exception): # Catching generic Exception too
+             return None
         return db.session.get(User, user_id)
-    # <<< FIN NOUVEAU >>>
 
     def __repr__(self):
         return f'<User {self.full_name} ({self.email})>'
@@ -94,7 +84,7 @@ class User(UserMixin, db.Model):
 def load_user(id):
     return db.session.get(User, int(id))
 
-# --- Modèle Tâche ---
+# --- Modèle Tâche (MODIFIÉ) ---
 class Task(db.Model):
     __tablename__ = 'task'
     id = db.Column(db.Integer, primary_key=True)
@@ -105,10 +95,12 @@ class Task(db.Model):
     reward_amount = db.Column(db.Float, nullable=False, default=0.0)
     target_countries = db.Column(db.Text, nullable=True)
     target_devices = db.Column(db.Text, nullable=True)
-    proof_type_required = db.Column(db.String(50), default='text')
+    # proof_type_required = db.Column(db.String(50), default='text') # Ce champ n'est plus utilisé activement
     is_active = db.Column(db.Boolean, default=True)
     creation_date = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     image_filename = db.Column(db.String(256), nullable=True) # Ajouté précédemment
+    # <<< CHAMP AJOUTÉ ICI >>>
+    is_daily = db.Column(db.Boolean, default=False, nullable=False) # Tâche répétable quotidiennement ?
 
     # Relations
     completions = db.relationship('UserTaskCompletion', back_populates='task', lazy='dynamic', foreign_keys='UserTaskCompletion.task_id')

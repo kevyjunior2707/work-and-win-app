@@ -1,4 +1,4 @@
-# app/main/routes.py (VERSION COMPLÈTE v19 - Correction Pré-remplissage Profil)
+# app/main/routes.py (VERSION COMPLÈTE v20 - Logique Tâches Quotidiennes)
 
 from flask import render_template, redirect, url_for, flash, request, abort, current_app, send_from_directory
 from flask_login import login_required, current_user
@@ -9,8 +9,10 @@ from app.models import Task, UserTaskCompletion, User, Notification, ExternalTas
 from app.main import bp
 # Ajout des formulaires pour la route profile
 from app.forms import EditProfileForm, ChangePasswordForm
-from datetime import datetime, timezone, timedelta
+# Ajout func pour la requête daily
+from datetime import datetime, timezone, timedelta, date # date ajouté
 from sqlalchemy.orm import joinedload
+from sqlalchemy import select, func, and_ # and_ ajouté
 from decimal import Decimal, InvalidOperation
 import json
 import os
@@ -39,29 +41,94 @@ def dashboard():
     warning_message = _("Nous appliquons une politique de tolérance zéro envers la triche, l'utilisation de VPN/proxys, ou la création de comptes multiples. Toute violation entraînera un bannissement permanent et la perte des gains.")
     return render_template('dashboard.html', title=_('Tableau de Bord'), warning_message=warning_message)
 
-# --- Route pour voir les tâches disponibles ---
+# --- Route pour voir les tâches disponibles (MODIFIÉE pour tâches quotidiennes) ---
 @bp.route('/tasks/available')
 @login_required
 def available_tasks():
-    completed_task_ids = {c.task_id for c in db.session.scalars(db.select(UserTaskCompletion).where(UserTaskCompletion.user_id == current_user.id)).all()}
+    # Récupère TOUS les accomplissements de l'utilisateur pour cette session
+    # pour pouvoir vérifier les dates des tâches quotidiennes
+    user_completions = db.session.scalars(
+        db.select(UserTaskCompletion)
+        .where(UserTaskCompletion.user_id == current_user.id)
+    ).all()
+    # Crée un dictionnaire pour un accès rapide : {task_id: [liste_des_timestamps_accomplissement]}
+    completions_dict = {}
+    for comp in user_completions:
+        if comp.task_id not in completions_dict:
+            completions_dict[comp.task_id] = []
+        completions_dict[comp.task_id].append(comp.completion_timestamp)
+
+    # Récupère toutes les tâches actives
     all_active_tasks = db.session.scalars(db.select(Task).where(Task.is_active == True)).all()
-    user_country = current_user.country; user_device = current_user.device; tasks_for_user = []
+
+    user_country = current_user.country
+    user_device = current_user.device
+    tasks_for_user = []
+    today_utc = date.today() # Date actuelle UTC (sans l'heure)
+
     for task in all_active_tasks:
-        if task.id not in completed_task_ids:
-            target_countries = task.get_target_countries_list(); country_match = 'ALL' in target_countries or user_country in target_countries
-            target_devices = task.get_target_devices_list(); device_match = 'ALL' in target_devices or user_device in target_devices
-            if country_match and device_match: tasks_for_user.append(task)
+        # Vérifie d'abord le ciblage pays/appareil
+        target_countries = task.get_target_countries_list()
+        country_match = 'ALL' in target_countries or user_country in target_countries
+        target_devices = task.get_target_devices_list()
+        device_match = 'ALL' in target_devices or user_device in target_devices
+
+        if country_match and device_match:
+            # Si la tâche correspond au profil, vérifier si elle peut être affichée
+            task_id = task.id
+            is_completed = task_id in completions_dict
+
+            if task.is_daily:
+                # Tâche quotidienne : vérifier si elle a été faite AUJOURD'HUI
+                completed_today = False
+                if is_completed:
+                    for timestamp in completions_dict[task_id]:
+                        # Compare uniquement la partie date (en UTC)
+                        if timestamp.astimezone(timezone.utc).date() == today_utc:
+                            completed_today = True
+                            break
+                if not completed_today:
+                    tasks_for_user.append(task) # Ajouter si pas faite aujourd'hui
+            else:
+                # Tâche non quotidienne : vérifier si elle a DÉJÀ été faite
+                if not is_completed:
+                    tasks_for_user.append(task) # Ajouter si jamais faite
+
     return render_template('available_tasks.html', title=_('Tâches Disponibles'), tasks=tasks_for_user)
 
 # --- Route pour marquer une tâche comme accomplie ---
+# La logique ici ne change pas, on enregistre juste un nouvel accomplissement
 @bp.route('/task/complete/<int:task_id>', methods=['POST'])
 @login_required
 def complete_task(task_id):
     task = db.session.get(Task, task_id) or abort(404); user = current_user
-    existing_completion = db.session.scalar(db.select(UserTaskCompletion).where(UserTaskCompletion.user_id == user.id, UserTaskCompletion.task_id == task.id))
-    if existing_completion: flash(_('Vous avez déjà marqué cette tâche comme accomplie.'), 'warning'); return redirect(url_for('main.available_tasks'))
+
+    # Vérification du ciblage (important même si déjà fait dans available_tasks)
     user_country = user.country; user_device = user.device; target_countries = task.get_target_countries_list(); target_devices = task.get_target_devices_list(); country_match = 'ALL' in target_countries or user_country in target_countries; device_match = 'ALL' in target_devices or user_device in target_devices
     if not (country_match and device_match and task.is_active): flash(_('Vous ne pouvez pas accomplir cette tâche ou elle n\'est plus active.'), 'danger'); return redirect(url_for('main.available_tasks'))
+
+    # Vérification si tâche quotidienne déjà faite aujourd'hui
+    if task.is_daily:
+        today_utc = date.today()
+        todays_completion = db.session.scalar(
+            db.select(UserTaskCompletion.id).where(
+                UserTaskCompletion.user_id == user.id,
+                UserTaskCompletion.task_id == task.id,
+                # Compare la date de complétion (en UTC) avec aujourd'hui (en UTC)
+                func.date(UserTaskCompletion.completion_timestamp) == today_utc
+            )
+        )
+        if todays_completion:
+            flash(_('Vous avez déjà accompli cette tâche quotidienne aujourd\'hui.'), 'warning')
+            return redirect(url_for('main.available_tasks'))
+    else:
+        # Pour tâche non quotidienne, vérifier si déjà faite (n'importe quand)
+        existing_completion = db.session.scalar(db.select(UserTaskCompletion.id).where(UserTaskCompletion.user_id == user.id, UserTaskCompletion.task_id == task.id))
+        if existing_completion:
+            flash(_('Vous avez déjà marqué cette tâche comme accomplie.'), 'warning')
+            return redirect(url_for('main.available_tasks'))
+
+    # Si on arrive ici, l'utilisateur peut accomplir la tâche
     try:
         completion = UserTaskCompletion(user_id=user.id, task_id=task.id); db.session.add(completion)
         reward = Decimal(str(task.reward_amount or 0.0)); current_balance = Decimal(str(user.balance or 0.0))
@@ -208,66 +275,44 @@ def submit_external_proof():
 @login_required
 def view_upload(filename):
     if not current_user.is_admin: abort(403)
-    upload_dir = current_app.config['UPLOAD_FOLDER']; return send_from_directory(upload_dir, filename)
+    # Modifié pour chercher dans le sous-dossier 'tasks' aussi
+    upload_dir = current_app.config['UPLOAD_FOLDER']
+    task_image_folder = os.path.join(upload_dir, 'tasks')
+    # Tente de servir depuis tasks/, puis depuis uploads/ (pour les anciennes preuves externes)
+    try:
+        return send_from_directory(task_image_folder, filename)
+    except FileNotFoundError:
+        try:
+            return send_from_directory(upload_dir, filename)
+        except FileNotFoundError:
+            abort(404)
 
-# --- Routes Profil Utilisateur (MODIFIÉE) ---
+
+# --- Routes Profil Utilisateur ---
 @bp.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():
     edit_form = EditProfileForm(current_user.email); password_form = ChangePasswordForm()
-
-    # Traitement du formulaire de modification de profil
     if edit_form.submit_profile.data and edit_form.validate_on_submit():
-        # <<< CORRECTION : Concaténer code et numéro >>>
         phone_number_full = edit_form.phone_code.data + edit_form.phone_local_number.data
-        current_user.full_name = edit_form.full_name.data
-        current_user.email = edit_form.email.data
-        current_user.phone_number = phone_number_full # Enregistre le numéro complet
-        current_user.telegram_username = edit_form.telegram_username.data or None
-        current_user.country = edit_form.country.data
-        current_user.device = edit_form.device.data
-        try:
-            db.session.commit(); flash(_('Votre profil a été mis à jour.'), 'success')
-            return redirect(url_for('main.profile'))
+        current_user.full_name = edit_form.full_name.data; current_user.email = edit_form.email.data; current_user.phone_number = phone_number_full; current_user.telegram_username = edit_form.telegram_username.data or None; current_user.country = edit_form.country.data; current_user.device = edit_form.device.data
+        try: db.session.commit(); flash(_('Votre profil a été mis à jour.'), 'success'); return redirect(url_for('main.profile'))
         except Exception as e: db.session.rollback(); flash(_('Erreur lors de la mise à jour du profil: %(error)s', error=str(e)), 'danger')
-
-    # Traitement du formulaire de changement de mot de passe
     if password_form.submit_password.data and password_form.validate_on_submit():
         current_user.set_password(password_form.new_password.data)
-        try:
-            db.session.commit(); flash(_('Votre mot de passe a été changé avec succès.'), 'success')
-            return redirect(url_for('main.profile'))
+        try: db.session.commit(); flash(_('Votre mot de passe a été changé avec succès.'), 'success'); return redirect(url_for('main.profile'))
         except Exception as e: db.session.rollback(); flash(_('Erreur lors du changement de mot de passe: %(error)s', error=str(e)), 'danger')
-
-    # Pré-remplissage des formulaires pour la requête GET
     if request.method == 'GET':
-        edit_form.full_name.data = current_user.full_name
-        edit_form.email.data = current_user.email
-        edit_form.telegram_username.data = current_user.telegram_username
-        edit_form.country.data = current_user.country
-        edit_form.device.data = current_user.device
-        # <<< CORRECTION : Pré-remplir phone_code et phone_local_number >>>
-        # Essaye de séparer l'indicatif du numéro stocké
+        edit_form.full_name.data = current_user.full_name; edit_form.email.data = current_user.email; edit_form.telegram_username.data = current_user.telegram_username; edit_form.country.data = current_user.country; edit_form.device.data = current_user.device
         current_phone = current_user.phone_number or ''
-        found_code = ''
-        local_num = current_phone
-        # Cherche le plus long indicatif correspondant au début du numéro
-        # (Simpliste, une vraie bibliothèque de numéros serait mieux)
-        from app.forms import country_codes # Importe la liste des codes
-        possible_codes = sorted([c[0] for c in country_codes if c[0]], key=len, reverse=True) # Trie par longueur desc
+        found_code = ''; local_num = current_phone
+        from app.forms import country_codes
+        possible_codes = sorted([c[0] for c in country_codes if c[0]], key=len, reverse=True)
         for code in possible_codes:
             if current_phone.startswith(code):
-                found_code = code
-                local_num = current_phone[len(code):]
-                break
-        edit_form.phone_code.data = found_code
-        edit_form.phone_local_number.data = local_num
-        # <<< FIN CORRECTION >>>
-
-    return render_template('edit_profile.html',
-                           title=_('Modifier Mon Profil'),
-                           edit_form=edit_form,
-                           password_form=password_form)
+                found_code = code; local_num = current_phone[len(code):]; break
+        edit_form.phone_code.data = found_code; edit_form.phone_local_number.data = local_num
+    return render_template('edit_profile.html', title=_('Modifier Mon Profil'), edit_form=edit_form, password_form=password_form)
 
 # --- Route pour infos mot de passe oublié ---
 @bp.route('/forgot-password-info')

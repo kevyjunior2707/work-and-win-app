@@ -1,4 +1,4 @@
-# app/admin/routes.py (VERSION COMPLÈTE v39 - Gestion Image Tâche)
+# app/admin/routes.py (VERSION COMPLÈTE v40 - Gestion is_daily Task)
 
 from flask import render_template, redirect, url_for, flash, request, abort, current_app, send_from_directory
 from flask_login import login_required, current_user
@@ -22,28 +22,22 @@ from werkzeug.utils import secure_filename
 # Import pour générer le token CSRF
 from flask_wtf.csrf import generate_csrf
 # Ajout pour allowed_file (déjà présent dans main.routes, on le met ici aussi pour clarté)
+# Assurez-vous que cette fonction existe bien dans app/main/routes.py
+# Si ce n'est pas le cas, il faudra la copier ici ou la définir globalement.
+# Pour l'instant, on assume qu'elle est accessible via l'import.
 from app.main.routes import allowed_file
 
 # --- Fonction utilitaire pour sauvegarder l'image de tâche ---
 def save_task_picture(form_picture):
-    # Génère un nom de fichier aléatoire et sécurisé
     random_hex = secrets.token_hex(8)
-    _, f_ext = os.path.splitext(form_picture.filename) # Récupère l'extension
+    _, f_ext = os.path.splitext(form_picture.filename)
     picture_fn = random_hex + f_ext
-    # Chemin complet vers le dossier d'upload des tâches
-    # Assurez-vous que UPLOAD_FOLDER est défini dans config.py
-    # et qu'il pointe vers un sous-dossier de 'static', par ex: 'static/uploads'
-    # Si UPLOAD_FOLDER n'est pas défini, utilise un chemin par défaut dans 'app/static/uploads'
     upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'static/uploads'))
     task_image_folder = os.path.join(upload_folder, 'tasks')
-    # Crée le dossier s'il n'existe pas
     os.makedirs(task_image_folder, exist_ok=True)
     picture_path = os.path.join(task_image_folder, picture_fn)
-
-    # Sauvegarde l'image (on pourrait ajouter un redimensionnement ici si besoin)
     try:
         form_picture.save(picture_path)
-        # Retourne seulement le nom du fichier, pas le chemin complet
         return picture_fn
     except Exception as e:
         print(f"Erreur sauvegarde image tâche: {e}")
@@ -52,8 +46,7 @@ def save_task_picture(form_picture):
 
 # --- Fonction utilitaire pour supprimer l'image de tâche ---
 def delete_task_picture(filename):
-    if not filename:
-        return # Ne rien faire si pas de nom de fichier
+    if not filename: return
     try:
         upload_folder = current_app.config.get('UPLOAD_FOLDER', os.path.join(current_app.root_path, 'static/uploads'))
         task_image_folder = os.path.join(upload_folder, 'tasks')
@@ -63,18 +56,14 @@ def delete_task_picture(filename):
             print(f"Image tâche supprimée: {filename}")
     except Exception as e:
         print(f"Erreur suppression image tâche {filename}: {e}")
-        # Ne pas flasher d'erreur ici car c'est une opération secondaire
 
 # --- Route pour l'accueil Admin (Avec Graphiques) ---
 @bp.route('/')
 @login_required
 @admin_required
 def index():
-    # Calculs pour les Graphiques (par mois, 12 derniers mois)
     twelve_months_ago = datetime.now(timezone.utc) - timedelta(days=365)
-    date_format_string = 'YYYY-MM' # Format pour PostgreSQL
-
-    # Inscriptions
+    date_format_string = 'YYYY-MM'
     registrations_by_month_query = db.select(
             func.to_char(User.registration_date, date_format_string).label('month'),
             func.count(User.id).label('count')
@@ -82,7 +71,6 @@ def index():
         .group_by(func.to_char(User.registration_date, date_format_string))\
         .order_by(func.to_char(User.registration_date, date_format_string))
     registrations_data = db.session.execute(registrations_by_month_query).all()
-    # Accomplissements
     completions_by_month_query = db.select(
             func.to_char(UserTaskCompletion.completion_timestamp, date_format_string).label('month'),
             func.count(UserTaskCompletion.id).label('count')
@@ -90,7 +78,6 @@ def index():
         .group_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string))\
         .order_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string))
     completions_data = db.session.execute(completions_by_month_query).all()
-    # Gains
     earnings_by_month_query = db.select(
             func.to_char(UserTaskCompletion.completion_timestamp, date_format_string).label('month'),
             func.sum(Task.reward_amount).label('total_reward')
@@ -99,7 +86,6 @@ def index():
         .group_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string))\
         .order_by(func.to_char(UserTaskCompletion.completion_timestamp, date_format_string))
     earnings_data = db.session.execute(earnings_by_month_query).all()
-    # Préparation données Chart.js
     reg_dict = {row.month: row.count for row in registrations_data}
     comp_dict = {row.month: row.count for row in completions_data}
     earn_dict = {row.month: float(row.total_reward or 0.0) for row in earnings_data}
@@ -122,7 +108,7 @@ def index():
                            title=_('Panneau Administrateur'),
                            chart_data=chart_data)
 
-# --- Routes pour la gestion des Tâches (MODIFIÉES pour image) ---
+# --- Routes pour la gestion des Tâches (MODIFIÉES pour is_daily) ---
 @bp.route('/tasks/new', methods=['GET', 'POST'])
 @login_required
 @admin_required
@@ -130,10 +116,9 @@ def create_task():
     form = TaskForm()
     if form.validate_on_submit():
         image_file = None
-        if form.task_image.data: # Vérifie si une image a été uploadée
+        if form.task_image.data:
             image_file = save_task_picture(form.task_image.data)
-            if not image_file: # Si erreur sauvegarde image, on arrête
-                return redirect(url_for('admin.create_task'))
+            if not image_file: return redirect(url_for('admin.create_task'))
 
         selected_countries = form.target_countries.data; countries_to_save = 'ALL' if 'ALL' in selected_countries or not selected_countries else ','.join(selected_countries)
         selected_devices = form.target_devices.data; devices_to_save = 'ALL' if 'ALL' in selected_devices or not selected_devices else ','.join(selected_devices)
@@ -143,14 +128,14 @@ def create_task():
             instructions=form.instructions.data, task_link=form.task_link.data,
             reward_amount=form.reward_amount.data, target_countries=countries_to_save,
             target_devices=devices_to_save, is_active=is_active_task,
-            image_filename=image_file # Ajout du nom de fichier image
+            image_filename=image_file,
+            is_daily=form.is_daily.data # <<< is_daily AJOUTÉ ICI >>>
         )
         try:
             db.session.add(new_task)
-            db.session.commit() # Commit la tâche d'abord
+            db.session.commit()
             flash(_('La nouvelle tâche "%(title)s" a été créée avec succès !', title=new_task.title), 'success')
-            # Logique de notification (inchangée)
-            if is_active_task:
+            if is_active_task: # Logique de notification inchangée
                 target_country_list = countries_to_save.split(',') if countries_to_save != 'ALL' else []
                 target_device_list = devices_to_save.split(',') if devices_to_save != 'ALL' else []
                 query = select(User.id).where(User.is_admin == False, User.is_banned == False)
@@ -159,8 +144,8 @@ def create_task():
                 eligible_user_ids = db.session.scalars(query).all()
                 if eligible_user_ids:
                     notifications_to_add = []
-                    for user_id in eligible_user_ids:
-                        notif = Notification(user_id=user_id, name='new_task_available', payload_json=json.dumps({'task_id': new_task.id, 'task_title': new_task.title}))
+                    for user_id_notif in eligible_user_ids: # Renommé user_id pour éviter conflit
+                        notif = Notification(user_id=user_id_notif, name='new_task_available', payload_json=json.dumps({'task_id': new_task.id, 'task_title': new_task.title}))
                         notifications_to_add.append(notif)
                     if notifications_to_add:
                         db.session.add_all(notifications_to_add)
@@ -169,9 +154,7 @@ def create_task():
             return redirect(url_for('admin.list_tasks'))
         except Exception as e:
             db.session.rollback()
-            # Si erreur après sauvegarde image, il faut la supprimer
-            if image_file:
-                delete_task_picture(image_file)
+            if image_file: delete_task_picture(image_file)
             flash(_("Erreur lors de la création de la tâche : %(error)s", error=str(e)), 'danger')
     return render_template('create_task.html', title=_('Créer une Nouvelle Tâche'), form=form, is_edit=False)
 
@@ -193,51 +176,54 @@ def list_tasks():
 def edit_task(task_id):
     task = db.session.get(Task, task_id) or abort(404)
     form = TaskForm(obj=task if request.method == 'GET' else None)
-    old_image_filename = task.image_filename # Sauvegarde l'ancien nom d'image
+    old_image_filename = task.image_filename
 
     if request.method == 'GET':
         form.target_countries.data = task.target_countries.split(',') if task.target_countries and task.target_countries != 'ALL' else (['ALL'] if task.target_countries == 'ALL' else [])
         form.target_devices.data = task.target_devices.split(',') if task.target_devices and task.target_devices != 'ALL' else (['ALL'] if task.target_devices == 'ALL' else [])
-        # Note: On ne pré-remplit pas le champ FileField, l'utilisateur doit re-uploader s'il veut changer
+        form.is_daily.data = task.is_daily # <<< Pré-remplit is_daily >>>
 
     if form.validate_on_submit():
         new_image_filename = None
-        if form.task_image.data: # Si une nouvelle image est uploadée
+        if form.task_image.data:
             new_image_filename = save_task_picture(form.task_image.data)
-            if not new_image_filename: # Erreur sauvegarde
-                 # Reste sur la page d'édition pour afficher l'erreur flashée par save_task_picture
-                 return render_template('create_task.html', title=_('Modifier la Tâche'), form=form, is_edit=True, task_id=task_id)
+            if not new_image_filename:
+                 return render_template('create_task.html', title=_('Modifier la Tâche'), form=form, is_edit=True, task_id=task_id, current_image=old_image_filename)
             else:
-                # Si succès, supprime l'ancienne image (si elle existe)
-                if old_image_filename:
-                    delete_task_picture(old_image_filename)
-                task.image_filename = new_image_filename # Met à jour avec le nouveau nom
-        # Si pas de nouvelle image uploadée, on garde l'ancienne (task.image_filename n'est pas modifié)
-
+                if old_image_filename: delete_task_picture(old_image_filename)
+                task.image_filename = new_image_filename
+        
         old_status = task.is_active
         selected_countries = form.target_countries.data; countries_to_save = 'ALL' if 'ALL' in selected_countries or not selected_countries else ','.join(selected_countries)
         selected_devices = form.target_devices.data; devices_to_save = 'ALL' if 'ALL' in selected_devices or not selected_devices else ','.join(selected_devices)
         task.title=form.title.data; task.description=form.description.data; task.instructions=form.instructions.data; task.task_link=form.task_link.data; task.reward_amount=form.reward_amount.data; task.target_countries=countries_to_save; task.target_devices=devices_to_save; task.is_active=form.is_active.data
-        # task.image_filename est déjà mis à jour si une nouvelle image a été sauvée
-
+        task.is_daily=form.is_daily.data # <<< Met à jour is_daily >>>
         try:
             db.session.commit()
             flash(_('Tâche "%(title)s" mise à jour avec succès !', title=task.title), 'success')
-            # Logique de notification (inchangée)
-            if not old_status and task.is_active:
-                # ... (code de notification inchangé) ...
-                pass # Remplacez par le vrai code de notification si besoin
+            if not old_status and task.is_active: # Logique de notification inchangée
+                target_country_list = countries_to_save.split(',') if countries_to_save != 'ALL' else []
+                target_device_list = devices_to_save.split(',') if devices_to_save != 'ALL' else []
+                query = select(User.id).where(User.is_admin == False, User.is_banned == False)
+                if countries_to_save != 'ALL' and target_country_list: query = query.where(User.country.in_(target_country_list))
+                if devices_to_save != 'ALL' and target_device_list: query = query.where(User.device.in_(target_device_list))
+                eligible_user_ids = db.session.scalars(query).all()
+                if eligible_user_ids:
+                    notifications_to_add = [];
+                    for user_id_notif in eligible_user_ids: # Renommé user_id
+                        already_done = db.session.scalar(select(UserTaskCompletion.id).where(UserTaskCompletion.user_id==user_id_notif, UserTaskCompletion.task_id==task.id))
+                        if not already_done:
+                            notifications_to_add.append(Notification(user_id=user_id_notif, name='new_task_available', payload_json=json.dumps({'task_id': task.id, 'task_title': task.title})))
+                    if notifications_to_add:
+                        db.session.add_all(notifications_to_add)
+                        db.session.commit()
+                        print(f"INFO: Sent 'new_task_available' notification to {len(notifications_to_add)} users for task {task.id} upon activation.")
             return redirect(url_for('admin.list_tasks'))
         except Exception as e:
             db.session.rollback()
-            # Si erreur commit ET qu'on avait une nouvelle image, il faut la supprimer
-            if new_image_filename:
-                 delete_task_picture(new_image_filename)
+            if new_image_filename: delete_task_picture(new_image_filename)
             flash(_("Erreur lors de la mise à jour de la tâche : %(error)s", error=str(e)), 'danger')
-
-    # Affichage du formulaire (GET ou POST échoué)
     return render_template('create_task.html', title=_('Modifier la Tâche'), form=form, is_edit=True, task_id=task_id, current_image=old_image_filename)
-
 
 @bp.route('/task/<int:task_id>/delete', methods=['POST'])
 @login_required
@@ -245,22 +231,15 @@ def edit_task(task_id):
 def delete_task(task_id):
     task_to_delete = db.session.get(Task, task_id) or abort(404)
     title_copy = task_to_delete.title
-    image_to_delete = task_to_delete.image_filename # Récupère nom image avant suppression objet
-
+    image_to_delete = task_to_delete.image_filename
     try:
-        # Supprime les dépendances d'abord
         uc_stmt = db.delete(UserTaskCompletion).where(UserTaskCompletion.task_id == task_id); db.session.execute(uc_stmt)
         ec_stmt = db.delete(ExternalTaskCompletion).where(ExternalTaskCompletion.task_id == task_id); db.session.execute(ec_stmt)
-        # Supprime la tâche
         db.session.delete(task_to_delete)
         db.session.commit()
-        # Supprime l'image associée (si elle existe) APRÈS le commit réussi
-        if image_to_delete:
-            delete_task_picture(image_to_delete)
+        if image_to_delete: delete_task_picture(image_to_delete)
         flash(_('Tâche "%(title)s" supprimée avec succès.', title=title_copy), 'success')
-    except Exception as e:
-        db.session.rollback()
-        flash(_('Erreur lors de la suppression : %(error)s', error=str(e)), 'danger')
+    except Exception as e: db.session.rollback(); flash(_('Erreur lors de la suppression : %(error)s', error=str(e)), 'danger')
     return redirect(url_for('admin.list_tasks'))
 
 # --- Route pour voir l'historique des accomplissements ---
@@ -284,23 +263,18 @@ def list_withdrawals():
     page_history = request.args.get('page_history', 1, type=int)
     search_name = request.args.get('name', '')
     search_email = request.args.get('email', '')
-
-    # Requête pour la liste des utilisateurs (paginée)
     users_query = db.select(User).where(User.is_admin == False)
     if search_name: users_query = users_query.where(User.full_name.ilike(f'%{search_name}%'))
     if search_email: users_query = users_query.where(User.email.ilike(f'%{search_email}%'))
     users_query = users_query.order_by(User.full_name)
     users_pagination = db.paginate(users_query, page=page_users, per_page=current_app.config.get('USERS_PER_PAGE', 15), error_out=False)
     users = users_pagination.items
-
-    # Requête pour l'historique global des retraits (paginée)
     history_query = db.select(Withdrawal)\
         .options(joinedload(Withdrawal.requester), joinedload(Withdrawal.processed_by_admin))\
         .where(Withdrawal.status == 'Completed')\
         .order_by(Withdrawal.processed_timestamp.desc())
     history_pagination = db.paginate(history_query, page=page_history, per_page=current_app.config.get('HISTORY_PER_PAGE', 20), error_out=False)
     withdrawal_history = history_pagination.items
-
     return render_template('withdrawal_list.html',
                            title=_('Gestion Retraits / Soldes Utilisateurs'),
                            users=users,
@@ -316,7 +290,7 @@ def list_withdrawals():
 @admin_required
 def record_withdrawal(user_id):
     user = db.session.get(User, user_id) or abort(404); amount_str = request.form.get('amount')
-    page_users = request.args.get('page_users', 1, type=int) # Récupère page pour redirection
+    page_users = request.args.get('page_users', 1, type=int)
     try:
         amount_withdrawn = Decimal(amount_str);
         if amount_withdrawn <= 0: raise ValueError(_("Le montant doit être positif."))
@@ -422,8 +396,8 @@ def send_message():
         try:
             if target_user_ids:
                 notifications_to_add = [];
-                for user_id in target_user_ids:
-                    notifications_to_add.append(Notification(user_id=user_id, name='admin_message', payload_json=json.dumps({'subject': subject.strip(), 'message': body.strip()})))
+                for user_id_notif in target_user_ids: # Renommé user_id
+                    notifications_to_add.append(Notification(user_id=user_id_notif, name='admin_message', payload_json=json.dumps({'subject': subject.strip(), 'message': body.strip()})))
                 if notifications_to_add:
                     db.session.add_all(notifications_to_add)
                     db.session.commit()
@@ -454,7 +428,8 @@ def approve_referral(completion_id):
     referrer = submission.referrer_user; task = submission.task
     if not referrer or not task: flash(_('Erreur : Utilisateur parrain ou tâche associée introuvable.'), 'danger'); return redirect(url_for('admin.list_pending_referrals'))
     try:
-        bonus_amount = Decimal(str(task.reward_amount or 0.0)) * Decimal('0.85'); referrer_balance_decimal = Decimal(str(referrer.balance or 0.0))
+        bonus_amount = Decimal(str(task.reward_amount or 0.0)) * Decimal('0.85'); # Bonus à 85%
+        referrer_balance_decimal = Decimal(str(referrer.balance or 0.0))
         submission.status = 'Approved'; submission.processed_timestamp = datetime.now(timezone.utc); submission.processed_by_admin_id = current_user.id; referrer.balance = float(referrer_balance_decimal + bonus_amount)
         notif = Notification(user_id=referrer.id, name='referral_bonus', payload_json=json.dumps({'message': _('Votre parrainage pour la tâche "%(task_title)s" a été approuvé !', task_title=task.title), 'amount': str(bonus_amount.quantize(Decimal("0.01")))}))
         db.session.add(notif); db.session.commit()
@@ -522,21 +497,18 @@ def reject_commission(commission_id):
 @admin_required
 def statistics():
     search_country = request.args.get('country', ''); search_device = request.args.get('device', '')
-    # Calculs des stats clés
     total_users = db.session.scalar(select(func.count(User.id)).where(User.is_admin == False, User.is_banned == False)) or 0
     total_active_tasks = db.session.scalar(select(func.count(Task.id)).where(Task.is_active == True)) or 0
     total_completions = db.session.scalar(select(func.count(UserTaskCompletion.id))) or 0
     total_earnings_generated = db.session.scalar(select(func.sum(Task.reward_amount)).join(UserTaskCompletion, UserTaskCompletion.task_id == Task.id)) or 0.0
     total_withdrawn = db.session.scalar(select(func.sum(Withdrawal.amount)).where(Withdrawal.status == 'Completed')) or 0.0
-    pending_external_bonus_sum = db.session.scalar(select(func.sum(Task.reward_amount * 0.40)).join(ExternalTaskCompletion, ExternalTaskCompletion.task_id == Task.id).where(ExternalTaskCompletion.status == 'Pending')) or 0.0
+    pending_external_bonus_sum = db.session.scalar(select(func.sum(Task.reward_amount * 0.85)).join(ExternalTaskCompletion, ExternalTaskCompletion.task_id == Task.id).where(ExternalTaskCompletion.status == 'Pending')) or 0.0
     pending_commission_sum = db.session.scalar(select(func.sum(ReferralCommission.commission_amount)).where(ReferralCommission.status == 'Pending')) or 0.0
     stats_summary = {'total_users': total_users, 'total_active_tasks': total_active_tasks, 'total_completions': total_completions, 'total_earnings_generated': total_earnings_generated, 'total_withdrawn': total_withdrawn, 'pending_external_bonus': pending_external_bonus_sum, 'pending_commission': pending_commission_sum}
-    # Requête pour le tableau
     query_table = db.select(User.country, User.device, func.count(UserTaskCompletion.id).label('completion_count')).join(UserTaskCompletion.user).group_by(User.country, User.device)
     if search_country: query_table = query_table.where(User.country == search_country)
     if search_device: query_table = query_table.where(User.device == search_device)
     query_table = query_table.order_by(User.country, User.device); results_table = db.session.execute(query_table).all()
-    # Prépare les données pour Chart.js (Utilise to_char pour PG)
     date_format_string = 'YYYY-MM'
     registrations_by_month_query = db.select(func.to_char(User.registration_date, date_format_string).label('month'), func.count(User.id).label('count')).where(User.is_admin == False).group_by(func.to_char(User.registration_date, date_format_string)).order_by(func.to_char(User.registration_date, date_format_string))
     registrations_data = db.session.execute(registrations_by_month_query).all()
