@@ -1,13 +1,21 @@
-{# app/admin/templates/create_post.html (NOUVEAU FICHIER) #}
+{# app/admin/templates/create_post.html (Avec Éditeur Riche TinyMCE) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
+
+{% block head_extra %}
+    {# Lien vers le CDN de TinyMCE #}
+    <script src="https://cdn.tiny.cloud/1/5ug3w8eutv6r2nz1yd9lemsateyqzyl7rexxqmkzsm9fwk2h/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+    {# Remplacez YOUR_TINYMCE_API_KEY par votre propre clé API gratuite obtenue sur tiny.cloud #}
+    {# Pour un test rapide sans clé API, vous pouvez utiliser 'no-api-key' mais cela affichera un avertissement #}
+    {# <script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script> #}
+{% endblock %}
 
 {% block content %}
 <div class="container mt-4 mb-5"> {# Conteneur principal #}
     <h1>
         {% if is_edit %}
-            <i class="bi bi-pencil-square"></i> {{ _('Modifier l\'Article') }} #{{ post.id }}
+            <i class="bi bi-pencil-square"></i> {{ _('Modifier l\'Article') }} {% if post %}#{{ post.id }}{% endif %}
         {% else %}
             <i class="bi bi-file-earmark-plus-fill"></i> {{ _('Créer un Nouvel Article') }}
         {% endif %}
@@ -22,8 +30,7 @@
     <hr>
 
     <div class="row justify-content-center">
-        <div class="col-md-10 col-lg-8"> {# Colonne un peu plus large pour l'éditeur de texte #}
-            {# Important: enctype="multipart/form-data" pour permettre l'upload de fichiers #}
+        <div class="col-md-10 col-lg-9"> {# Colonne un peu plus large pour l'éditeur #}
             <form method="post" novalidate enctype="multipart/form-data">
                 {{ form.hidden_tag() }}
 
@@ -38,18 +45,15 @@
                     {% endif %}
                 </div>
 
-                {# Contenu de l'article #}
-                {# Pour l'instant, un simple TextArea. Un éditeur riche (WYSIWYG) comme TinyMCE ou CKEditor #}
-                {# nécessiterait une intégration JavaScript plus complexe. #}
+                {# Contenu de l'article (sera transformé par TinyMCE) #}
                 <div class="mb-3">
                     {{ form.content.label(class="form-label") }}
-                    {{ form.content(class="form-control" + (" is-invalid" if form.content.errors else ""), rows="15") }}
+                    {{ form.content(class="form-control tinymce-editor" + (" is-invalid" if form.content.errors else ""), rows="20") }} {# Ajout classe tinymce-editor #}
                     {% if form.content.errors %}
                         <div class="invalid-feedback">
                             {% for error in form.content.errors %}<span>{{ error }}</span>{% endfor %}
                         </div>
                     {% endif %}
-                    <small class="form-text text-muted">{{ _('Vous pouvez utiliser des balises HTML simples pour la mise en forme (ex: <b>gras</b>, <i>italique</i>, <br> pour saut de ligne, <a href="...">lien</a>).') }}</small>
                 </div>
 
                 {# Image Mise en Avant pour l'article #}
@@ -61,7 +65,7 @@
                             {% for error in form.post_image.errors %}<span>{{ error }}</span>{% endfor %}
                         </div>
                     {% endif %}
-                    {% if is_edit and current_image %} {# current_image est passé depuis la route edit_post #}
+                    {% if is_edit and current_image %}
                         <div class="mt-2">
                             <small>{{ _('Image actuelle:') }}</small><br>
                             <img src="{{ url_for('static', filename='uploads/blog_posts/' + current_image) }}" alt="{{ _('Image actuelle de l\'article') }}" class="img-thumbnail mt-1" style="max-height: 150px; max-width: 400px; object-fit: contain;">
@@ -95,4 +99,21 @@
         </div>
     </div>
 </div> {# <<< Fin Conteneur >>> #}
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    <script>
+        tinymce.init({
+            selector: 'textarea.tinymce-editor', // Cible les textareas avec cette classe
+            plugins: 'advlist autolink lists link image charmap print preview anchor searchreplace visualblocks code fullscreen insertdatetime media table paste help wordcount',
+            toolbar: 'undo redo | formatselect | bold italic backcolor | \
+                      alignleft aligncenter alignright alignjustify | \
+                      bullist numlist outdent indent | removeformat | help',
+            height: 400, // Hauteur de l'éditeur
+            menubar: 'file edit view insert format tools table help',
+            // language: 'fr_FR', // Optionnel: pour mettre l'interface de TinyMCE en français
+            // language_url: '{{ url_for('static', filename='js/tinymce_langs/fr_FR.js') }}' // Si vous téléchargez le pack de langue
+        });
+    </script>
 {% endblock %}

@@ -35,7 +35,7 @@ class Config:
 
     # --- Configuration Application ---
     # <<< CORRECTION ICI : Assurez-vous que la valeur par défaut est un simple nombre >>>
-    MINIMUM_WITHDRAWAL_AMOUNT = float(os.environ.get('MINIMUM_WITHDRAWAL_AMOUNT') or 10.0)
+    MINIMUM_WITHDRAWAL_AMOUNT = float(os.environ.get('MINIMUM_WITHDRAWAL_AMOUNT') or 15.0)
     SUPPORT_EMAIL = os.environ.get('SUPPORT_EMAIL') or 'work.and.win.online@gmail.com'
     SUPPORT_TELEGRAM_LINK = os.environ.get('SUPPORT_TELEGRAM_LINK') or 'https://t.me/kevkevjunior'
 
