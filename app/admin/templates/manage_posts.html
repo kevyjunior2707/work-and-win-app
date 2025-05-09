@@ -1,4 +1,4 @@
-{# app/admin/templates/manage_posts.html (Correction CSRF Token) #}
+{# app/admin/templates/manage_posts.html (Liste des Articles et Actions) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -7,6 +7,7 @@
 <div class="container mt-4 mb-5"> {# Conteneur principal #}
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1><i class="bi bi-pencil-square"></i> {{ title }}</h1>
+        {# Bouton pour aller à la page de création séparée #}
         <a href="{{ url_for('admin.create_post') }}" class="btn btn-success">
             <i class="bi bi-plus-circle-fill"></i> {{ _('Écrire un Nouvel Article') }}
         </a>
@@ -14,6 +15,7 @@
     <p>{{ _('Gérez les articles de blog de votre site.')}}</p>
     <hr>
 
+    {# Section pour Lister les Articles Existants #}
     <h2>{{ _('Articles Existants') }}</h2>
     {% if not posts %}
         <div class="alert alert-info">
@@ -36,10 +38,11 @@
                     {% for post in posts %}
                     <tr>
                         <td>
+                            {# Lien vers la vue publique de l'article s'il est publié #}
                             {% if post.is_published %}
                                 <a href="{{ url_for('main.view_post', slug=post.slug) }}" target="_blank" title="{{ _('Voir l\'article (public)') }}">{{ post.title }}</a>
                             {% else %}
-                                {{ post.title }}
+                                {{ post.title }} <small class="text-muted">({{ _('Brouillon') }})</small>
                             {% endif %}
                             {% if post.image_filename %}
                                 <i class="bi bi-image text-muted ms-1" title="{{ _('Avec image') }}"></i>
@@ -65,15 +68,13 @@
                             <a href="{{ url_for('admin.edit_post', post_id=post.id) }}" class="btn btn-sm btn-outline-primary" title="{{ _('Modifier') }}"><i class="bi bi-pencil-fill"></i></a>
 
                             <form action="{{ url_for('admin.toggle_post_published', post_id=post.id) }}" method="post" style="display: inline;">
-                                {# <<< CORRECTION CSRF TOKEN ICI >>> #}
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/>
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/> {# Utilise la variable passée par la route #}
                                 <button type="submit" class="btn btn-sm {% if post.is_published %}btn-outline-secondary{% else %}btn-outline-success{% endif %}" title="{{ _('Publier/Dépublier') }}">
                                     {% if post.is_published %}<i class="bi bi-eye-slash"></i>{% else %}<i class="bi bi-eye"></i>{% endif %}
                                 </button>
                             </form>
 
                             <form action="{{ url_for('admin.toggle_post_comments', post_id=post.id) }}" method="post" style="display: inline;">
-                                {# <<< CORRECTION CSRF TOKEN ICI >>> #}
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/>
                                 <button type="submit" class="btn btn-sm {% if post.allow_comments %}btn-outline-secondary{% else %}btn-outline-primary{% endif %}" title="{{ _('Autoriser/Désactiver Commentaires') }}">
                                     {% if post.allow_comments %}<i class="bi bi-chat-dots-fill"></i>{% else %}<i class="bi bi-chat-dots"></i>{% endif %}
@@ -81,7 +82,6 @@
                             </form>
 
                             <form action="{{ url_for('admin.delete_post', post_id=post.id) }}" method="post" style="display: inline;">
-                                {# <<< CORRECTION CSRF TOKEN ICI >>> #}
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/>
                                 <button type="submit" class="btn btn-sm btn-outline-danger" title="{{ _('Supprimer') }}" onclick="return confirm('{{ _('Êtes-vous sûr de vouloir supprimer cet article et tous ses commentaires ? Cette action est irréversible.') }}');"><i class="bi bi-trash3"></i></button>
                             </form>
@@ -91,10 +91,12 @@
                 </tbody>
             </table>
         </div>
+        {# Ici, on pourrait ajouter une pagination pour les articles si la liste devient très longue #}
+        {# Exemple: {% include '_pagination.html' with context %} si on crée un macro de pagination #}
     {% endif %}
 
     <div class="mt-4">
         <a href="{{ url_for('admin.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left-circle"></i> {{ _('Retour au Panel Admin') }}</a>
     </div>
-</div>
+</div> {# <<< Fin Conteneur >>> #}
 {% endblock %}

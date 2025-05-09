@@ -1,4 +1,4 @@
-# app/admin/routes.py (VERSION COMPLÈTE v44 - Route create_post dédiée)
+# app/admin/routes.py (VERSION COMPLÈTE v45 - Slug Unique pour Blog)
 
 from flask import render_template, redirect, url_for, flash, request, abort, current_app, send_from_directory
 from flask_login import login_required, current_user
@@ -9,9 +9,9 @@ from app.admin import bp
 from app.forms import (TaskForm, countries_choices_multi, devices_choices_multi,
                        countries_choices_single, devices_choices_single,
                        AdminResetPasswordForm, AddAdminForm, BannerForm, PostForm)
-# Ajout des modèles Banner et Post, et de la fonction slugify
+# Ajout des modèles Banner et Post. La fonction slugify_base est dans models.py
 from app.models import (Task, UserTaskCompletion, ExternalTaskCompletion, User,
-                        Withdrawal, Notification, ReferralCommission, Banner, Post, slugify, Comment)
+                        Withdrawal, Notification, ReferralCommission, Banner, Post, Comment) # slugify_base est utilisé par Post.generate_unique_slug
 from app.decorators import admin_required, super_admin_required
 from sqlalchemy import select, or_, func
 from sqlalchemy.orm import joinedload
@@ -24,7 +24,7 @@ from werkzeug.utils import secure_filename
 from flask_wtf.csrf import generate_csrf
 from app.main.routes import allowed_file
 
-# --- Fonctions utilitaires pour images ---
+# --- Fonctions utilitaires pour images (tâches, bannières, articles) ---
 def save_picture(form_picture, subfolder='tasks'):
     random_hex = secrets.token_hex(8)
     _, f_ext = os.path.splitext(form_picture.filename)
@@ -216,6 +216,8 @@ def delete_task(task_id):
     except Exception as e: db.session.rollback(); flash(_('Erreur lors de la suppression : %(error)s', error=str(e)), 'danger')
     return redirect(url_for('admin.list_tasks'))
 
+# --- (Copiez ici toutes les autres routes admin : list_completions, list_withdrawals, etc. depuis votre v40) ---
+# ...
 @bp.route('/completions')
 @login_required
 @admin_required
@@ -700,14 +702,15 @@ def toggle_banner_active(banner_id):
     return redirect(url_for('admin.manage_banners'))
 
 # --- Routes pour la Gestion des Articles de Blog ---
-@bp.route('/blog/posts', methods=['GET']) # Modifié pour lister seulement
+@bp.route('/blog/posts', methods=['GET'])
 @login_required
 @admin_required
 def manage_posts():
     posts = db.session.scalars(select(Post).order_by(Post.timestamp.desc())).all()
-    return render_template('manage_posts.html', title=_('Gérer les Articles de Blog'), posts=posts)
+    csrf_token_value = generate_csrf() # Pour les petits formulaires d'action
+    return render_template('manage_posts.html', title=_('Gérer les Articles de Blog'), posts=posts, csrf_token=csrf_token_value)
 
-@bp.route('/blog/post/new', methods=['GET', 'POST']) # Route dédiée pour créer
+@bp.route('/blog/post/new', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def create_post():
@@ -718,15 +721,16 @@ def create_post():
             image_file = save_picture(form.post_image.data, subfolder='blog_posts')
             if not image_file:
                 return render_template('create_post.html', title=_('Créer un Nouvel Article'), form=form, is_edit=False)
-
+        # Génère un slug unique
+        unique_slug = Post.generate_unique_slug(form.title.data)
         new_post = Post(
             title=form.title.data,
+            slug=unique_slug, # Utilise le slug unique généré
             content=form.content.data,
             user_id=current_user.id,
             image_filename=image_file,
             allow_comments=form.allow_comments.data,
-            is_published=form.is_published.data,
-            slug=slugify(form.title.data)
+            is_published=form.is_published.data
         )
         try:
             db.session.add(new_post)
@@ -739,7 +743,6 @@ def create_post():
             flash(_("Erreur lors de la création de l'article : %(error)s", error=str(e)), 'danger')
     return render_template('create_post.html', title=_('Créer un Nouvel Article'), form=form, is_edit=False)
 
-
 @bp.route('/blog/post/<int:post_id>/edit', methods=['GET', 'POST'])
 @login_required
 @admin_required
@@ -747,6 +750,7 @@ def edit_post(post_id):
     post_to_edit = db.session.get(Post, post_id) or abort(404)
     form = PostForm(obj=post_to_edit if request.method == 'GET' else None)
     old_image_filename = post_to_edit.image_filename
+    old_title = post_to_edit.title # Pour vérifier si le titre a changé
 
     if form.validate_on_submit():
         new_image_filename = None
@@ -760,7 +764,9 @@ def edit_post(post_id):
                 post_to_edit.image_filename = new_image_filename
 
         post_to_edit.title = form.title.data
-        post_to_edit.slug = slugify(form.title.data)
+        # Regénère le slug seulement si le titre a changé
+        if post_to_edit.title != old_title:
+            post_to_edit.slug = Post.generate_unique_slug(form.title.data, post_id=post_to_edit.id)
         post_to_edit.content = form.content.data
         post_to_edit.allow_comments = form.allow_comments.data
         post_to_edit.is_published = form.is_published.data
@@ -774,13 +780,11 @@ def edit_post(post_id):
                 delete_picture(new_image_filename, subfolder='blog_posts')
             flash(_("Erreur lors de la mise à jour de l'article : %(error)s", error=str(e)), 'danger')
     
-    if request.method == 'GET': # Pré-remplir pour GET
+    if request.method == 'GET':
         form.title.data = post_to_edit.title
         form.content.data = post_to_edit.content
         form.allow_comments.data = post_to_edit.allow_comments
         form.is_published.data = post_to_edit.is_published
-        # Le champ image n'est pas pré-rempli
-
     return render_template('create_post.html', title=_('Modifier l\'Article'), form=form, post=post_to_edit, is_edit=True, current_image=old_image_filename)
 
 @bp.route('/blog/post/<int:post_id>/delete', methods=['POST'])
@@ -791,7 +795,7 @@ def delete_post(post_id):
     title_copy = post_to_delete.title
     image_to_delete = post_to_delete.image_filename
     try:
-        db.session.delete(post_to_delete) # SQLAlchemy devrait gérer la cascade pour les commentaires
+        db.session.delete(post_to_delete)
         db.session.commit()
         if image_to_delete:
             delete_picture(image_to_delete, subfolder='blog_posts')

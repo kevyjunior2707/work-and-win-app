@@ -1,4 +1,4 @@
-{# app/admin/templates/admin_home.html (Ajout Lien Gestion Articles Blog) #}
+{# app/admin/templates/admin_home.html (Vérification Lien Gestion Articles Blog) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -145,7 +145,7 @@
                 </div>
             </div>
         </div>
-        {# <<< NOUVELLE CARTE : Gestion des Articles de Blog >>> #}
+        {# Gestion des Articles de Blog #}
         <div class="col-md-6 col-lg-4 d-flex align-items-stretch">
             <div class="card h-100 shadow-sm w-100">
                  <div class="card-body d-flex flex-column">
@@ -157,7 +157,6 @@
                 </div>
             </div>
         </div>
-        {# <<< FIN NOUVELLE CARTE >>> #}
     </div>
     {# --- Fin Actions Rapides --- #}
 
@@ -167,7 +166,7 @@
 {# --- Bloc Scripts pour Chart.js --- #}
 {% block scripts %}
     {{ super() }}
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tiny.cloud/1/5ug3w8eutv6r2nz1yd9lemsateyqzyl7rexxqmkzsm9fwk2h/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script> {# Assurez-vous que votre clé TinyMCE est ici si vous l'utilisez ailleurs sur les pages admin #}
     <script>
         document.addEventListener('DOMContentLoaded', (event) => {
             const chartData = {{ chart_data | tojson | safe }};

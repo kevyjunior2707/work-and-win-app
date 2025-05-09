@@ -1,18 +1,21 @@
-# app/models.py (VERSION COMPLÈTE v19 - Ajout Post et Comment)
+# app/models.py (VERSION COMPLÈTE v20 - Génération Slug Unique)
 
 import secrets
 from datetime import datetime, timezone
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 from sqlalchemy.orm import relationship
+from sqlalchemy import select # Assurez-vous que select est importé
 from app import db, login
-from flask import current_app, url_for # url_for ajouté pour slug
+from flask import current_app
 from itsdangerous import URLSafeTimedSerializer as Serializer
 from itsdangerous import SignatureExpired, BadSignature
-import re # Pour la génération de slug
+import re
+import random # Pour générer un suffixe aléatoire pour le slug
+import string # Pour générer un suffixe aléatoire pour le slug
 
-# --- Fonction pour générer un slug ---
-def slugify(text):
+# --- Fonction pour générer un slug de base ---
+def slugify_base(text):
     # Remplace les caractères non alphanumériques par des tirets
     text = re.sub(r'[^\w\s-]', '', text).strip().lower()
     text = re.sub(r'[-\s]+', '-', text)
@@ -41,7 +44,6 @@ class User(UserMixin, db.Model):
     telegram_username = db.Column(db.String(100), nullable=True, index=True)
     is_verified = db.Column(db.Boolean, default=False, nullable=False, index=True)
 
-    # --- Relations ---
     referrer = relationship('User', remote_side=[id], back_populates='referred_users')
     referred_users = relationship('User', back_populates='referrer', foreign_keys=[referred_by_id])
     completed_tasks_rel = relationship('UserTaskCompletion', back_populates='user', lazy='dynamic', foreign_keys='UserTaskCompletion.user_id')
@@ -53,7 +55,6 @@ class User(UserMixin, db.Model):
     processed_commissions = relationship('ReferralCommission', back_populates='processed_by_admin', lazy='dynamic', foreign_keys='ReferralCommission.processed_by_admin_id')
     commissions_earned = relationship('ReferralCommission', back_populates='referrer', lazy='dynamic', foreign_keys='ReferralCommission.referrer_id')
     commissions_generated = relationship('ReferralCommission', back_populates='referred_user', lazy='dynamic', foreign_keys='ReferralCommission.referred_user_id')
-    # <<< NOUVELLES RELATIONS BLOG >>>
     posts = relationship('Post', back_populates='author', lazy='dynamic', foreign_keys='Post.user_id')
     comments = relationship('Comment', back_populates='author', lazy='dynamic', foreign_keys='Comment.user_id')
 
@@ -77,6 +78,7 @@ class User(UserMixin, db.Model):
 def load_user(id): return db.session.get(User, int(id))
 
 class Task(db.Model):
+    # ... (contenu de Task inchangé) ...
     __tablename__ = 'task'
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
@@ -97,6 +99,7 @@ class Task(db.Model):
     def __repr__(self): return f'<Task {self.id}: {self.title}>'
 
 class UserTaskCompletion(db.Model):
+    # ... (contenu de UserTaskCompletion inchangé) ...
     __tablename__ = 'user_task_completion'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
@@ -108,6 +111,7 @@ class UserTaskCompletion(db.Model):
     def __repr__(self): return f'<User {self.user_id} completed Task {self.task_id}>'
 
 class ExternalTaskCompletion(db.Model):
+    # ... (contenu de ExternalTaskCompletion inchangé) ...
     __tablename__ = 'external_task_completion'
     id = db.Column(db.Integer, primary_key=True)
     task_id = db.Column(db.Integer, db.ForeignKey('task.id'))
@@ -125,6 +129,7 @@ class ExternalTaskCompletion(db.Model):
     def __repr__(self): return f'<External Completion Task {self.task_id} via Referrer {self.referrer_user_id} - Status: {self.status}>'
 
 class Withdrawal(db.Model):
+    # ... (contenu de Withdrawal inchangé) ...
     __tablename__ = 'withdrawal'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
@@ -138,6 +143,7 @@ class Withdrawal(db.Model):
     def __repr__(self): return f'<Withdrawal {self.id} - User {self.user_id} - Amount {self.amount} - Status: {self.status}>'
 
 class Notification(db.Model):
+    # ... (contenu de Notification inchangé) ...
     __tablename__ = 'notification'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
@@ -149,6 +155,7 @@ class Notification(db.Model):
     def __repr__(self): return f'<Notification {self.name} for User {self.user_id}>'
 
 class ReferralCommission(db.Model):
+    # ... (contenu de ReferralCommission inchangé) ...
     __tablename__ = 'referral_commission'
     id = db.Column(db.Integer, primary_key=True)
     referrer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
@@ -166,6 +173,7 @@ class ReferralCommission(db.Model):
     def __repr__(self): return f'<ReferralCommission {self.id} - Referrer {self.referrer_id} from User {self.referred_user_id} - Amount {self.commission_amount} - Status {self.status}>'
 
 class Banner(db.Model):
+    # ... (contenu de Banner inchangé) ...
     __tablename__ = 'banner'
     id = db.Column(db.Integer, primary_key=True)
     image_filename = db.Column(db.String(256), nullable=False)
@@ -176,43 +184,63 @@ class Banner(db.Model):
     clicks = db.Column(db.Integer, default=0)
     def __repr__(self): return f'<Banner {self.id} - {self.image_filename} - Active: {self.is_active}>'
 
-# <<< NOUVEAU MODÈLE Post >>>
+# --- Modèle Post (MODIFIÉ pour slug unique) ---
 class Post(db.Model):
     __tablename__ = 'post'
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(250), nullable=False)
-    slug = db.Column(db.String(250), nullable=False, unique=True, index=True) # Pour des URLs propres
-    content = db.Column(db.Text, nullable=False) # Sera du HTML depuis l'éditeur riche
+    slug = db.Column(db.String(250), nullable=False, unique=True, index=True)
+    content = db.Column(db.Text, nullable=False)
     timestamp = db.Column(db.DateTime, index=True, default=lambda: datetime.now(timezone.utc))
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False) # Auteur de l'article
-    image_filename = db.Column(db.String(256), nullable=True) # Image mise en avant pour l'article
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    image_filename = db.Column(db.String(256), nullable=True)
     allow_comments = db.Column(db.Boolean, default=True, nullable=False)
-    is_published = db.Column(db.Boolean, default=False, nullable=False, index=True) # Pour brouillons/publiés
+    is_published = db.Column(db.Boolean, default=False, nullable=False, index=True)
 
     author = relationship('User', back_populates='posts')
     comments = relationship('Comment', back_populates='post', lazy='dynamic', cascade="all, delete-orphan")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        if self.title and not self.slug: # Génère le slug si non fourni
-            self.slug = slugify(self.title)
+        # La génération du slug se fera maintenant dans la route avant de créer l'objet
+        # if self.title and not self.slug:
+        #     self.slug = Post.generate_unique_slug(self.title)
+
+    # <<< NOUVELLE MÉTHODE DE CLASSE POUR GÉNÉRER UN SLUG UNIQUE >>>
+    @staticmethod
+    def generate_unique_slug(title, post_id=None):
+        base_slug = slugify_base(title)
+        slug_candidate = base_slug
+        counter = 1
+        while True:
+            query = db.session.query(Post.id).filter(Post.slug == slug_candidate)
+            if post_id: # Si on édite, exclure le post actuel de la vérification
+                query = query.filter(Post.id != post_id)
+            if not db.session.execute(query).first(): # Si le slug n'existe pas
+                return slug_candidate
+            # Si le slug existe, ajoute un suffixe
+            # Utilise 4 caractères aléatoires pour réduire les collisions et garder court
+            suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
+            slug_candidate = f"{base_slug}-{suffix}"
+            # Alternative avec compteur (peut devenir long) :
+            # slug_candidate = f"{base_slug}-{counter}"
+            # counter += 1
+    # <<< FIN NOUVELLE MÉTHODE >>>
 
     def __repr__(self):
         return f'<Post {self.title}>'
 
-# <<< NOUVEAU MODÈLE Comment >>>
+# --- Modèle Comment ---
 class Comment(db.Model):
+    # ... (contenu de Comment inchangé) ...
     __tablename__ = 'comment'
     id = db.Column(db.Integer, primary_key=True)
     body = db.Column(db.Text, nullable=False)
     timestamp = db.Column(db.DateTime, index=True, default=lambda: datetime.now(timezone.utc))
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False) # Auteur du commentaire
-    post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False) # Article commenté
-    is_approved = db.Column(db.Boolean, default=True, nullable=False) # Pour modération
-
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False)
+    is_approved = db.Column(db.Boolean, default=True, nullable=False)
     author = relationship('User', back_populates='comments')
     post = relationship('Post', back_populates='comments')
+    def __repr__(self): return f'<Comment {self.id} by User {self.user_id} on Post {self.post_id}>'
 
-    def __repr__(self):
-        return f'<Comment {self.id} by User {self.user_id} on Post {self.post_id}>'
-    
