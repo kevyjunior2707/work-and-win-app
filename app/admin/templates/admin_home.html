@@ -1,4 +1,4 @@
-{# app/admin/templates/admin_home.html (Vérification Lien Gestion Articles Blog) #}
+{# app/admin/templates/admin_home.html (Chart Debugging & suggestedMax) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -166,22 +166,52 @@
 {# --- Bloc Scripts pour Chart.js --- #}
 {% block scripts %}
     {{ super() }}
-    <script src="https://cdn.tiny.cloud/1/5ug3w8eutv6r2nz1yd9lemsateyqzyl7rexxqmkzsm9fwk2h/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script> {# Assurez-vous que votre clé TinyMCE est ici si vous l'utilisez ailleurs sur les pages admin #}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', (event) => {
             const chartData = {{ chart_data | tojson | safe }};
+            console.log("Données pour les graphiques (admin_home):", chartData); // DEBUG: Affiche toutes les données
+
             const labels = chartData.labels;
             const wwBlue = '#2d92d0';
             const wwGreen = '#009444';
             const wwGray = '#6c757d';
 
             function createLineChart(canvasId, label, data, color) {
+                console.log(`Création graphique pour ${canvasId}:`, "Labels:", labels, "Data:", data); // DEBUG: Affiche données spécifiques au graphique
                 const ctx = document.getElementById(canvasId);
-                if (!ctx) { console.error(`Canvas element with id "${canvasId}" not found.`); return; }
+                if (!ctx) {
+                    console.error(`Canvas element with id "${canvasId}" not found.`);
+                    return;
+                }
                 new Chart(ctx.getContext('2d'), {
                     type: 'line',
-                    data: { labels: labels, datasets: [{ label: label, data: data, fill: false, borderColor: color, backgroundColor: color, tension: 0.1 }] },
-                    options: { responsive: true, maintainAspectRatio: true, scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } }
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: label,
+                            data: data,
+                            fill: false,
+                            borderColor: color,
+                            backgroundColor: color,
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                suggestedMax: 5 // Force l'axe Y à monter au moins jusqu'à 5
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        }
+                    }
                 });
             }
 
@@ -190,7 +220,11 @@
                 createLineChart('completionsChart', '{{ _("Accomplissements") }}', chartData.completions, wwGray);
                 createLineChart('earningsChart', '{{ _("Gains ($)") }}', chartData.earnings, wwGreen);
             } else {
-                console.log("No chart data available to render for admin home.");
+                console.log("Aucune donnée de label disponible pour rendre les graphiques sur admin_home.");
+                // Optionnel: Afficher un message dans les zones de graphique si les labels sont vides
+                document.getElementById('registrationsChart').parentElement.innerHTML = '<p class="text-muted text-center p-3">{{_("Pas de données pour le graphique des inscriptions.")}}</p>';
+                document.getElementById('completionsChart').parentElement.innerHTML = '<p class="text-muted text-center p-3">{{_("Pas de données pour le graphique des accomplissements.")}}</p>';
+                document.getElementById('earningsChart').parentElement.innerHTML = '<p class="text-muted text-center p-3">{{_("Pas de données pour le graphique des gains.")}}</p>';
             }
         });
     </script>

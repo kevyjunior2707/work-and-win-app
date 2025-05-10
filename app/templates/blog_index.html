@@ -1,4 +1,4 @@
-{# app/templates/blog_index.html (NOUVEAU FICHIER) #}
+{# app/templates/blog_index.html (Nom Auteur Modifié) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -23,18 +23,15 @@
                                 <a href="{{ url_for('main.view_post', slug=post.slug) }}">
                                     <img src="{{ url_for('static', filename='uploads/blog_posts/' + post.image_filename) }}" class="card-img-top" alt="{{ post.title }}" style="height: 200px; object-fit: cover;">
                                 </a>
-                            {% else %}
-                                {# Optionnel: une image placeholder si pas d'image pour l'article #}
-                                {# <img src="{{ url_for('static', filename='img/blog_placeholder.png') }}" class="card-img-top" alt="Placeholder" style="height: 200px; object-fit: cover;"> #}
                             {% endif %}
                             <div class="card-body d-flex flex-column">
                                 <h5 class="card-title">
                                     <a href="{{ url_for('main.view_post', slug=post.slug) }}" class="text-decoration-none text-dark stretched-link">{{ post.title }}</a>
                                 </h5>
                                 <small class="text-muted mb-2">
-                                    {{ _('Publié le %(date)s par %(author)s', date=post.timestamp.strftime('%d/%m/%Y'), author=post.author.full_name if post.author else _('Admin')) }}
+                                    {# <<< MODIFICATION NOM AUTEUR ICI >>> #}
+                                    {{ _('Publié le %(date)s par %(author)s', date=post.timestamp.strftime('%d/%m/%Y'), author=_('Admin Work and Win')) }}
                                 </small>
-                                {# Extrait du contenu - simple troncature pour l'instant #}
                                 <p class="card-text flex-grow-1"><small>{{ post.content | striptags | truncate(150) }}</small></p>
                                 <a href="{{ url_for('main.view_post', slug=post.slug) }}" class="btn btn-sm btn-outline-primary mt-auto align-self-start">{{ _('Lire la suite') }} <i class="bi bi-arrow-right-short"></i></a>
                             </div>
@@ -47,11 +44,9 @@
                 {% if pagination and pagination.pages > 1 %}
                 <nav aria-label="Page navigation blog" class="mt-5">
                   <ul class="pagination justify-content-center">
-                    {# Lien Précédent #}
                     <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
                       <a class="page-link" href="{{ url_for('main.blog_index', page=pagination.prev_num) if pagination.has_prev else '#' }}">{{ _('Précédent') }}</a>
                     </li>
-                    {# Numéros de Page #}
                     {% for p_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
                       {% if p_num %}
                         {% if pagination.page == p_num %}
@@ -63,15 +58,12 @@
                         <li class="page-item disabled"><span class="page-link">...</span></li>
                       {% endif %}
                     {% endfor %}
-                    {# Lien Suivant #}
                     <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
                       <a class="page-link" href="{{ url_for('main.blog_index', page=pagination.next_num) if pagination.has_next else '#' }}">{{ _('Suivant') }}</a>
                     </li>
                   </ul>
                 </nav>
                 {% endif %}
-                {# --- Fin Pagination --- #}
-
             {% endif %}
         </div>
     </div>
