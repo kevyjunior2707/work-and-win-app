@@ -1,4 +1,4 @@
-{# app/admin/templates/create_post.html (Formulaire Création/Édition Article) #}
+{# app/admin/templates/create_post.html (Correction Commentaire Jinja pour TinyMCE upload) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -27,7 +27,7 @@
     <hr>
 
     <div class="row justify-content-center">
-        <div class="col-md-10 col-lg-9"> {# Colonne plus large pour l'éditeur #}
+        <div class="col-md-10 col-lg-9"> {# Colonne un peu plus large pour l'éditeur #}
             <form method="post" novalidate enctype="multipart/form-data">
                 {{ form.hidden_tag() }}
 
@@ -42,10 +42,10 @@
                     {% endif %}
                 </div>
 
-                {# Contenu de l'article (transformé par TinyMCE) #}
+                {# Contenu de l'article (sera transformé par TinyMCE) #}
                 <div class="mb-3">
                     {{ form.content.label(class="form-label") }}
-                    {{ form.content(class="form-control tinymce-editor" + (" is-invalid" if form.content.errors else ""), rows="20") }} {# Classe tinymce-editor ajoutée #}
+                    {{ form.content(class="form-control tinymce-editor" + (" is-invalid" if form.content.errors else ""), rows="20") }} {# Ajout classe tinymce-editor #}
                     {% if form.content.errors %}
                         <div class="invalid-feedback">
                             {% for error in form.content.errors %}<span>{{ error }}</span>{% endfor %}
@@ -109,13 +109,14 @@
                       bullist numlist outdent indent | removeformat | link image media | help', // Ajout link image media
             height: 450, // Hauteur de l'éditeur augmentée
             menubar: 'file edit view insert format tools table help',
-            // language: 'fr_FR', // Optionnel: pour mettre l'interface de TinyMCE en français
-            // language_url: '{{ url_for('static', filename='js/tinymce_langs/fr_FR.js') }}' // Si vous téléchargez le pack de langue
-            // Configuration pour l'upload d'images via TinyMCE (nécessite une route backend)
-            // images_upload_url: '{{ url_for('admin.tinymce_upload') }}', // Route à créer
-            // automatic_uploads: true,
-            // images_reuse_filename: true,
-            // file_picker_types: 'image',
+            // language: 'fr_FR',
+            // language_url: '{{ url_for('static', filename='js/tinymce_langs/fr_FR.js') }}'
+
+            {# <<< CORRECTION ICI : Commentaire Jinja pour la ligne d'upload >>> #}
+            {# images_upload_url: '{{ url_for('admin.tinymce_upload') }}', // Route à créer #}
+            {# automatic_uploads: true, #}
+            {# images_reuse_filename: true, #}
+            {# file_picker_types: 'image', #}
             /* et bien plus d'options de configuration si besoin */
         });
     </script>
