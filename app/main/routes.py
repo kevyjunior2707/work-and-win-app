@@ -1,29 +1,25 @@
-# app/main/routes.py (VERSION COMPLÈTE v23 - Blog + Tâches Quotidiennes + Toutes Fonctions Main)
+# app/main/routes.py (VERSION COMPLÈTE v24 - Gestion Commentaires Blog)
 
 from flask import render_template, redirect, url_for, flash, request, abort, current_app, send_from_directory
 from flask_login import login_required, current_user
 from flask_babel import _
 from app import db
-# Importer tous les modèles nécessaires, y compris Post et Comment
 from app.models import (Task, UserTaskCompletion, User, Notification,
-                        ExternalTaskCompletion, ReferralCommission, Withdrawal, Post, Comment)
+                        ExternalTaskCompletion, ReferralCommission, Withdrawal, Post, Comment) # Comment importé
 from app.main import bp
-# Ajout des formulaires pour la route profile et commentaires
-from app.forms import EditProfileForm, ChangePasswordForm # CommentForm sera ajouté plus tard
-from datetime import datetime, timezone, timedelta, date # date ajouté
+from app.forms import EditProfileForm, ChangePasswordForm, CommentForm # CommentForm importé
+from datetime import datetime, timezone, timedelta, date
 from sqlalchemy.orm import joinedload
-from sqlalchemy import select, func, and_ # and_ importé
+from sqlalchemy import select, func, and_
 from decimal import Decimal, InvalidOperation
 import json
 import os
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash
-# Import pour l'email
 from app.mailer import send_verification_email
 
-# --- Fonction utilitaire pour vérifier l'extension de fichier (utilisée pour les preuves externes) ---
+# --- Fonction utilitaire pour vérifier l'extension de fichier ---
 def allowed_file(filename):
-    # Utilise ALLOWED_EXTENSIONS_GENERIC si défini, sinon un ensemble par défaut
     allowed_extensions = current_app.config.get('ALLOWED_EXTENSIONS_GENERIC', {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'})
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in allowed_extensions
@@ -33,7 +29,6 @@ def allowed_file(filename):
 @bp.route('/index')
 def index():
     warning_message = _("Nous appliquons une politique de tolérance zéro envers la triche, l'utilisation de VPN/proxys, ou la création de comptes multiples. Toute violation entraînera un bannissement permanent et la perte des gains.")
-    # Récupérer les 3 derniers articles publiés pour la page d'accueil
     latest_posts = []
     try:
         latest_posts = db.session.scalars(
@@ -44,8 +39,6 @@ def index():
         ).all()
     except Exception as e:
         current_app.logger.error(f"Erreur lors de la récupération des articles pour l'accueil: {e}")
-        # Ne pas planter la page d'accueil si le blog a un souci
-        pass
     return render_template('index.html', title=_('Accueil'), warning_message=warning_message, latest_posts=latest_posts)
 
 # --- Route Tableau de Bord Utilisateur ---
@@ -56,7 +49,7 @@ def dashboard():
     warning_message = _("Nous appliquons une politique de tolérance zéro envers la triche, l'utilisation de VPN/proxys, ou la création de comptes multiples. Toute violation entraînera un bannissement permanent et la perte des gains.")
     return render_template('dashboard.html', title=_('Tableau de Bord'), warning_message=warning_message)
 
-# --- Route pour voir les tâches disponibles (Logique Tâches Quotidiennes) ---
+# --- Route pour voir les tâches disponibles ---
 @bp.route('/tasks/available')
 @login_required
 def available_tasks():
@@ -69,63 +62,44 @@ def available_tasks():
         if comp.task_id not in completions_dict:
             completions_dict[comp.task_id] = []
         completions_dict[comp.task_id].append(comp.completion_timestamp)
-
     all_active_tasks = db.session.scalars(db.select(Task).where(Task.is_active == True)).all()
     user_country = current_user.country
     user_device = current_user.device
     tasks_for_user = []
-    today_utc = date.today() # Date actuelle UTC (sans l'heure)
-
+    today_utc = date.today()
     for task in all_active_tasks:
         target_countries = task.get_target_countries_list()
         country_match = 'ALL' in target_countries or user_country in target_countries
         target_devices = task.get_target_devices_list()
         device_match = 'ALL' in target_devices or user_device in target_devices
-
         if country_match and device_match:
             task_id = task.id
             is_completed_ever = task_id in completions_dict
-
             if task.is_daily:
                 completed_today = False
                 if is_completed_ever:
                     for timestamp in completions_dict[task_id]:
                         if timestamp.astimezone(timezone.utc).date() == today_utc:
-                            completed_today = True
-                            break
-                if not completed_today:
-                    tasks_for_user.append(task)
+                            completed_today = True; break
+                if not completed_today: tasks_for_user.append(task)
             else:
-                if not is_completed_ever:
-                    tasks_for_user.append(task)
+                if not is_completed_ever: tasks_for_user.append(task)
     return render_template('available_tasks.html', title=_('Tâches Disponibles'), tasks=tasks_for_user)
 
-# --- Route pour marquer une tâche comme accomplie (Logique Tâches Quotidiennes) ---
+# --- Route pour marquer une tâche comme accomplie ---
 @bp.route('/task/complete/<int:task_id>', methods=['POST'])
 @login_required
 def complete_task(task_id):
     task = db.session.get(Task, task_id) or abort(404); user = current_user
     user_country = user.country; user_device = user.device; target_countries = task.get_target_countries_list(); target_devices = task.get_target_devices_list(); country_match = 'ALL' in target_countries or user_country in target_countries; device_match = 'ALL' in target_devices or user_device in target_devices
     if not (country_match and device_match and task.is_active): flash(_('Vous ne pouvez pas accomplir cette tâche ou elle n\'est plus active.'), 'danger'); return redirect(url_for('main.available_tasks'))
-
     if task.is_daily:
         today_utc = date.today()
-        todays_completion = db.session.scalar(
-            db.select(UserTaskCompletion.id).where(
-                UserTaskCompletion.user_id == user.id,
-                UserTaskCompletion.task_id == task.id,
-                func.date(UserTaskCompletion.completion_timestamp) == today_utc
-            )
-        )
-        if todays_completion:
-            flash(_('Vous avez déjà accompli cette tâche quotidienne aujourd\'hui.'), 'warning')
-            return redirect(url_for('main.available_tasks'))
+        todays_completion = db.session.scalar(select(UserTaskCompletion.id).where(UserTaskCompletion.user_id == user.id, UserTaskCompletion.task_id == task.id, func.date(UserTaskCompletion.completion_timestamp) == today_utc))
+        if todays_completion: flash(_('Vous avez déjà accompli cette tâche quotidienne aujourd\'hui.'), 'warning'); return redirect(url_for('main.available_tasks'))
     else:
-        existing_completion = db.session.scalar(db.select(UserTaskCompletion.id).where(UserTaskCompletion.user_id == user.id, UserTaskCompletion.task_id == task.id))
-        if existing_completion:
-            flash(_('Vous avez déjà marqué cette tâche comme accomplie.'), 'warning')
-            return redirect(url_for('main.available_tasks'))
-
+        existing_completion = db.session.scalar(select(UserTaskCompletion.id).where(UserTaskCompletion.user_id == user.id, UserTaskCompletion.task_id == task.id))
+        if existing_completion: flash(_('Vous avez déjà marqué cette tâche comme accomplie.'), 'warning'); return redirect(url_for('main.available_tasks'))
     try:
         completion = UserTaskCompletion(user_id=user.id, task_id=task.id); db.session.add(completion)
         reward = Decimal(str(task.reward_amount or 0.0)); current_balance = Decimal(str(user.balance or 0.0))
@@ -204,8 +178,10 @@ def submit_external_proof():
     if screenshot_file and screenshot_file.filename != '':
         if allowed_file(screenshot_file.filename):
             unique_prefix = str(int(datetime.now(timezone.utc).timestamp())) + '_'; filename = secure_filename(unique_prefix + screenshot_file.filename)
-            upload_dir = current_app.config['UPLOAD_FOLDER']; os.makedirs(upload_dir, exist_ok=True)
-            try: screenshot_file.save(os.path.join(upload_dir, filename))
+            upload_dir = current_app.config['UPLOAD_FOLDER']; os.makedirs(upload_dir, exist_ok=True) # Crée UPLOAD_FOLDER s'il n'existe pas
+            proof_folder = os.path.join(upload_dir, 'proofs') # Sous-dossier pour les preuves
+            os.makedirs(proof_folder, exist_ok=True)
+            try: screenshot_file.save(os.path.join(proof_folder, filename))
             except Exception as e: flash(_('Erreur lors de la sauvegarde de l\'image: %(err)s', err=e), 'danger'); return redirect(url_for('main.view_external_task', task_id=task_id, ref=ref_code))
         else: flash(_('Type de fichier non autorisé. Permis: %(ext)s', ext=', '.join(current_app.config.get('ALLOWED_EXTENSIONS_GENERIC', {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}))), 'danger'); return redirect(url_for('main.view_external_task', task_id=task_id, ref=ref_code))
     try:
@@ -213,17 +189,18 @@ def submit_external_proof():
         db.session.add(new_submission); db.session.commit(); flash(_('Votre accomplissement a été soumis avec succès et est en attente de vérification.'), 'success'); return redirect(url_for('main.index'))
     except Exception as e:
         db.session.rollback();
-        if filename and os.path.exists(os.path.join(current_app.config['UPLOAD_FOLDER'], filename)):
-            try: os.remove(os.path.join(current_app.config['UPLOAD_FOLDER'], filename))
+        if filename and os.path.exists(os.path.join(current_app.config['UPLOAD_FOLDER'], 'proofs', filename)): # Vérifie dans proofs
+            try: os.remove(os.path.join(current_app.config['UPLOAD_FOLDER'], 'proofs', filename))
             except OSError: pass
         flash(_('Erreur lors de la soumission : %(error)s', error=str(e)), 'danger'); return redirect(url_for('main.view_external_task', task_id=task_id, ref=ref_code))
 
-# --- Route pour servir les images uploadées (pour preuves externes) ---
+# --- Route pour servir les images uploadées (preuves externes) ---
 @bp.route('/uploads/proofs/<path:filename>')
 @login_required
 def view_proof_upload(filename):
     upload_dir = current_app.config['UPLOAD_FOLDER']
-    return send_from_directory(upload_dir, filename)
+    proof_folder = os.path.join(upload_dir, 'proofs')
+    return send_from_directory(proof_folder, filename)
 
 # --- Routes Profil Utilisateur ---
 @bp.route('/profile', methods=['GET', 'POST'])
@@ -264,12 +241,37 @@ def blog_index():
     posts = pagination.items
     return render_template('blog_index.html', title=_('Blog Work and Win'), posts=posts, pagination=pagination)
 
-@bp.route('/blog/post/<slug>')
+@bp.route('/blog/post/<slug>', methods=['GET', 'POST']) # Ajout POST pour le formulaire de commentaire
 def view_post(slug):
     post = db.session.scalar(select(Post).where(Post.slug == slug, Post.is_published == True))
     if post is None:
         abort(404)
-    # La logique des commentaires sera ajoutée ici plus tard
-    comments = db.session.scalars(select(Comment).where(Comment.post_id == post.id, Comment.is_approved == True).order_by(Comment.timestamp.asc())).all()
-    # comment_form = CommentForm() # Sera pour la soumission de nouveaux commentaires
-    return render_template('view_post.html', title=post.title, post=post, comments=comments) #, form=comment_form)
+
+    form = None
+    if post.allow_comments and current_user.is_authenticated: # Affiche le formulaire seulement si commentaires permis et user connecté
+        form = CommentForm()
+        if form.validate_on_submit():
+            if not current_user.is_verified: # Empêche les non-vérifiés de commenter
+                flash(_('Veuillez vérifier votre adresse email avant de commenter.'), 'warning')
+                return redirect(url_for('main.view_post', slug=post.slug))
+
+            comment = Comment(body=form.body.data, post_id=post.id, user_id=current_user.id)
+            # Par défaut, les commentaires sont approuvés (is_approved=True dans le modèle)
+            # Si vous voulez une modération, mettez default=False et ajoutez une interface admin pour approuver
+            try:
+                db.session.add(comment)
+                db.session.commit()
+                flash(_('Votre commentaire a été ajouté.'), 'success')
+                return redirect(url_for('main.view_post', slug=post.slug) + '#comments-section') # Redirige vers la section commentaires
+            except Exception as e:
+                db.session.rollback()
+                flash(_('Erreur lors de l\'ajout du commentaire.'), 'danger')
+                current_app.logger.error(f"Erreur ajout commentaire: {e}")
+
+
+    # Récupère les commentaires approuvés pour cet article
+    comments_query = select(Comment).where(Comment.post_id == post.id, Comment.is_approved == True).order_by(Comment.timestamp.asc())
+    comments = db.session.scalars(comments_query).all()
+
+    return render_template('view_post.html', title=post.title, post=post, comments=comments, form=form)
+# --- FIN NOUVELLES ROUTES BLOG ---

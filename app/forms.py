@@ -1,8 +1,8 @@
-# app/forms.py (VERSION COMPLÈTE v13 - Ajout PostForm)
+# app/forms.py (VERSION COMPLÈTE v14 - Ajout CommentForm)
 from flask_wtf import FlaskForm
 from wtforms import (StringField, PasswordField, SubmitField, SelectField,
                      BooleanField, TextAreaField, DecimalField, SelectMultipleField,
-                     ValidationError, URLField) # URLField était déjà là
+                     ValidationError, URLField)
 from wtforms import widgets
 from wtforms.validators import (DataRequired, Email, EqualTo, Length, ValidationError,
                               NumberRange, Optional, URL, Regexp)
@@ -13,7 +13,6 @@ from flask_babel import lazy_gettext as _l
 from flask_login import current_user
 
 # --- Listes de Choix (Pays/Appareils/Indicatifs) ---
-# (Ces listes restent inchangées et complètes)
 try:
     import pycountry
     countries_raw = sorted([(c.alpha_2, c.name) for c in pycountry.countries], key=lambda x: x[1])
@@ -23,7 +22,8 @@ except Exception as e:
     print(f"ERREUR: pycountry: {e}. Utilisation liste réduite."); countries_choices_multi = [('ALL', _l('Tous les pays')), ('BJ', 'Bénin'), ('FR', 'France')]; countries_choices_single = [('', _l('--- Sélectionnez votre pays ---')), ('BJ', 'Bénin'), ('FR', 'France')]
 
 country_codes = [
-    ('', _l('-- Indicatif --')), ('+93', 'Afghanistan (+93)'), ('+355', 'Albanie (+355)'), ('+213', 'Algérie (+213)'),
+    ('', _l('-- Indicatif --')),
+    ('+93', 'Afghanistan (+93)'), ('+355', 'Albanie (+355)'), ('+213', 'Algérie (+213)'),
     ('+1684', 'Samoa américaines (+1684)'), ('+376', 'Andorre (+376)'), ('+244', 'Angola (+244)'),
     ('+1264', 'Anguilla (+1264)'), ('+1268', 'Antigua-et-Barbuda (+1268)'), ('+54', 'Argentine (+54)'),
     ('+374', 'Arménie (+374)'), ('+297', 'Aruba (+297)'), ('+61', 'Australie (+61)'), ('+43', 'Autriche (+43)'),
@@ -150,7 +150,7 @@ class TaskForm(FlaskForm):
     instructions = TextAreaField(_l('Instructions spécifiques (Optionnel)'), render_kw={'rows': 3})
     task_link = StringField(_l('Lien de la Tâche (URL directe, optionnel)'), validators=[Optional(), URL(message=_l('Veuillez entrer une URL valide (ex: http://... ou https://...)'))], render_kw={'placeholder': 'https://...'})
     reward_amount = DecimalField(_l('Montant de la récompense (en $)'), validators=[DataRequired(_l('La récompense est requise.')),NumberRange(min=0, message=_l('La récompense ne peut pas être négative.'))], places=2)
-    task_image = FileField(_l('Image Mise en Avant (Optionnel, JPG/PNG/JPEG/GIF)'), validators=[FileAllowed(['jpg', 'png', 'jpeg', 'gif'], _l('Seules les images sont autorisées!'))])
+    task_image = FileField(_l('Image Mise en Avant (Optionnel, JPG/PNG/JPEG/GIF)'), validators=[Optional(), FileAllowed(['jpg', 'png', 'jpeg', 'gif'], _l('Seules les images sont autorisées!'))])
     target_countries = SelectMultipleField(_l('Pays Cibles'), choices=countries_choices_multi, widget=widgets.ListWidget(prefix_label=False), option_widget=widgets.CheckboxInput(), coerce=str)
     target_devices = SelectMultipleField(_l('Appareils Cibles'), choices=devices_choices_multi, widget=widgets.ListWidget(prefix_label=False), option_widget=widgets.CheckboxInput(), coerce=str)
     is_active = BooleanField(_l('Activer cette tâche maintenant ?'), default='checked')
@@ -217,27 +217,22 @@ class AddAdminForm(FlaskForm):
 
 # --- Formulaire pour les Bannières ---
 class BannerForm(FlaskForm):
-    banner_image = FileField(_l('Image de la Bannière (JPG/PNG/GIF)'), validators=[
-        DataRequired(_l('Une image est requise pour la bannière.')),
-        FileAllowed(['jpg', 'png', 'jpeg', 'gif'], _l('Seules les images (jpg, png, jpeg, gif) sont autorisées!'))
-    ])
+    banner_image = FileField(_l('Image de la Bannière (JPG/PNG/JPEG/GIF)'), validators=[Optional(), FileAllowed(['jpg', 'png', 'jpeg', 'gif'], _l('Seules les images (jpg, png, jpeg, gif) sont autorisées!'))])
     destination_url = URLField(_l('URL de Destination (Optionnel, ex: https://...)'), validators=[Optional(), URL(message=_l('Veuillez entrer une URL valide.'))])
-    display_location = SelectField(_l('Afficher la bannière:'), choices=[
-        ('top_bottom', _l('En Haut et En Bas')),
-        ('top', _l('En Haut Seulement')),
-        ('bottom', _l('En Bas Seulement'))
-    ], validators=[DataRequired()])
+    display_location = SelectField(_l('Afficher la bannière:'), choices=[('top_bottom', _l('En Haut et En Bas')), ('top', _l('En Haut Seulement')), ('bottom', _l('En Bas Seulement'))], validators=[DataRequired()])
     is_active = BooleanField(_l('Activer cette bannière maintenant ?'), default=False)
     submit = SubmitField(_l('Enregistrer la Bannière'))
 
-# <<< NOUVEAU FORMULAIRE POUR LES ARTICLES DE BLOG >>>
+# --- Formulaire pour les Articles de Blog ---
 class PostForm(FlaskForm):
     title = StringField(_l('Titre de l\'article'), validators=[DataRequired(_l('Le titre est requis.'))])
-    content = TextAreaField(_l('Contenu de l\'article'), validators=[DataRequired(_l('Le contenu est requis.'))], render_kw={'rows': 15}) # Plus de lignes
-    post_image = FileField(_l('Image Mise en Avant (Optionnel, JPG/PNG/JPEG/GIF)'), validators=[
-        Optional(), # Rend le champ optionnel
-        FileAllowed(['jpg', 'png', 'jpeg', 'gif'], _l('Seules les images sont autorisées!'))
-    ])
+    content = TextAreaField(_l('Contenu de l\'article'), validators=[DataRequired(_l('Le contenu est requis.'))], render_kw={'rows': 15})
+    post_image = FileField(_l('Image Mise en Avant (Optionnel, JPG/PNG/JPEG/GIF)'), validators=[Optional(), FileAllowed(['jpg', 'png', 'jpeg', 'gif'], _l('Seules les images sont autorisées!'))])
     allow_comments = BooleanField(_l('Autoriser les commentaires ?'), default=True)
     is_published = BooleanField(_l('Publier cet article maintenant ? (Sinon, il sera sauvegardé comme brouillon)'), default=False)
     submit = SubmitField(_l('Enregistrer l\'Article'))
+
+# --- Formulaire pour les Commentaires du Blog ---
+class CommentForm(FlaskForm):
+    body = TextAreaField(_l('Votre commentaire'), validators=[DataRequired(_l('Le commentaire ne peut pas être vide.'))], render_kw={'rows': 3})
+    submit = SubmitField(_l('Envoyer le Commentaire'))
