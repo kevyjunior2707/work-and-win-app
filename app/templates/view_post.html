@@ -1,4 +1,4 @@
-{# app/templates/view_post.html (Affichage Article et Gestion Commentaires) #}
+{# app/templates/view_post.html (Correction Erreur Traduction) #}
 {% extends "base.html" %}
 
 {% block title %}{{ post.title }} - {{ _('Blog') }}{% endblock %}
@@ -24,7 +24,6 @@
                 </div>
                 {% endif %}
 
-                {# Le contenu de l'article, utilise |safe car il vient de TinyMCE #}
                 <div class="post-content">
                     {{ post.content | safe }}
                 </div>
@@ -38,19 +37,20 @@
 
                 {% if post.allow_comments %}
                     {% if current_user.is_authenticated %}
-                        {# Formulaire pour ajouter un commentaire #}
                         <div class="card shadow-sm mb-4">
                             <div class="card-body">
                                 <h5 class="card-title">{{ _('Laisser un commentaire') }}</h5>
                                 {% if not current_user.is_verified %}
                                      <div class="alert alert-warning small">
-                                         {{ _('Veuillez <a href="%s" class="alert-link">vérifier votre adresse email</a> pour pouvoir commenter.', url_for('main.dashboard')) }}
+                                         {# <<< CORRECTION ICI >>> #}
+                                         {% set verify_link = url_for('main.dashboard') %} {# Ou peut-être une route spécifique pour renvoyer l'email ? Pour l'instant, dashboard. #}
+                                         {{ (_('Veuillez <a href="%(url)s" class="alert-link">vérifier votre adresse email</a> pour pouvoir commenter.', url=verify_link)) | safe }}
                                      </div>
                                 {% else %}
-                                    <form method="POST" action="{{ url_for('main.view_post', slug=post.slug) }}"> {# Le formulaire poste sur la même page #}
+                                    <form method="POST" action="{{ url_for('main.view_post', slug=post.slug) }}">
                                         {{ form.hidden_tag() }}
                                         <div class="mb-3">
-                                            {{ form.body.label(class="form-label sr-only") }} {# sr-only pour cacher le label visuellement mais le garder pour l'accessibilité #}
+                                            {{ form.body.label(class="form-label sr-only") }}
                                             {{ form.body(rows="3", class="form-control" + (" is-invalid" if form.body.errors else ""), placeholder=_('Écrivez votre commentaire ici...')) }}
                                             {% if form.body.errors %}
                                                 <div class="invalid-feedback">
@@ -65,17 +65,18 @@
                         </div>
                     {% else %}
                         <div class="alert alert-info">
-                            {{ _('Veuillez vous <a href="%s" class="alert-link">connecter</a> ou vous <a href="%s" class="alert-link">inscrire</a> pour laisser un commentaire.', url_for('auth.login', next=request.url), url_for('auth.register', next=request.url)) | safe }}
+                            {# <<< CORRECTION ICI (pour être cohérent, même si cela fonctionnait probablement) >>> #}
+                            {% set login_url = url_for('auth.login', next=request.url) %}
+                            {% set register_url = url_for('auth.register', next=request.url) %}
+                            {{ (_('Veuillez vous <a href="%(login_url)s" class="alert-link">connecter</a> ou vous <a href="%(register_url)s" class="alert-link">inscrire</a> pour laisser un commentaire.', login_url=login_url, register_url=register_url)) | safe }}
                         </div>
                     {% endif %}
 
-                    {# Affichage des commentaires existants (approuvés) #}
                     {% if comments %}
                         {% for comment in comments %}
                             <div class="card mb-3 shadow-sm">
                                 <div class="card-body">
                                     <div class="d-flex">
-                                        {# Avatar généré avec les initiales et une couleur de fond basée sur l'ID utilisateur #}
                                         {% set user_initial = (comment.author.full_name[0] if comment.author and comment.author.full_name else 'A') | upper %}
                                         {% set bg_colors = ['#1abc9c', '#2ecc71', '#3498db', '#9b59b6', '#34495e', '#16a085', '#27ae60', '#2980b9', '#8e44ad', '#2c3e50', '#f1c40f', '#e67e22', '#e74c3c', '#95a5a6', '#f39c12', '#d35400', '#c0392b'] %}
                                         {% set color_index = (comment.author.id if comment.author else 0) % bg_colors | length %}
@@ -86,11 +87,10 @@
                                         </div>
                                         <div class="flex-grow-1">
                                             <h6 class="mt-0 mb-1">{{ comment.author.full_name if comment.author else _('Anonyme') }}</h6>
-                                            <p class="card-text mb-1">{{ comment.body | safe }}</p> {# |safe si vous voulez autoriser un peu de HTML dans les commentaires (attention XSS) #}
+                                            <p class="card-text mb-1">{{ comment.body | safe }}</p>
                                             <small class="text-muted">
-                                                {{ comment.timestamp.strftime('%d/%m/%Y à %H:%M') }}
+                                                {{ _('Par %(author)s le %(date)s', author=comment.author.full_name if comment.author else _('Anonyme'), date=comment.timestamp.strftime('%d/%m/%Y à %H:%M')) }}
                                             </small>
-                                            {# Ici, on pourrait ajouter un lien "Répondre" plus tard #}
                                         </div>
                                     </div>
                                 </div>
@@ -101,19 +101,18 @@
                             <p>{{ _('Soyez le premier à commenter !') }}</p>
                         {% endif %}
                     {% endif %}
-                {% else %} {# Si les commentaires ne sont pas autorisés pour ce post #}
+                {% else %}
                     <div class="alert alert-secondary">
                         {{ _('Les commentaires sont désactivés pour cet article.') }}
                     </div>
                 {% endif %}
             </div>
-            {# Fin Section Commentaires #}
 
             <div class="mt-4">
                 <a href="{{ url_for('main.blog_index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left-circle"></i> {{ _('Retour au Blog') }}</a>
             </div>
 
-        </div> {# Fin col-lg-8 #}
-    </div> {# Fin row #}
-</div> {# Fin container #}
+        </div>
+    </div>
+</div>
 {% endblock %}
