@@ -1,18 +1,19 @@
-# app/forms.py (VERSION COMPLÈTE v14 - Ajout CommentForm)
+# app/forms.py (VERSION COMPLÈTE v15 - Ajout parent_id à CommentForm)
 from flask_wtf import FlaskForm
 from wtforms import (StringField, PasswordField, SubmitField, SelectField,
                      BooleanField, TextAreaField, DecimalField, SelectMultipleField,
-                     ValidationError, URLField)
+                     ValidationError, URLField, HiddenField) # HiddenField ajouté
 from wtforms import widgets
 from wtforms.validators import (DataRequired, Email, EqualTo, Length, ValidationError,
                               NumberRange, Optional, URL, Regexp)
 from flask_wtf.file import FileField, FileAllowed
-from app.models import User # User est déjà importé
+from app.models import User
 from app import db
 from flask_babel import lazy_gettext as _l
 from flask_login import current_user
 
 # --- Listes de Choix (Pays/Appareils/Indicatifs) ---
+# (Ces listes restent inchangées et complètes)
 try:
     import pycountry
     countries_raw = sorted([(c.alpha_2, c.name) for c in pycountry.countries], key=lambda x: x[1])
@@ -22,8 +23,7 @@ except Exception as e:
     print(f"ERREUR: pycountry: {e}. Utilisation liste réduite."); countries_choices_multi = [('ALL', _l('Tous les pays')), ('BJ', 'Bénin'), ('FR', 'France')]; countries_choices_single = [('', _l('--- Sélectionnez votre pays ---')), ('BJ', 'Bénin'), ('FR', 'France')]
 
 country_codes = [
-    ('', _l('-- Indicatif --')),
-    ('+93', 'Afghanistan (+93)'), ('+355', 'Albanie (+355)'), ('+213', 'Algérie (+213)'),
+    ('', _l('-- Indicatif --')), ('+93', 'Afghanistan (+93)'), ('+355', 'Albanie (+355)'), ('+213', 'Algérie (+213)'),
     ('+1684', 'Samoa américaines (+1684)'), ('+376', 'Andorre (+376)'), ('+244', 'Angola (+244)'),
     ('+1264', 'Anguilla (+1264)'), ('+1268', 'Antigua-et-Barbuda (+1268)'), ('+54', 'Argentine (+54)'),
     ('+374', 'Arménie (+374)'), ('+297', 'Aruba (+297)'), ('+61', 'Australie (+61)'), ('+43', 'Autriche (+43)'),
@@ -235,4 +235,7 @@ class PostForm(FlaskForm):
 # --- Formulaire pour les Commentaires du Blog ---
 class CommentForm(FlaskForm):
     body = TextAreaField(_l('Votre commentaire'), validators=[DataRequired(_l('Le commentaire ne peut pas être vide.'))], render_kw={'rows': 3})
+    # <<< CHAMP CACHÉ POUR L'ID DU COMMENTAIRE PARENT (pour les réponses) >>>
+    parent_id = HiddenField()
     submit = SubmitField(_l('Envoyer le Commentaire'))
+

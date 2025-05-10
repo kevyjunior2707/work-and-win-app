@@ -1,13 +1,15 @@
-# app/main/routes.py (VERSION COMPLÈTE v24 - Gestion Commentaires Blog)
+# app/main/routes.py (VERSION COMPLÈTE v25 - Soumission Commentaires et Réponses)
 
 from flask import render_template, redirect, url_for, flash, request, abort, current_app, send_from_directory
 from flask_login import login_required, current_user
 from flask_babel import _
 from app import db
+# Importer tous les modèles nécessaires, y compris Post et Comment
 from app.models import (Task, UserTaskCompletion, User, Notification,
-                        ExternalTaskCompletion, ReferralCommission, Withdrawal, Post, Comment) # Comment importé
+                        ExternalTaskCompletion, ReferralCommission, Withdrawal, Post, Comment)
 from app.main import bp
-from app.forms import EditProfileForm, ChangePasswordForm, CommentForm # CommentForm importé
+# Ajout de CommentForm
+from app.forms import EditProfileForm, ChangePasswordForm, CommentForm
 from datetime import datetime, timezone, timedelta, date
 from sqlalchemy.orm import joinedload
 from sqlalchemy import select, func, and_
@@ -16,6 +18,7 @@ import json
 import os
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash
+# Import pour l'email
 from app.mailer import send_verification_email
 
 # --- Fonction utilitaire pour vérifier l'extension de fichier ---
@@ -126,7 +129,7 @@ def completed_tasks():
 @bp.route('/withdraw')
 @login_required
 def withdraw():
-    min_amount = current_app.config.get('MINIMUM_WITHDRAWAL_AMOUNT', 0.0)
+    min_amount = current_app.config.get('MINIMUM_WITHDRAWAL_AMOUNT', 15.0) # Utilise la valeur mise à jour
     last_withdrawal = current_user.last_withdrawal_date
     is_eligible_time = False; next_eligible_date = None; days_limit = 30
     now_utc = datetime.now(timezone.utc)
@@ -178,9 +181,8 @@ def submit_external_proof():
     if screenshot_file and screenshot_file.filename != '':
         if allowed_file(screenshot_file.filename):
             unique_prefix = str(int(datetime.now(timezone.utc).timestamp())) + '_'; filename = secure_filename(unique_prefix + screenshot_file.filename)
-            upload_dir = current_app.config['UPLOAD_FOLDER']; os.makedirs(upload_dir, exist_ok=True) # Crée UPLOAD_FOLDER s'il n'existe pas
-            proof_folder = os.path.join(upload_dir, 'proofs') # Sous-dossier pour les preuves
-            os.makedirs(proof_folder, exist_ok=True)
+            upload_dir = current_app.config['UPLOAD_FOLDER']; os.makedirs(upload_dir, exist_ok=True)
+            proof_folder = os.path.join(upload_dir, 'proofs'); os.makedirs(proof_folder, exist_ok=True)
             try: screenshot_file.save(os.path.join(proof_folder, filename))
             except Exception as e: flash(_('Erreur lors de la sauvegarde de l\'image: %(err)s', err=e), 'danger'); return redirect(url_for('main.view_external_task', task_id=task_id, ref=ref_code))
         else: flash(_('Type de fichier non autorisé. Permis: %(ext)s', ext=', '.join(current_app.config.get('ALLOWED_EXTENSIONS_GENERIC', {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}))), 'danger'); return redirect(url_for('main.view_external_task', task_id=task_id, ref=ref_code))
@@ -189,7 +191,7 @@ def submit_external_proof():
         db.session.add(new_submission); db.session.commit(); flash(_('Votre accomplissement a été soumis avec succès et est en attente de vérification.'), 'success'); return redirect(url_for('main.index'))
     except Exception as e:
         db.session.rollback();
-        if filename and os.path.exists(os.path.join(current_app.config['UPLOAD_FOLDER'], 'proofs', filename)): # Vérifie dans proofs
+        if filename and os.path.exists(os.path.join(current_app.config['UPLOAD_FOLDER'], 'proofs', filename)):
             try: os.remove(os.path.join(current_app.config['UPLOAD_FOLDER'], 'proofs', filename))
             except OSError: pass
         flash(_('Erreur lors de la soumission : %(error)s', error=str(e)), 'danger'); return redirect(url_for('main.view_external_task', task_id=task_id, ref=ref_code))
@@ -241,37 +243,57 @@ def blog_index():
     posts = pagination.items
     return render_template('blog_index.html', title=_('Blog Work and Win'), posts=posts, pagination=pagination)
 
-@bp.route('/blog/post/<slug>', methods=['GET', 'POST']) # Ajout POST pour le formulaire de commentaire
+# --- Route pour afficher un article et gérer les commentaires ---
+@bp.route('/blog/post/<slug>', methods=['GET', 'POST'])
 def view_post(slug):
     post = db.session.scalar(select(Post).where(Post.slug == slug, Post.is_published == True))
     if post is None:
         abort(404)
 
-    form = None
-    if post.allow_comments and current_user.is_authenticated: # Affiche le formulaire seulement si commentaires permis et user connecté
-        form = CommentForm()
-        if form.validate_on_submit():
-            if not current_user.is_verified: # Empêche les non-vérifiés de commenter
-                flash(_('Veuillez vérifier votre adresse email avant de commenter.'), 'warning')
-                return redirect(url_for('main.view_post', slug=post.slug))
+    form = None # Initialise form à None
+    if post.allow_comments: # Traite le formulaire seulement si les commentaires sont autorisés
+        if current_user.is_authenticated:
+            form = CommentForm() # Instancie le formulaire pour les utilisateurs connectés
+            if form.validate_on_submit():
+                if not current_user.is_verified:
+                    flash(_('Veuillez vérifier votre adresse email avant de commenter.'), 'warning')
+                    return redirect(url_for('main.view_post', slug=post.slug))
 
-            comment = Comment(body=form.body.data, post_id=post.id, user_id=current_user.id)
-            # Par défaut, les commentaires sont approuvés (is_approved=True dans le modèle)
-            # Si vous voulez une modération, mettez default=False et ajoutez une interface admin pour approuver
-            try:
-                db.session.add(comment)
-                db.session.commit()
-                flash(_('Votre commentaire a été ajouté.'), 'success')
-                return redirect(url_for('main.view_post', slug=post.slug) + '#comments-section') # Redirige vers la section commentaires
-            except Exception as e:
-                db.session.rollback()
-                flash(_('Erreur lors de l\'ajout du commentaire.'), 'danger')
-                current_app.logger.error(f"Erreur ajout commentaire: {e}")
+                # Récupère parent_id du formulaire (sera None si c'est un commentaire de haut niveau)
+                parent_id_val = form.parent_id.data
+                parent_comment = None
+                if parent_id_val: # Si c'est une réponse
+                    parent_comment = db.session.get(Comment, int(parent_id_val))
+                    if not parent_comment or parent_comment.post_id != post.id:
+                        flash(_('Commentaire parent invalide.'), 'danger')
+                        return redirect(url_for('main.view_post', slug=post.slug))
 
-
-    # Récupère les commentaires approuvés pour cet article
-    comments_query = select(Comment).where(Comment.post_id == post.id, Comment.is_approved == True).order_by(Comment.timestamp.asc())
+                comment = Comment(
+                    body=form.body.data,
+                    post_id=post.id,
+                    user_id=current_user.id,
+                    parent_id=parent_comment.id if parent_comment else None # Définit parent_id
+                )
+                # is_approved est True par défaut dans le modèle
+                try:
+                    db.session.add(comment)
+                    db.session.commit()
+                    flash(_('Votre commentaire a été ajouté.'), 'success')
+                    return redirect(url_for('main.view_post', slug=post.slug) + '#comment-' + str(comment.id)) # Redirige vers le nouveau commentaire
+                except Exception as e:
+                    db.session.rollback()
+                    flash(_('Erreur lors de l\'ajout du commentaire.'), 'danger')
+                    current_app.logger.error(f"Erreur ajout commentaire: {e}")
+        # Si ce n'est pas un POST ou si la validation échoue, on affiche la page avec le formulaire (s'il existe)
+    
+    # Récupère les commentaires de haut niveau (ceux sans parent_id)
+    comments_query = select(Comment).where(
+        Comment.post_id == post.id,
+        Comment.is_approved == True,
+        Comment.parent_id == None # Seulement les commentaires de haut niveau
+    ).order_by(Comment.timestamp.asc())
     comments = db.session.scalars(comments_query).all()
 
     return render_template('view_post.html', title=post.title, post=post, comments=comments, form=form)
-# --- FIN NOUVELLES ROUTES BLOG ---
+# --- FIN ROUTES BLOG ---
+
