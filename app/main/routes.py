@@ -1,14 +1,12 @@
-# app/main/routes.py (VERSION COMPLÈTE v26 - Passer Modèle Comment au Template, basé sur v25)
+# app/main/routes.py (VERSION COMPLÈTE v27 - Simplification pour Debug Blog)
 
 from flask import render_template, redirect, url_for, flash, request, abort, current_app, send_from_directory
 from flask_login import login_required, current_user
 from flask_babel import _
 from app import db
-# Importer tous les modèles nécessaires, y compris Post et Comment
 from app.models import (Task, UserTaskCompletion, User, Notification,
-                        ExternalTaskCompletion, ReferralCommission, Withdrawal, Post, Comment) # Comment importé
+                        ExternalTaskCompletion, ReferralCommission, Withdrawal, Post, Comment)
 from app.main import bp
-# Ajout de CommentForm
 from app.forms import EditProfileForm, ChangePasswordForm, CommentForm
 from datetime import datetime, timezone, timedelta, date
 from sqlalchemy.orm import joinedload
@@ -20,13 +18,11 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash
 from app.mailer import send_verification_email
 
-# --- Fonction utilitaire pour vérifier l'extension de fichier ---
 def allowed_file(filename):
     allowed_extensions = current_app.config.get('ALLOWED_EXTENSIONS_GENERIC', {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'})
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in allowed_extensions
 
-# --- Route Page d'Accueil ---
 @bp.route('/')
 @bp.route('/index')
 def index():
@@ -43,7 +39,6 @@ def index():
         current_app.logger.error(f"Erreur lors de la récupération des articles pour l'accueil: {e}")
     return render_template('index.html', title=_('Accueil'), warning_message=warning_message, latest_posts=latest_posts)
 
-# --- Route Tableau de Bord Utilisateur ---
 @bp.route('/dashboard')
 @login_required
 def dashboard():
@@ -51,7 +46,6 @@ def dashboard():
     warning_message = _("Nous appliquons une politique de tolérance zéro envers la triche, l'utilisation de VPN/proxys, ou la création de comptes multiples. Toute violation entraînera un bannissement permanent et la perte des gains.")
     return render_template('dashboard.html', title=_('Tableau de Bord'), warning_message=warning_message)
 
-# --- Route pour voir les tâches disponibles ---
 @bp.route('/tasks/available')
 @login_required
 def available_tasks():
@@ -88,7 +82,6 @@ def available_tasks():
                 if not is_completed_ever: tasks_for_user.append(task)
     return render_template('available_tasks.html', title=_('Tâches Disponibles'), tasks=tasks_for_user)
 
-# --- Route pour marquer une tâche comme accomplie ---
 @bp.route('/task/complete/<int:task_id>', methods=['POST'])
 @login_required
 def complete_task(task_id):
@@ -117,14 +110,12 @@ def complete_task(task_id):
     except Exception as e: db.session.rollback(); flash(_('Une erreur est survenue : %(error)s', error=str(e)), 'danger')
     return redirect(url_for('main.available_tasks'))
 
-# --- Route pour voir les tâches accomplies par l'utilisateur ---
 @bp.route('/tasks/completed')
 @login_required
 def completed_tasks():
     page = request.args.get('page', 1, type=int); query = db.select(UserTaskCompletion).where(UserTaskCompletion.user_id == current_user.id).options(joinedload(UserTaskCompletion.task)).order_by(UserTaskCompletion.completion_timestamp.desc()); pagination = db.paginate(query, page=page, per_page=current_app.config['COMPLETIONS_PER_PAGE'], error_out=False); completions = pagination.items
     return render_template('completed_tasks.html', title=_('Mes Tâches Accomplies'), completions=completions, pagination=pagination)
 
-# --- Route pour la page de retrait ---
 @bp.route('/withdraw')
 @login_required
 def withdraw():
@@ -142,7 +133,6 @@ def withdraw():
     withdrawal_history = db.session.scalars(db.select(Withdrawal).where(Withdrawal.user_id == current_user.id, Withdrawal.status == 'Completed').order_by(Withdrawal.processed_timestamp.desc())).all()
     return render_template('withdraw.html', title=_('Mon Solde et Retrait'), minimum_amount=min_amount, is_eligible_time=is_eligible_time, can_request_now=can_request_now, next_eligible_date=next_eligible_date, withdrawal_history=withdrawal_history)
 
-# --- Route pour voir les notifications de l'utilisateur ---
 @bp.route('/notifications')
 @login_required
 def notifications():
@@ -165,7 +155,6 @@ def notifications():
         except Exception as e: db.session.rollback(); print(f"Erreur marquage notifs lues: {e}"); flash(_("Erreur mise à jour statut notifications."),'danger')
     return render_template('notifications.html', title=_('Mes Notifications'), notifications=notifications_to_render, pagination=pagination)
 
-# --- Routes Tâches Externes ---
 @bp.route('/task/external/<int:task_id>')
 def view_external_task(task_id):
     task = db.session.get(Task, task_id); ref_code = request.args.get('ref')
@@ -202,7 +191,6 @@ def view_proof_upload(filename):
     proof_folder = os.path.join(upload_dir, 'proofs')
     return send_from_directory(proof_folder, filename)
 
-# --- Routes Profil Utilisateur ---
 @bp.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():
@@ -248,7 +236,7 @@ def view_post(slug):
 
     form = None
     if post.allow_comments and current_user.is_authenticated:
-        form = CommentForm() # S'assure que form est défini même si pas de POST
+        form = CommentForm()
         if form.validate_on_submit():
             if not current_user.is_verified:
                 flash(_('Veuillez vérifier votre adresse email avant de commenter.'), 'warning')
@@ -274,14 +262,16 @@ def view_post(slug):
                 db.session.rollback(); flash(_('Erreur lors de l\'ajout du commentaire.'), 'danger')
                 current_app.logger.error(f"Erreur ajout commentaire: {e}")
     
+    # Récupère les commentaires de haut niveau (ceux sans parent_id)
+    # et leurs réponses pré-chargées si possible (avec lazy='joined' ou selectinload sur la relation)
+    # Pour une approche plus simple ici, on récupère d'abord les parents.
+    # Le template _comment_display.html s'occupera de charger les réponses.
     comments_query = select(Comment).where(
         Comment.post_id == post.id,
         Comment.is_approved == True,
-        Comment.parent_id == None
+        Comment.parent_id == None # Seulement les commentaires de haut niveau
     ).order_by(Comment.timestamp.asc())
     comments = db.session.scalars(comments_query).all()
 
-    # <<< MODIFICATION ICI : Passer Comment au template >>>
-    return render_template('view_post.html', title=post.title, post=post, comments=comments, form=form, Comment=Comment)
+    return render_template('view_post.html', title=post.title, post=post, comments=comments, form=form, CommentModel=Comment) # CommentModel au lieu de Comment
 # --- FIN ROUTES BLOG ---
-
