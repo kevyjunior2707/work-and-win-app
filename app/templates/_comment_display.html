@@ -1,5 +1,5 @@
-{# app/templates/_comment_display.html (Syntaxe Include Corrigée pour Récursion) #}
-{# Attend 'comment', 'post', 'form', et 'CommentModel' #}
+{# app/templates/_comment_display.html (Syntaxe Include Corrigée) #}
+{# Ce template attend 'comment', 'post', 'form', et 'CommentModel' #}
 <div class="card mb-3 shadow-sm {% if comment.parent_id %}ms-md-4 ms-3 mt-2 border-start border-3 ps-2{% else %}border-0{% endif %}" id="comment-{{ comment.id }}">
     <div class="card-body">
         <div class="d-flex">
@@ -49,8 +49,9 @@
     {% if comment.replies %}
         <div class="ms-md-4 ms-3 mt-2"> {# Indentation pour les réponses #}
             {% for reply_item_loopvar in comment.replies.filter(CommentModel.is_approved==True).order_by(CommentModel.timestamp.asc()).all() %} {# Renommé la variable de boucle #}
-                {# <<< CORRECTION SYNTAXE INCLUDE ICI >>> #}
-                {% include '_comment_display.html' comment=reply_item_loopvar, post=post, form=form, CommentModel=CommentModel %}
+                {# On définit 'comment' ici pour le sous-template #}
+                {% set comment = reply_item_loopvar %}
+                {% include '_comment_display.html' %} {# Utilise le contexte hérité + la nouvelle variable 'comment' #}
             {% endfor %}
         </div>
     {% endif %}
