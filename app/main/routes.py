@@ -1,4 +1,4 @@
-# app/main/routes.py (VERSION COMPLÈTE v27 - Passage Modèle Comment Renommé)
+# app/main/routes.py (VERSION COMPLÈTE v28 - Tâches Quotidiennes avec Délai 24h1m)
 
 from flask import render_template, redirect, url_for, flash, request, abort, current_app, send_from_directory
 from flask_login import login_required, current_user
@@ -8,7 +8,8 @@ from app.models import (Task, UserTaskCompletion, User, Notification,
                         ExternalTaskCompletion, ReferralCommission, Withdrawal, Post, Comment)
 from app.main import bp
 from app.forms import EditProfileForm, ChangePasswordForm, CommentForm
-from datetime import datetime, timezone, timedelta, date
+from datetime import datetime, timezone, timedelta # timedelta est déjà importé
+# 'date' n'est plus nécessaire pour la logique des tâches quotidiennes ici
 from sqlalchemy.orm import joinedload
 from sqlalchemy import select, func, and_
 from decimal import Decimal, InvalidOperation
@@ -18,11 +19,13 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash
 from app.mailer import send_verification_email
 
+# --- Fonction utilitaire pour vérifier l'extension de fichier ---
 def allowed_file(filename):
     allowed_extensions = current_app.config.get('ALLOWED_EXTENSIONS_GENERIC', {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'})
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in allowed_extensions
 
+# --- Route Page d'Accueil ---
 @bp.route('/')
 @bp.route('/index')
 def index():
@@ -39,6 +42,7 @@ def index():
         current_app.logger.error(f"Erreur lors de la récupération des articles pour l'accueil: {e}")
     return render_template('index.html', title=_('Accueil'), warning_message=warning_message, latest_posts=latest_posts)
 
+# --- Route Tableau de Bord Utilisateur ---
 @bp.route('/dashboard')
 @login_required
 def dashboard():
@@ -46,57 +50,88 @@ def dashboard():
     warning_message = _("Nous appliquons une politique de tolérance zéro envers la triche, l'utilisation de VPN/proxys, ou la création de comptes multiples. Toute violation entraînera un bannissement permanent et la perte des gains.")
     return render_template('dashboard.html', title=_('Tableau de Bord'), warning_message=warning_message)
 
+# --- Route pour voir les tâches disponibles (MODIFIÉE pour tâches quotidiennes avec délai) ---
 @bp.route('/tasks/available')
 @login_required
 def available_tasks():
-    user_completions = db.session.scalars(
-        db.select(UserTaskCompletion)
-        .where(UserTaskCompletion.user_id == current_user.id)
-    ).all()
-    completions_dict = {}
-    for comp in user_completions:
-        if comp.task_id not in completions_dict:
-            completions_dict[comp.task_id] = []
-        completions_dict[comp.task_id].append(comp.completion_timestamp)
     all_active_tasks = db.session.scalars(db.select(Task).where(Task.is_active == True)).all()
     user_country = current_user.country
     user_device = current_user.device
     tasks_for_user = []
-    today_utc = date.today()
+    now_utc = datetime.now(timezone.utc)
+    delay_for_daily_task = timedelta(hours=24, minutes=1)
+
     for task in all_active_tasks:
+        # Vérifie d'abord le ciblage pays/appareil
         target_countries = task.get_target_countries_list()
         country_match = 'ALL' in target_countries or user_country in target_countries
         target_devices = task.get_target_devices_list()
         device_match = 'ALL' in target_devices or user_device in target_devices
+
         if country_match and device_match:
-            task_id = task.id
-            is_completed_ever = task_id in completions_dict
             if task.is_daily:
-                completed_today = False
-                if is_completed_ever:
-                    for timestamp in completions_dict[task_id]:
-                        if timestamp.astimezone(timezone.utc).date() == today_utc:
-                            completed_today = True; break
-                if not completed_today: tasks_for_user.append(task)
+                # Pour une tâche quotidienne, trouver la dernière complétion par cet utilisateur
+                latest_completion = db.session.scalar(
+                    select(UserTaskCompletion)
+                    .where(UserTaskCompletion.user_id == current_user.id, UserTaskCompletion.task_id == task.id)
+                    .order_by(UserTaskCompletion.completion_timestamp.desc())
+                )
+                if latest_completion:
+                    # S'il y a une complétion, vérifier si 24h1m se sont écoulées
+                    time_since_last = now_utc - latest_completion.completion_timestamp.replace(tzinfo=timezone.utc) # Assure tz aware
+                    if time_since_last >= delay_for_daily_task:
+                        tasks_for_user.append(task)
+                else:
+                    # Jamais complétée, donc disponible
+                    tasks_for_user.append(task)
             else:
-                if not is_completed_ever: tasks_for_user.append(task)
+                # Tâche non quotidienne : vérifier si elle a DÉJÀ été faite
+                existing_completion = db.session.scalar(
+                    select(UserTaskCompletion.id).where(
+                        UserTaskCompletion.user_id == current_user.id,
+                        UserTaskCompletion.task_id == task.id
+                    )
+                )
+                if not existing_completion:
+                    tasks_for_user.append(task)
+
     return render_template('available_tasks.html', title=_('Tâches Disponibles'), tasks=tasks_for_user)
 
+# --- Route pour marquer une tâche comme accomplie (MODIFIÉE pour tâches quotidiennes avec délai) ---
 @bp.route('/task/complete/<int:task_id>', methods=['POST'])
 @login_required
 def complete_task(task_id):
     task = db.session.get(Task, task_id) or abort(404); user = current_user
     user_country = user.country; user_device = user.device; target_countries = task.get_target_countries_list(); target_devices = task.get_target_devices_list(); country_match = 'ALL' in target_countries or user_country in target_countries; device_match = 'ALL' in target_devices or user_device in target_devices
     if not (country_match and device_match and task.is_active): flash(_('Vous ne pouvez pas accomplir cette tâche ou elle n\'est plus active.'), 'danger'); return redirect(url_for('main.available_tasks'))
+
+    now_utc = datetime.now(timezone.utc)
+    delay_for_daily_task = timedelta(hours=24, minutes=1)
+
     if task.is_daily:
-        today_utc = date.today()
-        todays_completion = db.session.scalar(select(UserTaskCompletion.id).where(UserTaskCompletion.user_id == user.id, UserTaskCompletion.task_id == task.id, func.date(UserTaskCompletion.completion_timestamp) == today_utc))
-        if todays_completion: flash(_('Vous avez déjà accompli cette tâche quotidienne aujourd\'hui.'), 'warning'); return redirect(url_for('main.available_tasks'))
+        latest_completion = db.session.scalar(
+            select(UserTaskCompletion)
+            .where(UserTaskCompletion.user_id == user.id, UserTaskCompletion.task_id == task.id)
+            .order_by(UserTaskCompletion.completion_timestamp.desc())
+        )
+        if latest_completion:
+            time_since_last = now_utc - latest_completion.completion_timestamp.replace(tzinfo=timezone.utc)
+            if time_since_last < delay_for_daily_task:
+                # Calcule le temps restant
+                time_remaining = delay_for_daily_task - time_since_last
+                hours, remainder = divmod(time_remaining.total_seconds(), 3600)
+                minutes, _ = divmod(remainder, 60)
+                flash(_('Vous avez déjà accompli cette tâche. Elle sera disponible à nouveau dans environ %(hours)sh %(minutes)sm.', hours=int(hours), minutes=int(minutes)), 'warning')
+                return redirect(url_for('main.available_tasks'))
     else:
         existing_completion = db.session.scalar(select(UserTaskCompletion.id).where(UserTaskCompletion.user_id == user.id, UserTaskCompletion.task_id == task.id))
-        if existing_completion: flash(_('Vous avez déjà marqué cette tâche comme accomplie.'), 'warning'); return redirect(url_for('main.available_tasks'))
+        if existing_completion:
+            flash(_('Vous avez déjà marqué cette tâche comme accomplie.'), 'warning')
+            return redirect(url_for('main.available_tasks'))
+
     try:
-        completion = UserTaskCompletion(user_id=user.id, task_id=task.id); db.session.add(completion)
+        completion = UserTaskCompletion(user_id=user.id, task_id=task.id, completion_timestamp=now_utc) # Enregistre avec le timestamp actuel
+        db.session.add(completion)
         reward = Decimal(str(task.reward_amount or 0.0)); current_balance = Decimal(str(user.balance or 0.0))
         user.balance = float(current_balance + reward); user.completed_task_count = (user.completed_task_count or 0) + 1
         if user.referred_by_id and user.completed_task_count >= 20:
@@ -110,6 +145,7 @@ def complete_task(task_id):
     except Exception as e: db.session.rollback(); flash(_('Une erreur est survenue : %(error)s', error=str(e)), 'danger')
     return redirect(url_for('main.available_tasks'))
 
+# --- (Le reste des routes : completed_tasks, withdraw, notifications, etc. reste inchangé) ---
 @bp.route('/tasks/completed')
 @login_required
 def completed_tasks():
@@ -219,7 +255,6 @@ def profile():
 def forgot_password_info():
     return render_template('auth/forgot_password.html', title=_('Mot de Passe Oublié'))
 
-# --- Routes pour le Blog (CÔTÉ UTILISATEUR) ---
 @bp.route('/blog')
 def blog_index():
     page = request.args.get('page', 1, type=int)
@@ -231,44 +266,23 @@ def blog_index():
 @bp.route('/blog/post/<slug>', methods=['GET', 'POST'])
 def view_post(slug):
     post = db.session.scalar(select(Post).where(Post.slug == slug, Post.is_published == True))
-    if post is None:
-        abort(404)
-
+    if post is None: abort(404)
     form = None
     if post.allow_comments and current_user.is_authenticated:
         form = CommentForm()
         if form.validate_on_submit():
-            if not current_user.is_verified:
-                flash(_('Veuillez vérifier votre adresse email avant de commenter.'), 'warning')
-                return redirect(url_for('main.view_post', slug=post.slug))
-            parent_id_val = form.parent_id.data
-            parent_comment = None
+            if not current_user.is_verified: flash(_('Veuillez vérifier votre adresse email avant de commenter.'), 'warning'); return redirect(url_for('main.view_post', slug=post.slug))
+            parent_id_val = form.parent_id.data; parent_comment = None
             if parent_id_val:
                 try: parent_id_int = int(parent_id_val)
                 except ValueError: flash(_("ID de commentaire parent invalide."), 'danger'); return redirect(url_for('main.view_post', slug=post.slug))
                 parent_comment = db.session.get(Comment, parent_id_int)
-                if not parent_comment or parent_comment.post_id != post.id:
-                    flash(_('Commentaire parent invalide.'), 'danger')
-                    return redirect(url_for('main.view_post', slug=post.slug))
-            comment = Comment(
-                body=form.body.data, post_id=post.id, user_id=current_user.id,
-                parent_id=parent_comment.id if parent_comment else None
-            )
+                if not parent_comment or parent_comment.post_id != post.id: flash(_('Commentaire parent invalide.'), 'danger'); return redirect(url_for('main.view_post', slug=post.slug))
+            comment = Comment(body=form.body.data, post_id=post.id, user_id=current_user.id, parent_id=parent_comment.id if parent_comment else None)
             try:
-                db.session.add(comment); db.session.commit()
-                flash(_('Votre commentaire a été ajouté.'), 'success')
+                db.session.add(comment); db.session.commit(); flash(_('Votre commentaire a été ajouté.'), 'success')
                 return redirect(url_for('main.view_post', slug=post.slug) + '#comment-' + str(comment.id))
-            except Exception as e:
-                db.session.rollback(); flash(_('Erreur lors de l\'ajout du commentaire.'), 'danger')
-                current_app.logger.error(f"Erreur ajout commentaire: {e}")
-    
-    comments_query = select(Comment).where(
-        Comment.post_id == post.id,
-        Comment.is_approved == True,
-        Comment.parent_id == None
-    ).order_by(Comment.timestamp.asc())
+            except Exception as e: db.session.rollback(); flash(_('Erreur lors de l\'ajout du commentaire.'), 'danger'); current_app.logger.error(f"Erreur ajout commentaire: {e}")
+    comments_query = select(Comment).where(Comment.post_id == post.id, Comment.is_approved == True, Comment.parent_id == None).order_by(Comment.timestamp.asc())
     comments = db.session.scalars(comments_query).all()
-
-    return render_template('view_post.html', title=post.title, post=post, comments=comments, form=form, CommentModel=Comment) # CommentModel est passé ici
-# --- FIN ROUTES BLOG ---
-
+    return render_template('view_post.html', title=post.title, post=post, comments=comments, form=form, CommentModel=Comment)
