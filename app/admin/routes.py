@@ -831,6 +831,9 @@ def toggle_post_comments(post_id):
     return redirect(url_for('admin.manage_posts'))
 
 # --- Routes pour la Modération des Commentaires du Blog ---
+# (Assurez-vous d'avoir cet import en haut de votre fichier app/admin/routes.py)
+# from flask_wtf.csrf import generate_csrf
+
 @bp.route('/blog/comments', methods=['GET'])
 @login_required
 @admin_required
@@ -852,30 +855,46 @@ def manage_comments():
         comments_query = comments_query.where(Comment.body.ilike(f'%{search_content}%'))
 
     comments_query = comments_query.order_by(Comment.timestamp.desc())
+    # Utilise COMMENTS_PER_PAGE depuis config, avec un fallback
     pagination = db.paginate(comments_query, page=page, per_page=current_app.config.get('COMMENTS_PER_PAGE', 20), error_out=False)
     comments = pagination.items
+    
+    # <<< AJOUT ICI : Générer le token CSRF >>>
+    csrf_token_value = generate_csrf()
+
     return render_template('manage_comments.html',
                            title=_('Modérer les Commentaires du Blog'),
                            comments=comments,
                            pagination=pagination,
                            search_author=search_author,
                            search_post_title=search_post_title,
-                           search_content=search_content)
+                           search_content=search_content,
+                           csrf_token=csrf_token_value) # <<< Passer le token ici >>>
 
 @bp.route('/blog/comment/<int:comment_id>/delete', methods=['POST'])
 @login_required
 @admin_required
 def delete_comment(comment_id):
     comment_to_delete = db.session.get(Comment, comment_id) or abort(404)
+    # Récupère le slug avant la suppression pour une redirection potentielle
+    post_slug_redirect = comment_to_delete.post.slug if comment_to_delete.post else None
     try:
-        # La suppression en cascade devrait s'occuper des réponses si configurée dans le modèle
+        # La suppression en cascade (configurée dans le modèle Comment pour les réponses)
+        # devrait s'occuper des réponses à ce commentaire.
         db.session.delete(comment_to_delete)
         db.session.commit()
         flash(_('Commentaire supprimé avec succès.'), 'success')
     except Exception as e:
         db.session.rollback()
         flash(_('Erreur lors de la suppression du commentaire : %(error)s', error=str(e)), 'danger')
-    return redirect(request.referrer or url_for('admin.manage_comments'))
+    
+    # Tente de rediriger vers la page précédente (manage_comments) si possible,
+    # sinon vers la page de l'article, ou en dernier recours vers la liste des articles.
+    if request.referrer and url_for('admin.manage_comments') in request.referrer:
+        return redirect(request.referrer) # Retourne à la page de modération avec les filtres/pagination
+    elif post_slug_redirect:
+        return redirect(url_for('main.view_post', slug=post_slug_redirect))
+    return redirect(url_for('admin.manage_posts')) # Fallback général
 
 @bp.route('/blog/comment/<int:comment_id>/toggle_approved', methods=['POST'])
 @login_required
@@ -890,4 +909,5 @@ def toggle_comment_approved(comment_id):
     except Exception as e:
         db.session.rollback()
         flash(_('Erreur lors du changement de statut du commentaire: %(error)s', error=str(e)), 'danger')
+    # Redirige vers la page précédente (manage_comments) en conservant la page de pagination
     return redirect(request.referrer or url_for('admin.manage_comments'))

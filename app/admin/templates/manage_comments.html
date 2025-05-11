@@ -1,4 +1,4 @@
-{# app/admin/templates/manage_comments.html (Liste et Modération des Commentaires) #}
+{# app/admin/templates/manage_comments.html (Fix CSRF Token) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -83,14 +83,16 @@
                         </td>
                         <td class="text-end text-nowrap">
                             <form action="{{ url_for('admin.toggle_comment_approved', comment_id=comment.id, page=pagination.page if pagination else 1) }}" method="post" style="display: inline;">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> {# Utilise la fonction globale CSRF ici #}
+                                {# <<< CORRECTION CSRF TOKEN ICI >>> #}
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/>
                                 <button type="submit" class="btn btn-sm {% if comment.is_approved %}btn-outline-secondary{% else %}btn-outline-success{% endif %}" title="{{ _('Approuver/Désapprouver') }}">
                                     {% if comment.is_approved %}<i class="bi bi-hand-thumbs-down"></i>{% else %}<i class="bi bi-hand-thumbs-up"></i>{% endif %}
                                 </button>
                             </form>
 
                             <form action="{{ url_for('admin.delete_comment', comment_id=comment.id) }}" method="post" style="display: inline;">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> {# Utilise la fonction globale CSRF ici #}
+                                {# <<< CORRECTION CSRF TOKEN ICI >>> #}
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/>
                                 <button type="submit" class="btn btn-sm btn-outline-danger" title="{{ _('Supprimer') }}" onclick="return confirm('{{ _('Êtes-vous sûr de vouloir supprimer ce commentaire ? Cette action est irréversible.') }}');"><i class="bi bi-trash3"></i></button>
                             </form>
                         </td>
@@ -129,5 +131,5 @@
     <div class="mt-4">
         <a href="{{ url_for('admin.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left-circle"></i> {{ _('Retour au Panel Admin') }}</a>
     </div>
-</div> {# <<< Fin Conteneur >>> #}
+</div>
 {% endblock %}
