@@ -1,4 +1,4 @@
-{# app/admin/templates/manage_posts.html (Liste des Articles et Actions) #}
+{# app/admin/templates/manage_comments.html (Liste et Modération des Commentaires) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -6,84 +6,92 @@
 {% block content %}
 <div class="container mt-4 mb-5"> {# Conteneur principal #}
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1><i class="bi bi-pencil-square"></i> {{ title }}</h1>
-        {# Bouton pour aller à la page de création séparée #}
-        <a href="{{ url_for('admin.create_post') }}" class="btn btn-success">
-            <i class="bi bi-plus-circle-fill"></i> {{ _('Écrire un Nouvel Article') }}
-        </a>
+        <h1><i class="bi bi-chat-square-dots-fill"></i> {{ title }}</h1>
     </div>
-    <p>{{ _('Gérez les articles de blog de votre site.')}}</p>
+    <p>{{ _('Modérez les commentaires laissés sur les articles de blog.')}}</p>
     <hr>
 
-    {# Section pour Lister les Articles Existants #}
-    <h2>{{ _('Articles Existants') }}</h2>
-    {% if not posts %}
-        <div class="alert alert-info">
-            {{ _('Aucun article de blog n\'a été créé pour le moment.') }}
+    {# Filtres pour les commentaires #}
+    <div class="card bg-light mb-3 shadow-sm filter-card">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('admin.manage_comments') }}">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label for="author" class="form-label">{{ _('Filtrer par Auteur') }}</label>
+                        <input type="text" class="form-control form-control-sm" id="author" name="author" value="{{ search_author or '' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="post_title" class="form-label">{{ _('Filtrer par Titre d\'Article') }}</label>
+                        <input type="text" class="form-control form-control-sm" id="post_title" name="post_title" value="{{ search_post_title or '' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="content" class="form-label">{{ _('Filtrer par Contenu du Commentaire') }}</label>
+                        <input type="text" class="form-control form-control-sm" id="content" name="content" value="{{ search_content or '' }}">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-search"></i> {{ _('Filtrer') }}</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {# Section pour Lister les Commentaires Existants #}
+    {% if not comments %}
+        <div class="alert alert-info mt-3">
+            {% if search_author or search_post_title or search_content %}
+                {{ _('Aucun commentaire ne correspond à vos critères de recherche.') }}
+                <a href="{{ url_for('admin.manage_comments') }}" class="alert-link">{{ _('Voir tous les commentaires.') }}</a>
+            {% else %}
+                {{ _('Aucun commentaire à modérer pour le moment.') }}
+            {% endif %}
         </div>
     {% else %}
-        <div class="table-responsive">
+        <div class="table-responsive mt-3">
             <table class="table table-striped table-hover table-sm align-middle">
                 <thead>
                     <tr>
-                        <th style="width: 30%;">{{ _('Titre') }}</th>
+                        <th style="width: 30%;">{{ _('Commentaire') }}</th>
                         <th>{{ _('Auteur') }}</th>
+                        <th>{{ _('Article') }}</th>
                         <th>{{ _('Date') }}</th>
                         <th>{{ _('Statut') }}</th>
-                        <th>{{ _('Commentaires') }}</th>
                         <th class="text-end">{{ _('Actions') }}</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for post in posts %}
-                    <tr>
+                    {% for comment in comments %}
+                    <tr class="{{ 'table-warning' if not comment.is_approved else '' }}">
+                        <td><small>{{ comment.body | truncate(100, True) }}</small></td>
+                        <td>{{ comment.author.full_name if comment.author else _('Anonyme') }}</td>
                         <td>
-                            {# Lien vers la vue publique de l'article s'il est publié #}
-                            {% if post.is_published %}
-                                <a href="{{ url_for('main.view_post', slug=post.slug) }}" target="_blank" title="{{ _('Voir l\'article (public)') }}">{{ post.title }}</a>
+                            {% if comment.post %}
+                                <a href="{{ url_for('main.view_post', slug=comment.post.slug) }}" target="_blank" title="{{ comment.post.title }}">
+                                    {{ comment.post.title | truncate(30, True) }}
+                                </a>
                             {% else %}
-                                {{ post.title }} <small class="text-muted">({{ _('Brouillon') }})</small>
-                            {% endif %}
-                            {% if post.image_filename %}
-                                <i class="bi bi-image text-muted ms-1" title="{{ _('Avec image') }}"></i>
-                            {% endif %}
-                        </td>
-                        <td>{{ post.author.full_name if post.author else _('Inconnu') }}</td>
-                        <td>{{ post.timestamp.strftime('%Y-%m-%d') }}</td>
-                        <td>
-                            {% if post.is_published %}
-                                <span class="badge bg-success">{{ _('Publié') }}</span>
-                            {% else %}
-                                <span class="badge bg-secondary">{{ _('Brouillon') }}</span>
+                                {{ _('Article Supprimé') }}
                             {% endif %}
                         </td>
+                        <td>{{ comment.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
                         <td>
-                            {% if post.allow_comments %}
-                                <span class="badge bg-primary">{{ _('Autorisés') }}</span>
+                            {% if comment.is_approved %}
+                                <span class="badge bg-success">{{ _('Approuvé') }}</span>
                             {% else %}
-                                <span class="badge bg-light text-dark border">{{ _('Désactivés') }}</span>
+                                <span class="badge bg-warning text-dark">{{ _('Non Approuvé') }}</span>
                             {% endif %}
                         </td>
                         <td class="text-end text-nowrap">
-                            <a href="{{ url_for('admin.edit_post', post_id=post.id) }}" class="btn btn-sm btn-outline-primary" title="{{ _('Modifier') }}"><i class="bi bi-pencil-fill"></i></a>
-
-                            <form action="{{ url_for('admin.toggle_post_published', post_id=post.id) }}" method="post" style="display: inline;">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/> {# Utilise la variable passée par la route #}
-                                <button type="submit" class="btn btn-sm {% if post.is_published %}btn-outline-secondary{% else %}btn-outline-success{% endif %}" title="{{ _('Publier/Dépublier') }}">
-                                    {% if post.is_published %}<i class="bi bi-eye-slash"></i>{% else %}<i class="bi bi-eye"></i>{% endif %}
+                            <form action="{{ url_for('admin.toggle_comment_approved', comment_id=comment.id, page=pagination.page if pagination else 1) }}" method="post" style="display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> {# Utilise la fonction globale CSRF ici #}
+                                <button type="submit" class="btn btn-sm {% if comment.is_approved %}btn-outline-secondary{% else %}btn-outline-success{% endif %}" title="{{ _('Approuver/Désapprouver') }}">
+                                    {% if comment.is_approved %}<i class="bi bi-hand-thumbs-down"></i>{% else %}<i class="bi bi-hand-thumbs-up"></i>{% endif %}
                                 </button>
                             </form>
 
-                            <form action="{{ url_for('admin.toggle_post_comments', post_id=post.id) }}" method="post" style="display: inline;">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/>
-                                <button type="submit" class="btn btn-sm {% if post.allow_comments %}btn-outline-secondary{% else %}btn-outline-primary{% endif %}" title="{{ _('Autoriser/Désactiver Commentaires') }}">
-                                    {% if post.allow_comments %}<i class="bi bi-chat-dots-fill"></i>{% else %}<i class="bi bi-chat-dots"></i>{% endif %}
-                                </button>
-                            </form>
-
-                            <form action="{{ url_for('admin.delete_post', post_id=post.id) }}" method="post" style="display: inline;">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/>
-                                <button type="submit" class="btn btn-sm btn-outline-danger" title="{{ _('Supprimer') }}" onclick="return confirm('{{ _('Êtes-vous sûr de vouloir supprimer cet article et tous ses commentaires ? Cette action est irréversible.') }}');"><i class="bi bi-trash3"></i></button>
+                            <form action="{{ url_for('admin.delete_comment', comment_id=comment.id) }}" method="post" style="display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> {# Utilise la fonction globale CSRF ici #}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="{{ _('Supprimer') }}" onclick="return confirm('{{ _('Êtes-vous sûr de vouloir supprimer ce commentaire ? Cette action est irréversible.') }}');"><i class="bi bi-trash3"></i></button>
                             </form>
                         </td>
                     </tr>
@@ -91,7 +99,31 @@
                 </tbody>
             </table>
         </div>
-        {# Ici, on pourrait ajouter une pagination pour les articles si la liste devient très longue #}
+
+        {# Pagination pour les commentaires #}
+        {% if pagination and pagination.pages > 1 %}
+        <nav aria-label="Page navigation commentaires admin" class="mt-4">
+          <ul class="pagination justify-content-center">
+            <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+              <a class="page-link" href="{{ url_for('admin.manage_comments', page=pagination.prev_num, author=search_author, post_title=search_post_title, content=search_content) if pagination.has_prev else '#' }}">{{ _('Précédent') }}</a>
+            </li>
+            {% for p_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+              {% if p_num %}
+                {% if pagination.page == p_num %}
+                  <li class="page-item active" aria-current="page"><span class="page-link">{{ p_num }}</span></li>
+                {% else %}
+                  <li class="page-item"><a class="page-link" href="{{ url_for('admin.manage_comments', page=p_num, author=search_author, post_title=search_post_title, content=search_content) }}">{{ p_num }}</a></li>
+                {% endif %}
+              {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+              {% endif %}
+            {% endfor %}
+            <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+              <a class="page-link" href="{{ url_for('admin.manage_comments', page=pagination.next_num, author=search_author, post_title=search_post_title, content=search_content) if pagination.has_next else '#' }}">{{ _('Suivant') }}</a>
+            </li>
+          </ul>
+        </nav>
+        {% endif %}
     {% endif %}
 
     <div class="mt-4">
