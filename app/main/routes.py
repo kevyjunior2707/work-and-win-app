@@ -1,4 +1,4 @@
-# app/main/routes.py (VERSION COMPLÈTE v25 - Soumission Commentaires et Réponses)
+# app/main/routes.py (VERSION COMPLÈTE v26 - Passer Modèle Comment au Template, basé sur v25)
 
 from flask import render_template, redirect, url_for, flash, request, abort, current_app, send_from_directory
 from flask_login import login_required, current_user
@@ -6,7 +6,7 @@ from flask_babel import _
 from app import db
 # Importer tous les modèles nécessaires, y compris Post et Comment
 from app.models import (Task, UserTaskCompletion, User, Notification,
-                        ExternalTaskCompletion, ReferralCommission, Withdrawal, Post, Comment)
+                        ExternalTaskCompletion, ReferralCommission, Withdrawal, Post, Comment) # Comment importé
 from app.main import bp
 # Ajout de CommentForm
 from app.forms import EditProfileForm, ChangePasswordForm, CommentForm
@@ -18,7 +18,6 @@ import json
 import os
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash
-# Import pour l'email
 from app.mailer import send_verification_email
 
 # --- Fonction utilitaire pour vérifier l'extension de fichier ---
@@ -129,7 +128,7 @@ def completed_tasks():
 @bp.route('/withdraw')
 @login_required
 def withdraw():
-    min_amount = current_app.config.get('MINIMUM_WITHDRAWAL_AMOUNT', 15.0) # Utilise la valeur mise à jour
+    min_amount = current_app.config.get('MINIMUM_WITHDRAWAL_AMOUNT', 15.0)
     last_withdrawal = current_user.last_withdrawal_date
     is_eligible_time = False; next_eligible_date = None; days_limit = 30
     now_utc = datetime.now(timezone.utc)
@@ -196,7 +195,6 @@ def submit_external_proof():
             except OSError: pass
         flash(_('Erreur lors de la soumission : %(error)s', error=str(e)), 'danger'); return redirect(url_for('main.view_external_task', task_id=task_id, ref=ref_code))
 
-# --- Route pour servir les images uploadées (preuves externes) ---
 @bp.route('/uploads/proofs/<path:filename>')
 @login_required
 def view_proof_upload(filename):
@@ -229,7 +227,6 @@ def profile():
         edit_form.phone_code.data = found_code; edit_form.phone_local_number.data = local_num
     return render_template('edit_profile.html', title=_('Modifier Mon Profil'), edit_form=edit_form, password_form=password_form)
 
-# --- Route pour infos mot de passe oublié ---
 @bp.route('/forgot-password-info')
 def forgot_password_info():
     return render_template('auth/forgot_password.html', title=_('Mot de Passe Oublié'))
@@ -243,57 +240,48 @@ def blog_index():
     posts = pagination.items
     return render_template('blog_index.html', title=_('Blog Work and Win'), posts=posts, pagination=pagination)
 
-# --- Route pour afficher un article et gérer les commentaires ---
 @bp.route('/blog/post/<slug>', methods=['GET', 'POST'])
 def view_post(slug):
     post = db.session.scalar(select(Post).where(Post.slug == slug, Post.is_published == True))
     if post is None:
         abort(404)
 
-    form = None # Initialise form à None
-    if post.allow_comments: # Traite le formulaire seulement si les commentaires sont autorisés
-        if current_user.is_authenticated:
-            form = CommentForm() # Instancie le formulaire pour les utilisateurs connectés
-            if form.validate_on_submit():
-                if not current_user.is_verified:
-                    flash(_('Veuillez vérifier votre adresse email avant de commenter.'), 'warning')
+    form = None
+    if post.allow_comments and current_user.is_authenticated:
+        form = CommentForm() # S'assure que form est défini même si pas de POST
+        if form.validate_on_submit():
+            if not current_user.is_verified:
+                flash(_('Veuillez vérifier votre adresse email avant de commenter.'), 'warning')
+                return redirect(url_for('main.view_post', slug=post.slug))
+            parent_id_val = form.parent_id.data
+            parent_comment = None
+            if parent_id_val:
+                try: parent_id_int = int(parent_id_val)
+                except ValueError: flash(_("ID de commentaire parent invalide."), 'danger'); return redirect(url_for('main.view_post', slug=post.slug))
+                parent_comment = db.session.get(Comment, parent_id_int)
+                if not parent_comment or parent_comment.post_id != post.id:
+                    flash(_('Commentaire parent invalide.'), 'danger')
                     return redirect(url_for('main.view_post', slug=post.slug))
-
-                # Récupère parent_id du formulaire (sera None si c'est un commentaire de haut niveau)
-                parent_id_val = form.parent_id.data
-                parent_comment = None
-                if parent_id_val: # Si c'est une réponse
-                    parent_comment = db.session.get(Comment, int(parent_id_val))
-                    if not parent_comment or parent_comment.post_id != post.id:
-                        flash(_('Commentaire parent invalide.'), 'danger')
-                        return redirect(url_for('main.view_post', slug=post.slug))
-
-                comment = Comment(
-                    body=form.body.data,
-                    post_id=post.id,
-                    user_id=current_user.id,
-                    parent_id=parent_comment.id if parent_comment else None # Définit parent_id
-                )
-                # is_approved est True par défaut dans le modèle
-                try:
-                    db.session.add(comment)
-                    db.session.commit()
-                    flash(_('Votre commentaire a été ajouté.'), 'success')
-                    return redirect(url_for('main.view_post', slug=post.slug) + '#comment-' + str(comment.id)) # Redirige vers le nouveau commentaire
-                except Exception as e:
-                    db.session.rollback()
-                    flash(_('Erreur lors de l\'ajout du commentaire.'), 'danger')
-                    current_app.logger.error(f"Erreur ajout commentaire: {e}")
-        # Si ce n'est pas un POST ou si la validation échoue, on affiche la page avec le formulaire (s'il existe)
+            comment = Comment(
+                body=form.body.data, post_id=post.id, user_id=current_user.id,
+                parent_id=parent_comment.id if parent_comment else None
+            )
+            try:
+                db.session.add(comment); db.session.commit()
+                flash(_('Votre commentaire a été ajouté.'), 'success')
+                return redirect(url_for('main.view_post', slug=post.slug) + '#comment-' + str(comment.id))
+            except Exception as e:
+                db.session.rollback(); flash(_('Erreur lors de l\'ajout du commentaire.'), 'danger')
+                current_app.logger.error(f"Erreur ajout commentaire: {e}")
     
-    # Récupère les commentaires de haut niveau (ceux sans parent_id)
     comments_query = select(Comment).where(
         Comment.post_id == post.id,
         Comment.is_approved == True,
-        Comment.parent_id == None # Seulement les commentaires de haut niveau
+        Comment.parent_id == None
     ).order_by(Comment.timestamp.asc())
     comments = db.session.scalars(comments_query).all()
 
-    return render_template('view_post.html', title=post.title, post=post, comments=comments, form=form)
+    # <<< MODIFICATION ICI : Passer Comment au template >>>
+    return render_template('view_post.html', title=post.title, post=post, comments=comments, form=form, Comment=Comment)
 # --- FIN ROUTES BLOG ---
 
