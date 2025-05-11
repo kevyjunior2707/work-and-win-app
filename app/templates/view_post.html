@@ -1,4 +1,4 @@
-{# app/templates/view_post.html (Affichage Article, Commentaires et Réponses) #}
+{# app/templates/view_post.html (Fix Contexte Include pour _comment_display) #}
 {% extends "base.html" %}
 
 {% block title %}{{ post.title }} - {{ _('Blog') }}{% endblock %}
@@ -25,7 +25,7 @@
                 {% endif %}
 
                 <div class="post-content">
-                    {{ post.content | safe }} {# |safe car le contenu vient de TinyMCE (admin) #}
+                    {{ post.content | safe }}
                 </div>
             </article>
 
@@ -35,12 +35,11 @@
             <div class="comments-section" id="comments-section">
                 <h3 class="mb-3">{{ _('Commentaires') }}</h3>
 
-                {# Formulaire pour ajouter un nouveau commentaire (de haut niveau) #}
                 {% if post.allow_comments %}
                     {% if current_user.is_authenticated %}
                         {% if not current_user.is_verified %}
                              <div class="alert alert-warning small">
-                                 {% set verify_link = url_for('main.dashboard') %} {# L'alerte sur le dashboard a le bouton pour renvoyer #}
+                                 {% set verify_link = url_for('main.dashboard') %}
                                  {{ (_('Veuillez <a href="%(url)s" class="alert-link">vérifier votre adresse email</a> pour pouvoir commenter.', url=verify_link)) | safe }}
                              </div>
                         {% else %}
@@ -49,7 +48,7 @@
                                     <h5 class="card-title">{{ _('Laisser un commentaire') }}</h5>
                                     <form method="POST" action="{{ url_for('main.view_post', slug=post.slug) }}">
                                         {{ form.hidden_tag() }}
-                                        {{ form.parent_id() }} {# Champ caché pour parent_id, sera vide pour commentaire de haut niveau #}
+                                        {{ form.parent_id() }} {# Sera vide pour commentaire de haut niveau #}
                                         <div class="mb-3">
                                             {{ form.body.label(class="form-label sr-only") }}
                                             {{ form.body(rows="3", class="form-control" + (" is-invalid" if form.body.errors else ""), placeholder=_('Écrivez votre commentaire ici...')) }}
@@ -80,9 +79,10 @@
 
                 {# Affichage des commentaires existants (approuvés) et de leurs réponses #}
                 {% if comments %}
-                    {% for comment in comments %} {# Boucle sur les commentaires de haut niveau #}
-                        {% if comment.parent_id == None %} {# Affiche seulement les commentaires parents ici #}
-                            {% include '_comment_display.html' %} {# Utilise un sous-template pour afficher un commentaire et ses réponses #}
+                    {% for comment_item in comments %} {# Renommé 'comment' en 'comment_item' pour éviter conflit avec la variable passée à l'include #}
+                        {% if comment_item.parent_id == None %}
+                            {# <<< CORRECTION IMPORTANTE ICI : Passer explicitement les variables >>> #}
+                            {% include '_comment_display.html' comment=comment_item, post=post, form=form, Comment=Comment %}
                         {% endif %}
                     {% endfor %}
                 {% else %}
@@ -107,19 +107,21 @@
     {{ super() }}
     <script>
         function showReplyForm(commentId) {
-            // Cache tous les formulaires de réponse
             var allReplyForms = document.querySelectorAll('.reply-form-container');
             allReplyForms.forEach(function(formContainer) {
                 formContainer.style.display = 'none';
+                // Réinitialise le parent_id du formulaire principal si on clique sur un autre "répondre"
+                var mainParentIdInput = document.querySelector('#comments-section > .card > .card-body > form input[name="parent_id"]');
+                if(mainParentIdInput) {
+                    mainParentIdInput.value = '';
+                }
             });
-            // Affiche le formulaire spécifique
             var replyFormContainer = document.getElementById('reply-form-container-' + commentId);
             if (replyFormContainer) {
                 replyFormContainer.style.display = 'block';
-                // Met à jour la valeur du champ caché parent_id dans ce formulaire de réponse
                 var parentIdInput = replyFormContainer.querySelector('input[name="parent_id"]');
                 if (parentIdInput) {
-                    parentIdInput.value = commentId;
+                    parentIdInput.value = commentId; // parent_id pour le formulaire de réponse
                 }
                 var bodyInput = replyFormContainer.querySelector('textarea[name="body"]');
                 if (bodyInput) {
@@ -131,11 +133,6 @@
             var replyFormContainer = document.getElementById('reply-form-container-' + commentId);
             if (replyFormContainer) {
                 replyFormContainer.style.display = 'none';
-                 // Optionnel: réinitialiser parent_id du formulaire principal si on annule une réponse
-                var mainParentIdInput = document.querySelector('#comments-section > .card > .card-body > form input[name="parent_id"]');
-                if(mainParentIdInput) {
-                    mainParentIdInput.value = '';
-                }
             }
         }
     </script>
