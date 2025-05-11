@@ -11,7 +11,7 @@ from app.forms import (TaskForm, countries_choices_multi, devices_choices_multi,
                        AdminResetPasswordForm, AddAdminForm, BannerForm, PostForm)
 # Ajout des modèles Banner, Post, Comment et de la fonction slugify
 from app.models import (Task, UserTaskCompletion, ExternalTaskCompletion, User,
-                        Withdrawal, Notification, ReferralCommission, Banner, Post, Comment, slugify)
+                        Withdrawal, Notification, ReferralCommission, Banner, Post, Comment)
 from app.decorators import admin_required, super_admin_required
 from sqlalchemy import select, or_, func
 from sqlalchemy.orm import joinedload
