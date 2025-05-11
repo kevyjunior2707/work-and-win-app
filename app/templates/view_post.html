@@ -1,4 +1,4 @@
-{# app/templates/view_post.html (Syntaxe Re-Re-Vérifiée) #}
+{# app/templates/view_post.html (Include Simplifié) #}
 {% extends "base.html" %}
 
 {% block title %}{{ post.title }} - {{ _('Blog') }}{% endblock %}
@@ -42,7 +42,7 @@
                                  {% set verify_link = url_for('main.dashboard') %}
                                  {{ (_('Veuillez <a href="%(url)s" class="alert-link">vérifier votre adresse email</a> pour pouvoir commenter.', url=verify_link)) | safe }}
                              </div>
-                        {% elif form %} {# S'assure que form est défini #}
+                        {% elif form %} {# S'assure que form est bien défini avant de l'utiliser #}
                             <div class="card shadow-sm mb-4">
                                 <div class="card-body">
                                     <h5 class="card-title">{{ _('Laisser un commentaire') }}</h5>
@@ -79,10 +79,10 @@
 
                 {# Affichage des commentaires existants (approuvés) et de leurs réponses #}
                 {% if comments %}
-                    {% for comment_item in comments %}
-                        {% if comment_item.parent_id == None %}
-                            {# S'assurer que cette ligne est EXACTEMENT comme ci-dessous #}
-                            {% include '_comment_display.html' comment=comment_item, post=post, form=form, CommentModel=Comment %}
+                    {% for comment_item_loop in comments %} {# Renommé la variable de boucle #}
+                        {% if comment_item_loop.parent_id == None %}
+                            {# On passe 'comment_item_loop' sous le nom 'comment' au sous-template #}
+                            {% include '_comment_display.html' with context comment=comment_item_loop %}
                         {% endif %}
                     {% endfor %}
                 {% else %}
@@ -111,30 +111,20 @@
             allReplyForms.forEach(function(formContainer) {
                 formContainer.style.display = 'none';
             });
-
             var mainParentIdInput = document.getElementById('main_comment_parent_id');
-            if(mainParentIdInput) {
-                mainParentIdInput.value = '';
-            }
-
+            if(mainParentIdInput) { mainParentIdInput.value = ''; }
             var replyFormContainer = document.getElementById('reply-form-container-' + commentId);
             if (replyFormContainer) {
                 replyFormContainer.style.display = 'block';
                 var parentIdInput = replyFormContainer.querySelector('input[name="parent_id"]');
-                if (parentIdInput) {
-                    parentIdInput.value = commentId;
-                }
+                if (parentIdInput) { parentIdInput.value = commentId; }
                 var bodyInput = replyFormContainer.querySelector('textarea[name="body"]');
-                if (bodyInput) {
-                    bodyInput.focus();
-                }
+                if (bodyInput) { bodyInput.focus(); }
             }
         }
         function hideReplyForm(commentId) {
             var replyFormContainer = document.getElementById('reply-form-container-' + commentId);
-            if (replyFormContainer) {
-                replyFormContainer.style.display = 'none';
-            }
+            if (replyFormContainer) { replyFormContainer.style.display = 'none'; }
         }
     </script>
 {% endblock %}

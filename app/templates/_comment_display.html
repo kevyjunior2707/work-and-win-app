@@ -1,5 +1,5 @@
-{# app/templates/_comment_display.html (Syntaxe Include Re-vérifiée) #}
-{# Attend 'comment', 'post', 'form', 'CommentModel' #}
+{# app/templates/_comment_display.html (Include Simplifié) #}
+{# Ce template attend 'comment', 'post', 'form', et 'CommentModel' (passé comme 'Comment' depuis la route) #}
 <div class="card mb-3 shadow-sm {% if comment.parent_id %}ms-md-4 ms-3 mt-2 border-start border-3 ps-2{% else %}border-0{% endif %}" id="comment-{{ comment.id }}">
     <div class="card-body">
         <div class="d-flex">
@@ -44,11 +44,12 @@
             </div>
         </div>
     </div>
+    {# Afficher les réponses à ce commentaire de manière récursive #}
     {% if comment.replies %}
-        <div class="ms-md-4 ms-3 mt-2">
-            {% for reply in comment.replies.filter(CommentModel.is_approved==True).order_by(CommentModel.timestamp.asc()).all() %}
-                {# <<< SYNTAXE CORRIGÉE POUR L'INCLUDE RÉCURSIF >>> #}
-                {% include '_comment_display.html' comment=reply, post=post, form=form, CommentModel=CommentModel %}
+        <div class="ms-md-4 ms-3 mt-2"> {# Indentation pour les réponses #}
+            {% for reply_item_loop in comment.replies.filter(CommentModel.is_approved==True).order_by(CommentModel.timestamp.asc()).all() %} {# Renommé la variable de boucle #}
+                {# On passe 'reply_item_loop' comme 'comment' au sous-template #}
+                {% include '_comment_display.html' with context comment=reply_item_loop %}
             {% endfor %}
         </div>
     {% endif %}
