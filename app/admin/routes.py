@@ -1,4 +1,4 @@
-# app/admin/routes.py (VERSION COMPLÈTE v45 - Slug Unique pour Blog)
+# app/admin/routes.py (VERSION COMPLÈTE v46 - Modération Commentaires + Toutes Fonctions)
 
 from flask import render_template, redirect, url_for, flash, request, abort, current_app, send_from_directory
 from flask_login import login_required, current_user
@@ -9,9 +9,9 @@ from app.admin import bp
 from app.forms import (TaskForm, countries_choices_multi, devices_choices_multi,
                        countries_choices_single, devices_choices_single,
                        AdminResetPasswordForm, AddAdminForm, BannerForm, PostForm)
-# Ajout des modèles Banner et Post. La fonction slugify_base est dans models.py
+# Ajout des modèles Banner, Post, Comment et de la fonction slugify
 from app.models import (Task, UserTaskCompletion, ExternalTaskCompletion, User,
-                        Withdrawal, Notification, ReferralCommission, Banner, Post, Comment) # slugify_base est utilisé par Post.generate_unique_slug
+                        Withdrawal, Notification, ReferralCommission, Banner, Post, Comment, slugify)
 from app.decorators import admin_required, super_admin_required
 from sqlalchemy import select, or_, func
 from sqlalchemy.orm import joinedload
@@ -22,6 +22,7 @@ import os
 import secrets
 from werkzeug.utils import secure_filename
 from flask_wtf.csrf import generate_csrf
+# Assurez-vous que cette fonction est bien définie
 from app.main.routes import allowed_file
 
 # --- Fonctions utilitaires pour images (tâches, bannières, articles) ---
@@ -216,8 +217,6 @@ def delete_task(task_id):
     except Exception as e: db.session.rollback(); flash(_('Erreur lors de la suppression : %(error)s', error=str(e)), 'danger')
     return redirect(url_for('admin.list_tasks'))
 
-# --- (Copiez ici toutes les autres routes admin : list_completions, list_withdrawals, etc. depuis votre v40) ---
-# ...
 @bp.route('/completions')
 @login_required
 @admin_required
@@ -647,7 +646,7 @@ def edit_banner(banner_id):
     old_image_filename = banner.image_filename
     if form.validate_on_submit():
         new_image_filename = None
-        if form.banner_image.data:
+        if form.banner_image.data: # Si une nouvelle image est uploadée
             new_image_filename = save_picture(form.banner_image.data, subfolder='banners')
             if not new_image_filename:
                 return render_template('create_banner.html', title=_('Modifier la Bannière'), form=form, banner=banner, is_edit=True, current_image=old_image_filename)
@@ -655,6 +654,7 @@ def edit_banner(banner_id):
                 if old_image_filename:
                     delete_picture(old_image_filename, subfolder='banners')
                 banner.image_filename = new_image_filename
+        # Si pas de nouvelle image, banner.image_filename reste inchangé
         banner.destination_url = form.destination_url.data or None
         banner.display_location = form.display_location.data
         banner.is_active = form.is_active.data
@@ -664,7 +664,7 @@ def edit_banner(banner_id):
             return redirect(url_for('admin.manage_banners'))
         except Exception as e:
             db.session.rollback()
-            if new_image_filename and new_image_filename != old_image_filename:
+            if new_image_filename and new_image_filename != old_image_filename: # Si une nouvelle image avait été sauvée
                 delete_picture(new_image_filename, subfolder='banners')
             flash(_("Erreur lors de la mise à jour de la bannière : %(error)s", error=str(e)), 'danger')
     return render_template('create_banner.html', title=_('Modifier la Bannière'), form=form, banner=banner, is_edit=True, current_image=old_image_filename)
@@ -707,7 +707,7 @@ def toggle_banner_active(banner_id):
 @admin_required
 def manage_posts():
     posts = db.session.scalars(select(Post).order_by(Post.timestamp.desc())).all()
-    csrf_token_value = generate_csrf() # Pour les petits formulaires d'action
+    csrf_token_value = generate_csrf()
     return render_template('manage_posts.html', title=_('Gérer les Articles de Blog'), posts=posts, csrf_token=csrf_token_value)
 
 @bp.route('/blog/post/new', methods=['GET', 'POST'])
@@ -721,11 +721,10 @@ def create_post():
             image_file = save_picture(form.post_image.data, subfolder='blog_posts')
             if not image_file:
                 return render_template('create_post.html', title=_('Créer un Nouvel Article'), form=form, is_edit=False)
-        # Génère un slug unique
         unique_slug = Post.generate_unique_slug(form.title.data)
         new_post = Post(
             title=form.title.data,
-            slug=unique_slug, # Utilise le slug unique généré
+            slug=unique_slug,
             content=form.content.data,
             user_id=current_user.id,
             image_filename=image_file,
@@ -750,8 +749,7 @@ def edit_post(post_id):
     post_to_edit = db.session.get(Post, post_id) or abort(404)
     form = PostForm(obj=post_to_edit if request.method == 'GET' else None)
     old_image_filename = post_to_edit.image_filename
-    old_title = post_to_edit.title # Pour vérifier si le titre a changé
-
+    old_title = post_to_edit.title
     if form.validate_on_submit():
         new_image_filename = None
         if form.post_image.data:
@@ -762,9 +760,7 @@ def edit_post(post_id):
                 if old_image_filename:
                     delete_picture(old_image_filename, subfolder='blog_posts')
                 post_to_edit.image_filename = new_image_filename
-
         post_to_edit.title = form.title.data
-        # Regénère le slug seulement si le titre a changé
         if post_to_edit.title != old_title:
             post_to_edit.slug = Post.generate_unique_slug(form.title.data, post_id=post_to_edit.id)
         post_to_edit.content = form.content.data
@@ -779,7 +775,6 @@ def edit_post(post_id):
             if new_image_filename and new_image_filename != old_image_filename:
                 delete_picture(new_image_filename, subfolder='blog_posts')
             flash(_("Erreur lors de la mise à jour de l'article : %(error)s", error=str(e)), 'danger')
-    
     if request.method == 'GET':
         form.title.data = post_to_edit.title
         form.content.data = post_to_edit.content
@@ -834,3 +829,65 @@ def toggle_post_comments(post_id):
         db.session.rollback()
         flash(_('Erreur lors du changement de statut des commentaires: %(error)s', error=str(e)), 'danger')
     return redirect(url_for('admin.manage_posts'))
+
+# --- Routes pour la Modération des Commentaires du Blog ---
+@bp.route('/blog/comments', methods=['GET'])
+@login_required
+@admin_required
+def manage_comments():
+    page = request.args.get('page', 1, type=int)
+    search_author = request.args.get('author', '')
+    search_post_title = request.args.get('post_title', '')
+    search_content = request.args.get('content', '')
+
+    comments_query = select(Comment).options(
+        joinedload(Comment.author),
+        joinedload(Comment.post)
+    )
+    if search_author:
+        comments_query = comments_query.join(Comment.author).where(User.full_name.ilike(f'%{search_author}%'))
+    if search_post_title:
+        comments_query = comments_query.join(Comment.post).where(Post.title.ilike(f'%{search_post_title}%'))
+    if search_content:
+        comments_query = comments_query.where(Comment.body.ilike(f'%{search_content}%'))
+
+    comments_query = comments_query.order_by(Comment.timestamp.desc())
+    pagination = db.paginate(comments_query, page=page, per_page=current_app.config.get('COMMENTS_PER_PAGE', 20), error_out=False)
+    comments = pagination.items
+    return render_template('manage_comments.html',
+                           title=_('Modérer les Commentaires du Blog'),
+                           comments=comments,
+                           pagination=pagination,
+                           search_author=search_author,
+                           search_post_title=search_post_title,
+                           search_content=search_content)
+
+@bp.route('/blog/comment/<int:comment_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_comment(comment_id):
+    comment_to_delete = db.session.get(Comment, comment_id) or abort(404)
+    try:
+        # La suppression en cascade devrait s'occuper des réponses si configurée dans le modèle
+        db.session.delete(comment_to_delete)
+        db.session.commit()
+        flash(_('Commentaire supprimé avec succès.'), 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(_('Erreur lors de la suppression du commentaire : %(error)s', error=str(e)), 'danger')
+    return redirect(request.referrer or url_for('admin.manage_comments'))
+
+@bp.route('/blog/comment/<int:comment_id>/toggle_approved', methods=['POST'])
+@login_required
+@admin_required
+def toggle_comment_approved(comment_id):
+    comment = db.session.get(Comment, comment_id) or abort(404)
+    try:
+        comment.is_approved = not comment.is_approved
+        db.session.commit()
+        status_msg = _('approuvé') if comment.is_approved else _('désapprouvé')
+        flash(_('Commentaire %(id)s %(status)s.', id=comment.id, status=status_msg), 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(_('Erreur lors du changement de statut du commentaire: %(error)s', error=str(e)), 'danger')
+    return redirect(request.referrer or url_for('admin.manage_comments'))

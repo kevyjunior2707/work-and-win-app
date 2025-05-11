@@ -1,4 +1,4 @@
-{# app/admin/templates/admin_home.html (Chart Debugging & suggestedMax) #}
+{# app/admin/templates/admin_home.html (Avec Lien Modération Commentaires) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -157,6 +157,19 @@
                 </div>
             </div>
         </div>
+        {# <<< NOUVELLE CARTE : Modération des Commentaires >>> #}
+        <div class="col-md-6 col-lg-4 d-flex align-items-stretch">
+            <div class="card h-100 shadow-sm w-100">
+                 <div class="card-body d-flex flex-column">
+                    <h5 class="card-title"><i class="bi bi-chat-square-dots-fill"></i> {{ _('Modération des Commentaires') }}</h5>
+                    <p class="card-text flex-grow-1"><small>{{ _('Approuver ou supprimer les commentaires des utilisateurs sur le blog.') }}</small></p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('admin.manage_comments') }}" class="btn btn-primary btn-sm">{{ _('Modérer les Commentaires') }}</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {# <<< FIN NOUVELLE CARTE >>> #}
     </div>
     {# --- Fin Actions Rapides --- #}
 
@@ -166,11 +179,11 @@
 {# --- Bloc Scripts pour Chart.js --- #}
 {% block scripts %}
     {{ super() }}
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tiny.cloud/1/5ug3w8eutv6r2nz1yd9lemsateyqzyl7rexxqmkzsm9fwk2h/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
     <script>
         document.addEventListener('DOMContentLoaded', (event) => {
             const chartData = {{ chart_data | tojson | safe }};
-            console.log("Données pour les graphiques (admin_home):", chartData); // DEBUG: Affiche toutes les données
+            console.log("Données pour les graphiques (admin_home):", chartData); // DEBUG
 
             const labels = chartData.labels;
             const wwBlue = '#2d92d0';
@@ -178,40 +191,13 @@
             const wwGray = '#6c757d';
 
             function createLineChart(canvasId, label, data, color) {
-                console.log(`Création graphique pour ${canvasId}:`, "Labels:", labels, "Data:", data); // DEBUG: Affiche données spécifiques au graphique
+                console.log(`Création graphique pour ${canvasId}:`, "Labels:", labels, "Data:", data); // DEBUG
                 const ctx = document.getElementById(canvasId);
-                if (!ctx) {
-                    console.error(`Canvas element with id "${canvasId}" not found.`);
-                    return;
-                }
+                if (!ctx) { console.error(`Canvas element with id "${canvasId}" not found.`); return; }
                 new Chart(ctx.getContext('2d'), {
                     type: 'line',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: label,
-                            data: data,
-                            fill: false,
-                            borderColor: color,
-                            backgroundColor: color,
-                            tension: 0.1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: true,
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                suggestedMax: 5 // Force l'axe Y à monter au moins jusqu'à 5
-                            }
-                        },
-                        plugins: {
-                            legend: {
-                                display: false
-                            }
-                        }
-                    }
+                    data: { labels: labels, datasets: [{ label: label, data: data, fill: false, borderColor: color, backgroundColor: color, tension: 0.1 }] },
+                    options: { responsive: true, maintainAspectRatio: true, scales: { y: { beginAtZero: true, suggestedMax: 5 } }, plugins: { legend: { display: false } } }
                 });
             }
 
@@ -221,8 +207,7 @@
                 createLineChart('earningsChart', '{{ _("Gains ($)") }}', chartData.earnings, wwGreen);
             } else {
                 console.log("Aucune donnée de label disponible pour rendre les graphiques sur admin_home.");
-                // Optionnel: Afficher un message dans les zones de graphique si les labels sont vides
-                document.getElementById('registrationsChart').parentElement.innerHTML = '<p class="text-muted text-center p-3">{{_("Pas de données pour le graphique des inscriptions.")}}</p>';
+                 document.getElementById('registrationsChart').parentElement.innerHTML = '<p class="text-muted text-center p-3">{{_("Pas de données pour le graphique des inscriptions.")}}</p>';
                 document.getElementById('completionsChart').parentElement.innerHTML = '<p class="text-muted text-center p-3">{{_("Pas de données pour le graphique des accomplissements.")}}</p>';
                 document.getElementById('earningsChart').parentElement.innerHTML = '<p class="text-muted text-center p-3">{{_("Pas de données pour le graphique des gains.")}}</p>';
             }
