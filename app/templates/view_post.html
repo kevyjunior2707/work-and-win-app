@@ -1,4 +1,4 @@
-{# app/templates/view_post.html (Syntaxe Include Finale) #}
+{# app/templates/view_post.html (Nouvelle Méthode d'Inclusion avec 'with') #}
 {% extends "base.html" %}
 
 {% block title %}{{ post.title }} - {{ _('Blog') }}{% endblock %}
@@ -81,8 +81,10 @@
                 {% if comments %}
                     {% for comment_item_loopvar in comments %}
                         {% if comment_item_loopvar.parent_id == None %}
-                            {# <<< CORRECTION SYNTAXE INCLUDE ICI : Pas de virgules entre les variables >>> #}
-                            {% include '_comment_display.html' comment=comment_item_loopvar post=post form=form CommentModel=CommentModel %}
+                            {# <<< NOUVELLE SYNTAXE D'INCLUDE ICI >>> #}
+                            {% with comment = comment_item_loopvar %}
+                                {% include '_comment_display.html' %}
+                            {% endwith %}
                         {% endif %}
                     {% endfor %}
                 {% else %}

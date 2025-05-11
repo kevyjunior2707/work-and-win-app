@@ -1,5 +1,6 @@
-{# app/templates/_comment_display.html (Syntaxe Include Re-vérifiée) #}
-{# Attend 'comment', 'post', 'form', et 'CommentModel' #}
+{# app/templates/_comment_display.html (Nouvelle Méthode d'Inclusion avec 'with') #}
+{# Ce template s'attend à ce que 'comment' soit défini (par le with), #}
+{# et que 'post', 'form', 'CommentModel' soient dans le contexte hérité. #}
 <div class="card mb-3 shadow-sm {% if comment.parent_id %}ms-md-4 ms-3 mt-2 border-start border-3 ps-2{% else %}border-0{% endif %}" id="comment-{{ comment.id }}">
     <div class="card-body">
         <div class="d-flex">
@@ -48,8 +49,10 @@
     {% if comment.replies %}
         <div class="ms-md-4 ms-3 mt-2"> {# Indentation pour les réponses #}
             {% for reply_item_loopvar in comment.replies.filter(CommentModel.is_approved==True).order_by(CommentModel.timestamp.asc()).all() %}
-                {# <<< CORRECTION SYNTAXE INCLUDE ICI : Pas de virgules >>> #}
-                {% include '_comment_display.html' comment=reply_item_loopvar post=post form=form CommentModel=CommentModel %}
+                {# <<< NOUVELLE SYNTAXE D'INCLUDE ICI >>> #}
+                {% with comment = reply_item_loopvar %}
+                    {% include '_comment_display.html' %}
+                {% endwith %}
             {% endfor %}
         </div>
     {% endif %}
