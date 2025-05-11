@@ -1,6 +1,6 @@
-{# app/templates/_comment_display.html (Template pour afficher un commentaire et ses réponses) #}
-{# Ce template attend une variable 'comment' et 'post' et 'form' (CommentForm) #}
-<div class="card mb-3 shadow-sm {% if comment.parent_id %}ms-4 mt-2 border-start border-3{% else %}border-0{% endif %}" id="comment-{{ comment.id }}">
+{# app/templates/_comment_display.html (Fix Récursion) #}
+{# Ce template attend 'comment', 'post', 'form' (CommentForm), et 'Comment' (le modèle) #}
+<div class="card mb-3 shadow-sm {% if comment.parent_id %}ms-md-4 ms-3 mt-2 border-start border-3 ps-2{% else %}border-0{% endif %}" id="comment-{{ comment.id }}">
     <div class="card-body">
         <div class="d-flex">
             {# Avatar généré #}
@@ -20,7 +20,7 @@
                         {{ comment.author.full_name if comment.author else _('Anonyme') }}
                     {% endif %}
                 </h6>
-                <p class="card-text mb-1">{{ comment.body | safe }}</p>
+                <p class="card-text mb-1">{{ comment.body | safe }}</p> {# |safe si vous voulez autoriser un peu de HTML dans les commentaires (attention XSS) #}
                 <small class="text-muted">
                     {{ comment.timestamp.strftime('%d/%m/%Y à %H:%M') }}
                     {# Bouton Répondre (si commentaires autorisés et utilisateur connecté/vérifié) #}
@@ -30,20 +30,17 @@
                 </small>
 
                 {# Formulaire de réponse (caché par défaut) #}
-                {% if post.allow_comments and current_user.is_authenticated and current_user.is_verified %}
+                {% if post.allow_comments and current_user.is_authenticated and current_user.is_verified and form %} {# Vérifie que form existe #}
                 <div id="reply-form-container-{{ comment.id }}" class="reply-form-container mt-3" style="display: none;">
+                    {# Action pointe vers la page de l'article pour soumettre le commentaire #}
                     <form method="POST" action="{{ url_for('main.view_post', slug=post.slug) }}">
                         {{ form.hidden_tag() }}
-                        {# Ce champ parent_id sera rempli par JavaScript #}
+                        {# Ce champ parent_id sera rempli par JavaScript pour ce formulaire de réponse spécifique #}
                         <input type="hidden" name="parent_id" value="{{ comment.id }}">
                         <div class="mb-2">
                             {{ form.body.label(class="form-label sr-only") }}
-                            {{ form.body(rows="2", class="form-control form-control-sm" + (" is-invalid" if form.body.errors else ""), placeholder=_('Votre réponse...')) }}
-                            {% if form.body.errors %}
-                                <div class="invalid-feedback">
-                                    {% for error in form.body.errors %}<span>{{ error }}</span>{% endfor %}
-                                </div>
-                            {% endif %}
+                            {{ form.body(rows="2", class="form-control form-control-sm", placeholder=_('Votre réponse...')) }}
+                            {# Les erreurs pour ce formulaire de réponse ne sont pas affichées ici, elles le seraient sur la page principale si la soumission échoue et que la page est rechargée #}
                         </div>
                         <button type="submit" class="btn btn-primary btn-sm">{{ _('Envoyer Réponse') }}</button>
                         <button type="button" class="btn btn-outline-secondary btn-sm" onclick="hideReplyForm({{ comment.id }})">{{ _('Annuler') }}</button>
@@ -55,10 +52,12 @@
         </div>
     </div>
     {# Afficher les réponses à ce commentaire de manière récursive #}
+    {# On s'assure de passer explicitement les variables nécessaires à l'instance incluse #}
     {% if comment.replies %}
-        <div class="ms-4 mt-2"> {# Indentation pour les réponses #}
+        <div class="ms-md-4 ms-3 mt-2"> {# Indentation pour les réponses, un peu moins sur mobile #}
             {% for reply in comment.replies.filter(Comment.is_approved==True).order_by(Comment.timestamp.asc()).all() %}
-                {% include '_comment_display.html' with context %} {# Ré-inclut ce template pour chaque réponse #}
+                {# <<< CORRECTION IMPORTANTE ICI : Passer 'reply' comme 'comment' pour la récursion >>> #}
+                {% include '_comment_display.html' with {'comment': reply, 'post': post, 'form': form, 'Comment': Comment} %}
             {% endfor %}
         </div>
     {% endif %}
