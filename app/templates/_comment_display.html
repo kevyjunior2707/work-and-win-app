@@ -1,8 +1,9 @@
-{# app/templates/_comment_display.html (Include Simplifié) #}
-{# Ce template attend 'comment', 'post', 'form', et 'CommentModel' (passé comme 'Comment' depuis la route) #}
+{# app/templates/_comment_display.html (Syntaxe Include Corrigée pour Récursion) #}
+{# Attend 'comment', 'post', 'form', et 'CommentModel' #}
 <div class="card mb-3 shadow-sm {% if comment.parent_id %}ms-md-4 ms-3 mt-2 border-start border-3 ps-2{% else %}border-0{% endif %}" id="comment-{{ comment.id }}">
     <div class="card-body">
         <div class="d-flex">
+            {# Avatar généré #}
             {% set user_initial = (comment.author.full_name[0] if comment.author and comment.author.full_name else 'U') | upper %}
             {% set bg_colors = ['#1abc9c', '#2ecc71', '#3498db', '#9b59b6', '#34495e', '#16a085', '#27ae60', '#2980b9', '#8e44ad', '#2c3e50', '#f1c40f', '#e67e22', '#e74c3c', '#95a5a6', '#f39c12', '#d35400', '#c0392b'] %}
             {% set color_index = (comment.author.id if comment.author else 0) % bg_colors | length %}
@@ -47,9 +48,9 @@
     {# Afficher les réponses à ce commentaire de manière récursive #}
     {% if comment.replies %}
         <div class="ms-md-4 ms-3 mt-2"> {# Indentation pour les réponses #}
-            {% for reply_item_loop in comment.replies.filter(CommentModel.is_approved==True).order_by(CommentModel.timestamp.asc()).all() %} {# Renommé la variable de boucle #}
-                {# On passe 'reply_item_loop' comme 'comment' au sous-template #}
-                {% include '_comment_display.html' with context comment=reply_item_loop %}
+            {% for reply_item_loopvar in comment.replies.filter(CommentModel.is_approved==True).order_by(CommentModel.timestamp.asc()).all() %} {# Renommé la variable de boucle #}
+                {# <<< CORRECTION SYNTAXE INCLUDE ICI >>> #}
+                {% include '_comment_display.html' comment=reply_item_loopvar, post=post, form=form, CommentModel=CommentModel %}
             {% endfor %}
         </div>
     {% endif %}
