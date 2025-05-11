@@ -1,4 +1,4 @@
-{# app/templates/view_post.html (Syntaxe Include Re-vérifiée) #}
+{# app/templates/view_post.html (Syntaxe Include Corrigée) #}
 {% extends "base.html" %}
 
 {% block title %}{{ post.title }} - {{ _('Blog') }}{% endblock %}
@@ -42,14 +42,12 @@
                                  {% set verify_link = url_for('main.dashboard') %}
                                  {{ (_('Veuillez <a href="%(url)s" class="alert-link">vérifier votre adresse email</a> pour pouvoir commenter.', url=verify_link)) | safe }}
                              </div>
-                        {% else %}
-                            {% if form %} {# Assure que form est bien défini avant de l'utiliser #}
+                        {% elif form %} {# Vérifie que 'form' (CommentForm) est bien passé par la route #}
                             <div class="card shadow-sm mb-4">
                                 <div class="card-body">
                                     <h5 class="card-title">{{ _('Laisser un commentaire') }}</h5>
                                     <form method="POST" action="{{ url_for('main.view_post', slug=post.slug) }}">
                                         {{ form.hidden_tag() }}
-                                        {# parent_id sera vide pour un commentaire de haut niveau, ou rempli par JS pour une réponse #}
                                         {{ form.parent_id(id="main_comment_parent_id") }}
                                         <div class="mb-3">
                                             {{ form.body.label(class="form-label sr-only") }}
@@ -64,7 +62,6 @@
                                     </form>
                                 </div>
                             </div>
-                            {% endif %}
                         {% endif %}
                     {% else %}
                         <div class="alert alert-info">
@@ -82,10 +79,10 @@
 
                 {# Affichage des commentaires existants (approuvés) et de leurs réponses #}
                 {% if comments %}
-                    {% for comment_item in comments %} {# Boucle sur les commentaires de haut niveau #}
+                    {% for comment_item in comments %}
                         {% if comment_item.parent_id == None %}
-                            {# Passage explicite des variables au sous-template #}
-                            {% include '_comment_display.html' with comment=comment_item, post=post, form=form, CommentModel=Comment %}
+                            {# <<< SYNTAXE CORRIGÉE POUR L'INCLUDE INITIAL >>> #}
+                            {% include '_comment_display.html' comment=comment_item, post=post, form=form, CommentModel=Comment %}
                         {% endif %}
                     {% endfor %}
                 {% else %}
@@ -115,10 +112,9 @@
                 formContainer.style.display = 'none';
             });
 
-            // Réinitialise le parent_id du formulaire principal
             var mainParentIdInput = document.getElementById('main_comment_parent_id');
-            if(mainParentIdInput) {
-                mainParentIdInput.value = '';
+            if(mainParentIdInput) { // S'assure que le champ existe (formulaire principal)
+                mainParentIdInput.value = ''; // Réinitialise le parent_id du formulaire principal
             }
 
             var replyFormContainer = document.getElementById('reply-form-container-' + commentId);
