@@ -52,7 +52,7 @@
         <div class="ms-md-4 ms-3 mt-2"> {# Indentation pour les réponses #}
             {% for reply in comment.replies.filter(Comment.is_approved==True).order_by(Comment.timestamp.asc()).all() %}
                 {# <<< CORRECTION SYNTAXE ICI >>> #}
-                {% include '_comment_display.html' comment=reply, post=post, form=form, Comment=Comment %}
+                {% include '_comment_display.html' comment=reply, post=post, form=form, Comment=CommentModel %}
             {% endfor %}
         </div>
     {% endif %}
