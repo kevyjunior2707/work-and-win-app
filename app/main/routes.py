@@ -1,4 +1,4 @@
-# app/main/routes.py (VERSION COMPLÈTE v27 - Simplification pour Debug Blog)
+# app/main/routes.py (VERSION COMPLÈTE v27 - Passage Modèle Comment Renommé)
 
 from flask import render_template, redirect, url_for, flash, request, abort, current_app, send_from_directory
 from flask_login import login_required, current_user
@@ -262,16 +262,13 @@ def view_post(slug):
                 db.session.rollback(); flash(_('Erreur lors de l\'ajout du commentaire.'), 'danger')
                 current_app.logger.error(f"Erreur ajout commentaire: {e}")
     
-    # Récupère les commentaires de haut niveau (ceux sans parent_id)
-    # et leurs réponses pré-chargées si possible (avec lazy='joined' ou selectinload sur la relation)
-    # Pour une approche plus simple ici, on récupère d'abord les parents.
-    # Le template _comment_display.html s'occupera de charger les réponses.
     comments_query = select(Comment).where(
         Comment.post_id == post.id,
         Comment.is_approved == True,
-        Comment.parent_id == None # Seulement les commentaires de haut niveau
+        Comment.parent_id == None
     ).order_by(Comment.timestamp.asc())
     comments = db.session.scalars(comments_query).all()
 
-    return render_template('view_post.html', title=post.title, post=post, comments=comments, form=form, CommentModel=Comment) # CommentModel au lieu de Comment
+    return render_template('view_post.html', title=post.title, post=post, comments=comments, form=form, CommentModel=Comment) # CommentModel est passé ici
 # --- FIN ROUTES BLOG ---
+

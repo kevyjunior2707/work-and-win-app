@@ -1,4 +1,4 @@
-{# app/templates/view_post.html (Syntaxe Include Corrigée pour _comment_display) #}
+{# app/templates/view_post.html (Syntaxe Include Finale) #}
 {% extends "base.html" %}
 
 {% block title %}{{ post.title }} - {{ _('Blog') }}{% endblock %}
@@ -42,13 +42,12 @@
                                  {% set verify_link = url_for('main.dashboard') %}
                                  {{ (_('Veuillez <a href="%(url)s" class="alert-link">vérifier votre adresse email</a> pour pouvoir commenter.', url=verify_link)) | safe }}
                              </div>
-                        {% elif form %} {# Assure que form (CommentForm) est bien passé par la route #}
+                        {% elif form %} {# S'assure que form (CommentForm) est bien passé par la route #}
                             <div class="card shadow-sm mb-4">
                                 <div class="card-body">
                                     <h5 class="card-title">{{ _('Laisser un commentaire') }}</h5>
                                     <form method="POST" action="{{ url_for('main.view_post', slug=post.slug) }}">
                                         {{ form.hidden_tag() }}
-                                        {# parent_id sera vide pour un commentaire de haut niveau, ou rempli par JS pour une réponse #}
                                         {{ form.parent_id(id="main_comment_parent_id") }}
                                         <div class="mb-3">
                                             {{ form.body.label(class="form-label sr-only") }}
@@ -80,10 +79,10 @@
 
                 {# Affichage des commentaires existants (approuvés) et de leurs réponses #}
                 {% if comments %}
-                    {% for comment_item_loopvar in comments %} {# Renommé la variable de boucle #}
+                    {% for comment_item_loopvar in comments %}
                         {% if comment_item_loopvar.parent_id == None %}
-                            {# <<< CORRECTION SYNTAXE INCLUDE ICI >>> #}
-                            {% include '_comment_display.html' comment=comment_item_loopvar, post=post, form=form, CommentModel=Comment %}
+                            {# <<< CORRECTION SYNTAXE INCLUDE ICI : Pas de virgules entre les variables >>> #}
+                            {% include '_comment_display.html' comment=comment_item_loopvar post=post form=form CommentModel=CommentModel %}
                         {% endif %}
                     {% endfor %}
                 {% else %}
