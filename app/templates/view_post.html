@@ -1,4 +1,4 @@
-{# app/templates/view_post.html (Syntaxe Include Corrigée) #}
+{# app/templates/view_post.html (Syntaxe Re-Re-Vérifiée) #}
 {% extends "base.html" %}
 
 {% block title %}{{ post.title }} - {{ _('Blog') }}{% endblock %}
@@ -42,7 +42,7 @@
                                  {% set verify_link = url_for('main.dashboard') %}
                                  {{ (_('Veuillez <a href="%(url)s" class="alert-link">vérifier votre adresse email</a> pour pouvoir commenter.', url=verify_link)) | safe }}
                              </div>
-                        {% elif form %} {# Vérifie que 'form' (CommentForm) est bien passé par la route #}
+                        {% elif form %} {# S'assure que form est défini #}
                             <div class="card shadow-sm mb-4">
                                 <div class="card-body">
                                     <h5 class="card-title">{{ _('Laisser un commentaire') }}</h5>
@@ -81,7 +81,7 @@
                 {% if comments %}
                     {% for comment_item in comments %}
                         {% if comment_item.parent_id == None %}
-                            {# <<< SYNTAXE CORRIGÉE POUR L'INCLUDE INITIAL >>> #}
+                            {# S'assurer que cette ligne est EXACTEMENT comme ci-dessous #}
                             {% include '_comment_display.html' comment=comment_item, post=post, form=form, CommentModel=Comment %}
                         {% endif %}
                     {% endfor %}
@@ -113,8 +113,8 @@
             });
 
             var mainParentIdInput = document.getElementById('main_comment_parent_id');
-            if(mainParentIdInput) { // S'assure que le champ existe (formulaire principal)
-                mainParentIdInput.value = ''; // Réinitialise le parent_id du formulaire principal
+            if(mainParentIdInput) {
+                mainParentIdInput.value = '';
             }
 
             var replyFormContainer = document.getElementById('reply-form-container-' + commentId);
