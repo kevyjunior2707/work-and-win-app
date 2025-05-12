@@ -1,7 +1,7 @@
-# migrations/versions/yyyyyyyyyyyy_add_parent_id_to_comment_for_replies.py
+# migrations/versions/9888efdcb79b_add_parent_id_to_comment_for_replies.py
 """Add parent_id to Comment for replies
 
-Revision ID: yyyyyyyyyyyy  # <<< METTEZ L'ID DE CE FICHIER DE MIGRATION ICI
+Revision ID: 9888efdcb79b  # <<< METTEZ L'ID DE CE FICHIER DE MIGRATION ICI
 Revises: 0bd64ed3f23f    # <<< ID de la migration précédente (add_post_and_comment_models)
 Create Date: 2025-05-10 HH:MM:SS.ffffff # Date de création
 
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'yyyyyyyyyyyy'  # <<< METTEZ L'ID DE CE FICHIER DE MIGRATION ICI
+revision = '9888efdcb79b'  # <<< METTEZ L'ID DE CE FICHIER DE MIGRATION ICI
 down_revision = '0bd64ed3f23f'  # <<< ID de la migration précédente
 branch_labels = None
 depends_on = None

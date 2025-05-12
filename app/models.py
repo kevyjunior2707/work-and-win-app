@@ -1,11 +1,11 @@
-# app/models.py (VERSION COMPLÈTE v21 - Commentaires avec Réponses, basé sur v20)
+# app/models.py (Restauration avant SiteSetting - Commentaires avec Réponses)
 
 import secrets
 from datetime import datetime, timezone
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 from sqlalchemy.orm import relationship
-from sqlalchemy import select, ForeignKey # ForeignKey est nécessaire pour parent_id
+from sqlalchemy import select, ForeignKey
 from app import db, login
 from flask import current_app
 from itsdangerous import URLSafeTimedSerializer as Serializer
@@ -16,7 +16,6 @@ import string
 
 # --- Fonction pour générer un slug de base ---
 def slugify_base(text):
-    # Remplace les caractères non alphanumériques par des tirets
     text = re.sub(r'[^\w\s-]', '', text).strip().lower()
     text = re.sub(r'[-\s]+', '-', text)
     return text
@@ -44,7 +43,6 @@ class User(UserMixin, db.Model):
     telegram_username = db.Column(db.String(100), nullable=True, index=True)
     is_verified = db.Column(db.Boolean, default=False, nullable=False, index=True)
 
-    # --- Relations ---
     referrer = relationship('User', remote_side=[id], back_populates='referred_users')
     referred_users = relationship('User', back_populates='referrer', foreign_keys=[referred_by_id])
     completed_tasks_rel = relationship('UserTaskCompletion', back_populates='user', lazy='dynamic', foreign_keys='UserTaskCompletion.user_id')
@@ -205,27 +203,20 @@ class Post(db.Model):
             slug_candidate = f"{base_slug}-{suffix}"
     def __repr__(self): return f'<Post {self.title}>'
 
-# --- Modèle Comment (MODIFIÉ pour les réponses) ---
 class Comment(db.Model):
     __tablename__ = 'comment'
     id = db.Column(db.Integer, primary_key=True)
     body = db.Column(db.Text, nullable=False)
     timestamp = db.Column(db.DateTime, index=True, default=lambda: datetime.now(timezone.utc))
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False) # Auteur du commentaire
-    post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False) # Article commenté
-    is_approved = db.Column(db.Boolean, default=True, nullable=False) # Pour modération
-
-    # <<< NOUVEAUX CHAMPS ET RELATIONS POUR LES RÉPONSES >>>
-    parent_id = db.Column(db.Integer, db.ForeignKey('comment.id'), nullable=True) # Clé vers le commentaire parent
-    # Relation pour accéder au commentaire parent (many-to-one)
-    # remote_side=[id] est crucial pour les relations self-referential
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False)
+    is_approved = db.Column(db.Boolean, default=True, nullable=False)
+    parent_id = db.Column(db.Integer, db.ForeignKey('comment.id'), nullable=True)
     parent = relationship('Comment', remote_side=[id], back_populates='replies')
-    # Relation pour accéder aux réponses de ce commentaire (one-to-many)
     replies = relationship('Comment', back_populates='parent', lazy='dynamic', cascade="all, delete-orphan")
-    # <<< FIN NOUVEAUX CHAMPS ET RELATIONS >>>
-
     author = relationship('User', back_populates='comments')
     post = relationship('Post', back_populates='comments')
+    def __repr__(self): return f'<Comment {self.id} by User {self.user_id} on Post {self.post_id}>'
 
-    def __repr__(self):
-        return f'<Comment {self.id} by User {self.user_id} on Post {self.post_id}>'
+# Le modèle SiteSetting est retiré pour cette restauration
+
