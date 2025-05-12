@@ -1,15 +1,14 @@
-# app/main/routes.py (VERSION COMPLÈTE v28 - Tâches Quotidiennes avec Délai 24h1m)
+# app/main/routes.py (VERSION COMPLÈTE v29 - Fix UnboundLocalError avec _l)
 
 from flask import render_template, redirect, url_for, flash, request, abort, current_app, send_from_directory
 from flask_login import login_required, current_user
-from flask_babel import _
+from flask_babel import _, lazy_gettext as _l # <<< _l ajouté ici >>>
 from app import db
 from app.models import (Task, UserTaskCompletion, User, Notification,
                         ExternalTaskCompletion, ReferralCommission, Withdrawal, Post, Comment)
 from app.main import bp
 from app.forms import EditProfileForm, ChangePasswordForm, CommentForm
-from datetime import datetime, timezone, timedelta # timedelta est déjà importé
-# 'date' n'est plus nécessaire pour la logique des tâches quotidiennes ici
+from datetime import datetime, timezone, timedelta, date
 from sqlalchemy.orm import joinedload
 from sqlalchemy import select, func, and_
 from decimal import Decimal, InvalidOperation
@@ -50,60 +49,60 @@ def dashboard():
     warning_message = _("Nous appliquons une politique de tolérance zéro envers la triche, l'utilisation de VPN/proxys, ou la création de comptes multiples. Toute violation entraînera un bannissement permanent et la perte des gains.")
     return render_template('dashboard.html', title=_('Tableau de Bord'), warning_message=warning_message)
 
-# --- Route pour voir les tâches disponibles (MODIFIÉE pour tâches quotidiennes avec délai) ---
+# --- Route pour voir les tâches disponibles ---
 @bp.route('/tasks/available')
 @login_required
 def available_tasks():
+    user_completions = db.session.scalars(
+        db.select(UserTaskCompletion)
+        .where(UserTaskCompletion.user_id == current_user.id)
+    ).all()
+    completions_dict = {}
+    for comp in user_completions:
+        if comp.task_id not in completions_dict:
+            completions_dict[comp.task_id] = []
+        completions_dict[comp.task_id].append(comp.completion_timestamp)
     all_active_tasks = db.session.scalars(db.select(Task).where(Task.is_active == True)).all()
     user_country = current_user.country
     user_device = current_user.device
     tasks_for_user = []
     now_utc = datetime.now(timezone.utc)
-    delay_for_daily_task = timedelta(hours=24, minutes=1)
-
+    delay_for_daily_task = timedelta(hours=24, minutes=1) # Défini ici pour être utilisé
     for task in all_active_tasks:
-        # Vérifie d'abord le ciblage pays/appareil
         target_countries = task.get_target_countries_list()
         country_match = 'ALL' in target_countries or user_country in target_countries
         target_devices = task.get_target_devices_list()
         device_match = 'ALL' in target_devices or user_device in target_devices
-
         if country_match and device_match:
             if task.is_daily:
-                # Pour une tâche quotidienne, trouver la dernière complétion par cet utilisateur
                 latest_completion = db.session.scalar(
                     select(UserTaskCompletion)
                     .where(UserTaskCompletion.user_id == current_user.id, UserTaskCompletion.task_id == task.id)
                     .order_by(UserTaskCompletion.completion_timestamp.desc())
                 )
                 if latest_completion:
-                    # S'il y a une complétion, vérifier si 24h1m se sont écoulées
-                    time_since_last = now_utc - latest_completion.completion_timestamp.replace(tzinfo=timezone.utc) # Assure tz aware
+                    time_since_last = now_utc - latest_completion.completion_timestamp.replace(tzinfo=timezone.utc)
                     if time_since_last >= delay_for_daily_task:
                         tasks_for_user.append(task)
                 else:
-                    # Jamais complétée, donc disponible
                     tasks_for_user.append(task)
             else:
-                # Tâche non quotidienne : vérifier si elle a DÉJÀ été faite
                 existing_completion = db.session.scalar(
-                    select(UserTaskCompletion.id).where(
-                        UserTaskCompletion.user_id == current_user.id,
-                        UserTaskCompletion.task_id == task.id
-                    )
+                    select(UserTaskCompletion.id).where(UserTaskCompletion.user_id == current_user.id, UserTaskCompletion.task_id == task.id)
                 )
                 if not existing_completion:
                     tasks_for_user.append(task)
-
     return render_template('available_tasks.html', title=_('Tâches Disponibles'), tasks=tasks_for_user)
 
-# --- Route pour marquer une tâche comme accomplie (MODIFIÉE pour tâches quotidiennes avec délai) ---
+# --- Route pour marquer une tâche comme accomplie (Utilise _l pour flash) ---
 @bp.route('/task/complete/<int:task_id>', methods=['POST'])
 @login_required
 def complete_task(task_id):
     task = db.session.get(Task, task_id) or abort(404); user = current_user
     user_country = user.country; user_device = user.device; target_countries = task.get_target_countries_list(); target_devices = task.get_target_devices_list(); country_match = 'ALL' in target_countries or user_country in target_countries; device_match = 'ALL' in target_devices or user_device in target_devices
-    if not (country_match and device_match and task.is_active): flash(_('Vous ne pouvez pas accomplir cette tâche ou elle n\'est plus active.'), 'danger'); return redirect(url_for('main.available_tasks'))
+    if not (country_match and device_match and task.is_active):
+        flash(_l('Vous ne pouvez pas accomplir cette tâche ou elle n\'est plus active.'), 'danger') # Utilise _l
+        return redirect(url_for('main.available_tasks'))
 
     now_utc = datetime.now(timezone.utc)
     delay_for_daily_task = timedelta(hours=24, minutes=1)
@@ -117,20 +116,19 @@ def complete_task(task_id):
         if latest_completion:
             time_since_last = now_utc - latest_completion.completion_timestamp.replace(tzinfo=timezone.utc)
             if time_since_last < delay_for_daily_task:
-                # Calcule le temps restant
                 time_remaining = delay_for_daily_task - time_since_last
                 hours, remainder = divmod(time_remaining.total_seconds(), 3600)
-                minutes, _ = divmod(remainder, 60)
-                flash(_('Vous avez déjà accompli cette tâche. Elle sera disponible à nouveau dans environ %(hours)sh %(minutes)sm.', hours=int(hours), minutes=int(minutes)), 'warning')
+                minutes, _scnds = divmod(remainder, 60) # Renommé _ en _scnds
+                flash(_l('Vous avez déjà accompli cette tâche. Elle sera disponible à nouveau dans environ %(hours)sh %(minutes)sm.', hours=int(hours), minutes=int(minutes)), 'warning') # Utilise _l
                 return redirect(url_for('main.available_tasks'))
     else:
         existing_completion = db.session.scalar(select(UserTaskCompletion.id).where(UserTaskCompletion.user_id == user.id, UserTaskCompletion.task_id == task.id))
         if existing_completion:
-            flash(_('Vous avez déjà marqué cette tâche comme accomplie.'), 'warning')
+            flash(_l('Vous avez déjà marqué cette tâche comme accomplie.'), 'warning') # Utilise _l
             return redirect(url_for('main.available_tasks'))
 
     try:
-        completion = UserTaskCompletion(user_id=user.id, task_id=task.id, completion_timestamp=now_utc) # Enregistre avec le timestamp actuel
+        completion = UserTaskCompletion(user_id=user.id, task_id=task.id, completion_timestamp=now_utc)
         db.session.add(completion)
         reward = Decimal(str(task.reward_amount or 0.0)); current_balance = Decimal(str(user.balance or 0.0))
         user.balance = float(current_balance + reward); user.completed_task_count = (user.completed_task_count or 0) + 1
@@ -141,8 +139,11 @@ def complete_task(task_id):
                 if commission_amount > 0:
                     new_commission = ReferralCommission(referrer_id=referrer.id, referred_user_id=user.id, originating_completion=completion, commission_amount=float(commission_amount), status='Pending');
                     db.session.add(new_commission)
-        db.session.commit(); flash(_('Félicitations ! Tâche "%(title)s" marquée comme accomplie. Récompense de %(amount)s $ ajoutée à votre solde.', title=task.title, amount=reward), 'success')
-    except Exception as e: db.session.rollback(); flash(_('Une erreur est survenue : %(error)s', error=str(e)), 'danger')
+        db.session.commit()
+        flash(_l('Félicitations ! Tâche "%(title)s" marquée comme accomplie. Récompense de %(amount)s $ ajoutée à votre solde.', title=task.title, amount=reward), 'success') # Utilise _l
+    except Exception as e:
+        db.session.rollback()
+        flash(_l('Une erreur est survenue : %(error)s', error=str(e)), 'danger') # Utilise _l
     return redirect(url_for('main.available_tasks'))
 
 # --- (Le reste des routes : completed_tasks, withdraw, notifications, etc. reste inchangé) ---
@@ -271,18 +272,19 @@ def view_post(slug):
     if post.allow_comments and current_user.is_authenticated:
         form = CommentForm()
         if form.validate_on_submit():
-            if not current_user.is_verified: flash(_('Veuillez vérifier votre adresse email avant de commenter.'), 'warning'); return redirect(url_for('main.view_post', slug=post.slug))
+            if not current_user.is_verified: flash(_l('Veuillez vérifier votre adresse email avant de commenter.'), 'warning'); return redirect(url_for('main.view_post', slug=post.slug)) # Utilise _l
             parent_id_val = form.parent_id.data; parent_comment = None
             if parent_id_val:
                 try: parent_id_int = int(parent_id_val)
-                except ValueError: flash(_("ID de commentaire parent invalide."), 'danger'); return redirect(url_for('main.view_post', slug=post.slug))
+                except ValueError: flash(_l("ID de commentaire parent invalide."), 'danger'); return redirect(url_for('main.view_post', slug=post.slug)) # Utilise _l
                 parent_comment = db.session.get(Comment, parent_id_int)
-                if not parent_comment or parent_comment.post_id != post.id: flash(_('Commentaire parent invalide.'), 'danger'); return redirect(url_for('main.view_post', slug=post.slug))
+                if not parent_comment or parent_comment.post_id != post.id:
+                    flash(_l('Commentaire parent invalide.'), 'danger'); return redirect(url_for('main.view_post', slug=post.slug)) # Utilise _l
             comment = Comment(body=form.body.data, post_id=post.id, user_id=current_user.id, parent_id=parent_comment.id if parent_comment else None)
             try:
-                db.session.add(comment); db.session.commit(); flash(_('Votre commentaire a été ajouté.'), 'success')
+                db.session.add(comment); db.session.commit(); flash(_l('Votre commentaire a été ajouté.'), 'success') # Utilise _l
                 return redirect(url_for('main.view_post', slug=post.slug) + '#comment-' + str(comment.id))
-            except Exception as e: db.session.rollback(); flash(_('Erreur lors de l\'ajout du commentaire.'), 'danger'); current_app.logger.error(f"Erreur ajout commentaire: {e}")
+            except Exception as e: db.session.rollback(); flash(_l('Erreur lors de l\'ajout du commentaire.'), 'danger'); current_app.logger.error(f"Erreur ajout commentaire: {e}") # Utilise _l
     comments_query = select(Comment).where(Comment.post_id == post.id, Comment.is_approved == True, Comment.parent_id == None).order_by(Comment.timestamp.asc())
     comments = db.session.scalars(comments_query).all()
     return render_template('view_post.html', title=post.title, post=post, comments=comments, form=form, CommentModel=Comment)
