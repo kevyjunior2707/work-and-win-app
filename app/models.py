@@ -1,4 +1,4 @@
-# app/models.py (Restauration avant SiteSetting - Commentaires avec Réponses)
+# app/models.py (VERSION STABLE BLOG AVEC RÉPONSES)
 
 import secrets
 from datetime import datetime, timezone
@@ -6,8 +6,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 from sqlalchemy.orm import relationship
 from sqlalchemy import select, ForeignKey
-from app import db, login
-from flask import current_app
+from app import db, login # Assurez-vous que db et login sont bien initialisés dans app/__init__.py
+from flask import current_app # Pour SECRET_KEY dans les tokens
 from itsdangerous import URLSafeTimedSerializer as Serializer
 from itsdangerous import SignatureExpired, BadSignature
 import re
@@ -16,6 +16,9 @@ import string
 
 # --- Fonction pour générer un slug de base ---
 def slugify_base(text):
+    if text is None:
+        return ""
+    # Remplace les caractères non alphanumériques par des tirets
     text = re.sub(r'[^\w\s-]', '', text).strip().lower()
     text = re.sub(r'[-\s]+', '-', text)
     return text
@@ -194,7 +197,6 @@ class Post(db.Model):
     def generate_unique_slug(title, post_id=None):
         base_slug = slugify_base(title)
         slug_candidate = base_slug
-        counter = 1
         while True:
             query = db.session.query(Post.id).filter(Post.slug == slug_candidate)
             if post_id: query = query.filter(Post.id != post_id)
@@ -217,6 +219,3 @@ class Comment(db.Model):
     author = relationship('User', back_populates='comments')
     post = relationship('Post', back_populates='comments')
     def __repr__(self): return f'<Comment {self.id} by User {self.user_id} on Post {self.post_id}>'
-
-# Le modèle SiteSetting est retiré pour cette restauration
-
