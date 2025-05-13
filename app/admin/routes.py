@@ -1006,3 +1006,33 @@ def toggle_custom_script_active(script_id):
         current_app.logger.error(f"Erreur toggle CustomScript {script_id}: {e}")
     return redirect(url_for('admin.manage_custom_scripts'))
 # <<< FIN NOUVELLES ROUTES POUR SCRIPTS PERSONNALISÉS >>>
+# VVVVVV COLLEZ CE BLOC DE CODE TOUT À LA FIN DE VOTRE FICHIER app/admin/routes.py VVVVVV
+
+# ATTENTION : ROUTE TEMPORAIRE À SUPPRIMER APRÈS UTILISATION
+@bp.route('/make-me-super-admin-now/activation-speciale-xyz258') # URL secrète
+@login_required # L'utilisateur doit être connecté pour accéder à cette route
+def temp_make_super_admin():
+    # Vérifie si l'utilisateur connecté est celui attendu
+    if current_user.email == 'pp364598@gmail.com':
+        try:
+            # Récupère l'objet utilisateur de la session de base de données pour le modifier
+            user_to_promote = db.session.get(User, current_user.id)
+            if user_to_promote:
+                user_to_promote.is_admin = True
+                user_to_promote.is_super_admin = True
+                db.session.commit()
+                flash(_('Vous avez été défini comme Super Administrateur ! Veuillez supprimer cette route temporaire maintenant.'), 'success')
+                current_app.logger.info(f"User {user_to_promote.email} a été défini comme super admin via la route temporaire.")
+            else:
+                flash(_('Utilisateur non trouvé dans la session de base de données.'), 'danger')
+        except Exception as e:
+            db.session.rollback()
+            flash(_('Erreur lors de la définition du super admin : %(error)s', error=str(e)), 'danger')
+            current_app.logger.error(f"Erreur lors de la définition du super admin pour {current_user.email}: {e}")
+    else:
+        # Si un autre utilisateur connecté essaie d'accéder à cette URL
+        flash(_('Accès non autorisé à cette fonction. Cette action est réservée.'), 'danger')
+
+    # Redirige vers le tableau de bord admin dans tous les cas après la tentative
+    return redirect(url_for('admin.index'))
+# ^^^^^^ FIN DE LA ROUTE TEMPORAIRE ^^^^^^
