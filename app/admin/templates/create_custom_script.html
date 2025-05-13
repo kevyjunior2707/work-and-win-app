@@ -1,0 +1,103 @@
+{# app/admin/templates/create_custom_script.html (Formulaire Création/Édition Script Personnalisé) #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5"> {# Conteneur principal #}
+    <h1>
+        {% if is_edit %}
+            <i class="bi bi-code-slash"></i> {{ _('Modifier le Script Personnalisé') }}
+            {% if script %} - <small class="text-muted">{{ script.name }}</small>{% endif %}
+        {% else %}
+            {# Normalement, la création se fait via manage_custom_scripts, mais ce template pourrait être adapté #}
+            <i class="bi bi-plus-circle-fill"></i> {{ _('Ajouter un Nouveau Script Personnalisé') }}
+        {% endif %}
+    </h1>
+    <p>
+        {% if is_edit %}
+            {{ _('Modifiez les détails du script personnalisé ci-dessous.') }}
+        {% else %}
+            {{ _('Remplissez les informations pour ajouter un nouveau script personnalisé.') }}
+        {% endif %}
+    </p>
+    <hr>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <form method="post" novalidate>
+                {{ form.hidden_tag() }}
+
+                {# Nom du Script #}
+                <div class="mb-3">
+                    {{ form.name.label(class="form-label") }}
+                    {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else "")) }}
+                    {% if form.name.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.name.errors %}<span>{{ error }}</span>{% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                {# Code du Script #}
+                <div class="mb-3">
+                    {{ form.script_code.label(class="form-label") }}
+                    {{ form.script_code(class="form-control font-monospace" + (" is-invalid" if form.script_code.errors else "")) }}
+                    {% if form.script_code.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.script_code.errors %}<span>{{ error }}</span>{% endfor %}
+                        </div>
+                    {% endif %}
+                    <small class="form-text text-muted">{{ _('Collez le code HTML/JavaScript complet ici.')}}</small>
+                </div>
+
+                {# Emplacement #}
+                <div class="mb-3">
+                    {{ form.location.label(class="form-label") }}
+                    {{ form.location(class="form-select" + (" is-invalid" if form.location.errors else "")) }}
+                    {% if form.location.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.location.errors %}<span>{{ error }}</span>{% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                {# Endpoints à Exclure #}
+                <div class="mb-3">
+                    {{ form.excluded_endpoints.label(class="form-label") }}
+                    {{ form.excluded_endpoints(class="form-control" + (" is-invalid" if form.excluded_endpoints.errors else "")) }}
+                    {% if form.excluded_endpoints.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.excluded_endpoints.errors %}<span>{{ error }}</span>{% endfor %}
+                        </div>
+                    {% endif %}
+                    <small class="form-text text-muted">{{ form.excluded_endpoints.description }}</small>
+                </div>
+
+                {# Description/Notes #}
+                <div class="mb-3">
+                    {{ form.description.label(class="form-label") }}
+                    {{ form.description(class="form-control" + (" is-invalid" if form.description.errors else "")) }}
+                    {% if form.description.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.description.errors %}<span>{{ error }}</span>{% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                {# Actif ? #}
+                <div class="mb-3 form-check">
+                    {{ form.is_active(class="form-check-input") }}
+                    {{ form.is_active.label(class="form-check-label") }}
+                </div>
+
+                {# Bouton Submit #}
+                <div class="mb-3">
+                    {{ form.submit(class="btn btn-primary") }}
+                    <a href="{{ url_for('admin.manage_custom_scripts') }}" class="btn btn-secondary">{{ _('Annuler') }}</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div> {# <<< Fin Conteneur >>> #}
+{% endblock %}

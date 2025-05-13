@@ -1,4 +1,4 @@
-# app/models.py (VERSION COMPLÈTE v23 - Ajout Modèle SiteSetting)
+# app/models.py (VERSION COMPLÈTE v24 - Modèle CustomScript)
 
 import secrets
 from datetime import datetime, timezone
@@ -6,8 +6,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 from sqlalchemy.orm import relationship
 from sqlalchemy import select, ForeignKey
-from app import db, login # Assurez-vous que db et login sont bien initialisés dans app/__init__.py
-from flask import current_app # Pour SECRET_KEY dans les tokens
+from app import db, login
+from flask import current_app
 from itsdangerous import URLSafeTimedSerializer as Serializer
 from itsdangerous import SignatureExpired, BadSignature
 import re
@@ -18,7 +18,6 @@ import string
 def slugify_base(text):
     if text is None:
         return ""
-    # Remplace les caractères non alphanumériques par des tirets
     text = re.sub(r'[^\w\s-]', '', text).strip().lower()
     text = re.sub(r'[-\s]+', '-', text)
     return text
@@ -46,7 +45,6 @@ class User(UserMixin, db.Model):
     telegram_username = db.Column(db.String(100), nullable=True, index=True)
     is_verified = db.Column(db.Boolean, default=False, nullable=False, index=True)
 
-    # Relations
     referrer = relationship('User', remote_side=[id], back_populates='referred_users')
     referred_users = relationship('User', back_populates='referrer', foreign_keys=[referred_by_id])
     completed_tasks_rel = relationship('UserTaskCompletion', back_populates='user', lazy='dynamic', foreign_keys='UserTaskCompletion.user_id')
@@ -221,16 +219,23 @@ class Comment(db.Model):
     post = relationship('Post', back_populates='comments')
     def __repr__(self): return f'<Comment {self.id} by User {self.user_id} on Post {self.post_id}>'
 
-# <<< NOUVEAU MODÈLE SiteSetting >>>
-class SiteSetting(db.Model):
-    __tablename__ = 'site_setting'
-    # Utilise un ID simple, on s'assurera qu'il n'y a qu'une seule ligne via la logique des routes
-    id = db.Column(db.Integer, primary_key=True, default=1)
-    custom_head_scripts = db.Column(db.Text, nullable=True)
-    custom_footer_scripts = db.Column(db.Text, nullable=True)
+# <<< NOUVEAU MODÈLE CustomScript >>>
+class CustomScript(db.Model):
+    __tablename__ = 'custom_script'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True) # Nom descriptif du script
+    script_code = db.Column(db.Text, nullable=False) # Le code HTML/JS lui-même
+    location = db.Column(db.String(10), nullable=False, default='head') # 'head' ou 'footer'
+    excluded_endpoints = db.Column(db.Text, nullable=True) # Liste d'endpoints (noms de routes) séparés par des virgules
+    is_active = db.Column(db.Boolean, default=False, nullable=False, index=True)
     last_updated = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
+    def get_excluded_endpoints_list(self):
+        if not self.excluded_endpoints:
+            return []
+        return [endpoint.strip() for endpoint in self.excluded_endpoints.split(',') if endpoint.strip()]
+
     def __repr__(self):
-        return f'<SiteSetting {self.id}>'
-# <<< FIN NOUVEAU MODÈLE SiteSetting >>>
+        return f'<CustomScript {self.name} - Active: {self.is_active}>'
+# <<< FIN NOUVEAU MODÈLE CustomScript >>>
 

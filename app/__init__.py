@@ -1,4 +1,4 @@
-# app/__init__.py (VERSION COMPLÈTE v17 - Correction Finale Import Circulaire)
+# app/__init__.py (VERSION COMPLÈTE v17 - Context Processor pour CustomScript)
 
 import os
 from flask import Flask, request, g, current_app, session
@@ -11,9 +11,10 @@ from flask_mail import Mail
 from sqlalchemy import select, func
 from datetime import datetime, timezone
 import json
+# <<< Import des modèles Notification, Banner, et CustomScript >>>
+from .models import Notification, Banner, CustomScript # SiteSetting a été remplacé par CustomScript
 
-# Initialisation des extensions (SANS app au niveau global)
-# Ces objets seront liés à l'application dans create_app
+# Initialisation des extensions
 db = SQLAlchemy()
 migrate = Migrate()
 login = LoginManager()
@@ -23,14 +24,11 @@ login.login_message_category = 'info'
 babel = Babel()
 mail = Mail()
 
-# Fonction de sélection de la langue (doit utiliser current_app pour la config)
+# Fonction de sélection de la langue
 def get_locale():
     lang = request.args.get('lang')
     if lang and lang in current_app.config['LANGUAGES']:
          return lang
-    # Si on veut utiliser la session (décommenter si besoin)
-    # if 'locale' in session and session['locale'] in current_app.config['LANGUAGES']:
-    #     return session['locale']
     best_match = request.accept_languages.best_match(current_app.config['LANGUAGES'].keys())
     if best_match:
         return best_match
@@ -41,43 +39,30 @@ def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
-    # Lie les extensions à l'instance de l'application créée
     db.init_app(app)
     migrate.init_app(app, db)
     login.init_app(app)
     babel.init_app(app, locale_selector=get_locale)
     mail.init_app(app)
 
-    # --- Configuration du dossier d'upload ---
     upload_folder = app.config.get('UPLOAD_FOLDER', os.path.join(app.root_path, 'static/uploads'))
-    # Crée les dossiers s'ils n'existent pas
     os.makedirs(upload_folder, exist_ok=True)
     os.makedirs(os.path.join(upload_folder, 'tasks'), exist_ok=True)
     os.makedirs(os.path.join(upload_folder, 'banners'), exist_ok=True)
     os.makedirs(os.path.join(upload_folder, 'blog_posts'), exist_ok=True)
     os.makedirs(os.path.join(upload_folder, 'proofs'), exist_ok=True)
 
-
-    # --- Fonctions exécutées avant chaque requête ---
     @app.before_request
     def before_request():
         selected_locale = get_locale()
         g.locale = str(selected_locale)
         g.locale_display_name = app.config['LANGUAGES'].get(g.locale, g.locale)
         g.current_year = datetime.now(timezone.utc).year
-        # Si on utilise la session pour la locale:
-        # lang_code_url = request.args.get('lang')
-        # if lang_code_url and lang_code_url in app.config['LANGUAGES']:
-        #     session['locale'] = lang_code_url
 
-
-    # --- Processeurs de Contexte (variables globales pour templates) ---
     @app.context_processor
     def inject_notifications():
         unread_count = 0
-        # Import local pour éviter dépendance circulaire au démarrage,
-        # mais .models sera importé à la fin du fichier __init__.py de toute façon.
-        from .models import Notification
+        # Notification est déjà importé en haut du fichier
         if current_user.is_authenticated and not current_user.is_admin:
             try:
                 unread_count = db.session.scalar(
@@ -93,7 +78,7 @@ def create_app(config_class=Config):
     def inject_banners():
         active_top_banner = None
         active_bottom_banner = None
-        from .models import Banner # Import local
+        # Banner est déjà importé en haut du fichier
         try:
             active_top_banner = db.session.scalars(
                 select(Banner).where(
@@ -114,42 +99,48 @@ def create_app(config_class=Config):
             active_bottom_banner=active_bottom_banner
         )
 
+    # <<< NOUVEAU CONTEXT PROCESSOR POUR LES SCRIPTS PERSONNALISÉS >>>
     @app.context_processor
-    def inject_site_settings():
-        from .models import SiteSetting # Import local
-        settings = None
-        custom_head = ''
-        custom_footer = ''
+    def inject_custom_scripts():
+        # CustomScript est déjà importé en haut du fichier
+        head_scripts_list = []
+        footer_scripts_list = []
         try:
-            settings = db.session.scalars(select(SiteSetting).filter_by(id=1).limit(1)).first()
-            if settings:
-                custom_head = settings.custom_head_scripts or ''
-                custom_footer = settings.custom_footer_scripts or ''
+            # Récupère tous les scripts actifs
+            active_scripts = db.session.scalars(
+                select(CustomScript).where(CustomScript.is_active == True)
+            ).all()
+
+            for script in active_scripts:
+                excluded = script.get_excluded_endpoints_list()
+                # Vérifie si l'endpoint actuel n'est PAS dans la liste d'exclusion du script
+                if request.endpoint not in excluded:
+                    if script.location == 'head':
+                        head_scripts_list.append(script.script_code)
+                    elif script.location == 'footer':
+                        footer_scripts_list.append(script.script_code)
         except Exception as e:
-            app.logger.warning(f"Erreur lors de la récupération des SiteSettings: {e}")
+            app.logger.warning(f"Erreur lors de la récupération des CustomScripts: {e}")
+            # Ne pas planter l'application
         
         return dict(
-            custom_head_scripts=custom_head,
-            custom_footer_scripts=custom_footer
+            global_custom_head_scripts=head_scripts_list,  # Renommé pour éviter conflit potentiel
+            global_custom_footer_scripts=footer_scripts_list # Renommé pour éviter conflit potentiel
         )
-    # --- Fin Processeurs de Contexte ---
+    # <<< FIN NOUVEAU CONTEXT PROCESSOR >>>
 
-    # --- Enregistrement des Blueprints ---
     from app.auth import bp as auth_bp
     app.register_blueprint(auth_bp, url_prefix='/auth')
     from app.main import bp as main_bp
     app.register_blueprint(main_bp)
     from app.admin import bp as admin_bp
     app.register_blueprint(admin_bp, url_prefix='/admin')
-    # Ne pas oublier d'importer et enregistrer d'autres blueprints si vous en créez (ex: blog)
 
-    # --- Log de démarrage ---
     if not app.debug and not app.testing:
-        # Configuration de logs plus avancés pour la production ici si nécessaire
         pass
     app.logger.info('Work and Win startup')
 
     return app
 
-# <<< L'IMPORT DES MODÈLES EST CRUCIALEMENT À LA FIN DU FICHIER >>>
+# L'import des modèles est crucial et doit rester à la fin
 from app import models

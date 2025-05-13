@@ -9,11 +9,11 @@ from app.admin import bp
 from app.forms import (TaskForm, countries_choices_multi, devices_choices_multi,
                        countries_choices_single, devices_choices_single,
                        AdminResetPasswordForm, AddAdminForm, BannerForm, PostForm,
-                       SiteSettingsForm)
+                       CustomScriptForm)
 # Ajout des modèles Banner, Post, Comment et de la fonction slugify
 from app.models import (Task, UserTaskCompletion, ExternalTaskCompletion, User,
                         Withdrawal, Notification, ReferralCommission, Banner, Post, Comment, 
-                        SiteSetting)
+                        CustomScript)
 from app.decorators import admin_required, super_admin_required
 from sqlalchemy import select, or_, func
 from sqlalchemy.orm import joinedload
@@ -913,51 +913,96 @@ def toggle_comment_approved(comment_id):
         flash(_('Erreur lors du changement de statut du commentaire: %(error)s', error=str(e)), 'danger')
     # Redirige vers la page précédente (manage_comments) en conservant la page de pagination
     return redirect(request.referrer or url_for('admin.manage_comments'))
-# À ajouter à la fin de app/admin/routes.py (ou avant une section de fin de fichier si elle existe)
+# À ajouter à la fin de app/admin/routes.py
 
-# <<< NOUVELLE ROUTE POUR LES PARAMÈTRES DU SITE >>>
-@bp.route('/site-settings', methods=['GET', 'POST'])
+# <<< NOUVELLES ROUTES POUR LA GESTION DES SCRIPTS PERSONNALISÉS >>>
+@bp.route('/custom-scripts', methods=['GET', 'POST'])
 @login_required
-@super_admin_required # Assurez-vous que ce décorateur est bien défini et importé si vous l'utilisez
-                      # ou remplacez par @admin_required si tous les admins peuvent y accéder.
-def site_settings():
-    # Il n'y aura qu'une seule ligne de paramètres, avec id=1 (ou un autre ID fixe si vous préférez)
-    # Essayons de récupérer l'enregistrement. S'il n'existe pas, nous le créons.
-    settings = db.session.get(SiteSetting, 1) # Tente de récupérer l'enregistrement avec id=1
-    if settings is None:
-        # Si aucun enregistrement n'existe, créez-en un avec l'id=1
-        settings = SiteSetting(id=1, custom_head_scripts='', custom_footer_scripts='')
-        db.session.add(settings)
+@super_admin_required # Ou @admin_required si tous les admins peuvent gérer
+def manage_custom_scripts():
+    form = CustomScriptForm()
+    if form.validate_on_submit():
+        new_script = CustomScript(
+            name=form.name.data,
+            script_code=form.script_code.data,
+            location=form.location.data,
+            excluded_endpoints=form.excluded_endpoints.data,
+            is_active=form.is_active.data,
+            description=form.description.data
+        )
         try:
+            db.session.add(new_script)
             db.session.commit()
-            # Récupère à nouveau après la création pour s'assurer qu'on a l'objet de la session
-            settings = db.session.get(SiteSetting, 1)
+            flash(_('Nouveau script personnalisé "%(name)s" ajouté avec succès !', name=new_script.name), 'success')
+            return redirect(url_for('admin.manage_custom_scripts'))
         except Exception as e:
             db.session.rollback()
-            flash(_("Erreur lors de l'initialisation des paramètres du site: %(error)s", error=str(e)), 'danger')
-            current_app.logger.error(f"Erreur initialisation SiteSetting: {e}")
-            return redirect(url_for('admin.index')) # Redirige si erreur critique
+            flash(_("Erreur lors de l'ajout du script personnalisé : %(error)s", error=str(e)), 'danger')
+            current_app.logger.error(f"Erreur ajout CustomScript: {e}")
 
-    form = SiteSettingsForm(obj=settings) # Pré-remplit avec les données existantes
+    scripts = db.session.scalars(select(CustomScript).order_by(CustomScript.name)).all()
+    return render_template('manage_custom_scripts.html', title=_('Gérer les Scripts Personnalisés'), form=form, scripts=scripts)
+
+@bp.route('/custom-script/<int:script_id>/edit', methods=['GET', 'POST'])
+@login_required
+@super_admin_required # Ou @admin_required
+def edit_custom_script(script_id):
+    script_to_edit = db.session.get(CustomScript, script_id) or abort(404)
+    form = CustomScriptForm(obj=script_to_edit) # Pré-remplit avec les données existantes
 
     if form.validate_on_submit():
-        settings.custom_head_scripts = form.custom_head_scripts.data
-        settings.custom_footer_scripts = form.custom_footer_scripts.data
+        script_to_edit.name = form.name.data
+        script_to_edit.script_code = form.script_code.data
+        script_to_edit.location = form.location.data
+        script_to_edit.excluded_endpoints = form.excluded_endpoints.data
+        script_to_edit.is_active = form.is_active.data
+        script_to_edit.description = form.description.data
         try:
             db.session.commit()
-            flash(_('Paramètres du site mis à jour avec succès !'), 'success')
-            return redirect(url_for('admin.site_settings')) # Redirige vers la même page
+            flash(_('Script personnalisé "%(name)s" mis à jour avec succès !', name=script_to_edit.name), 'success')
+            return redirect(url_for('admin.manage_custom_scripts'))
         except Exception as e:
             db.session.rollback()
-            flash(_("Erreur lors de la sauvegarde des paramètres : %(error)s", error=str(e)), 'danger')
-            current_app.logger.error(f"Erreur sauvegarde SiteSetting: {e}")
+            flash(_("Erreur lors de la mise à jour du script : %(error)s", error=str(e)), 'danger')
+            current_app.logger.error(f"Erreur MAJ CustomScript {script_id}: {e}")
 
-    # Si c'est une requête GET, ou si la validation du formulaire a échoué,
-    # on pré-remplit le formulaire avec les données de la base (déjà fait par obj=settings)
-    # Mais on peut le refaire explicitement pour être sûr, surtout si obj=None était utilisé pour POST
+    # Pour GET, le formulaire est déjà pré-rempli par obj=script_to_edit
+    # Mais on peut s'assurer que les champs Textarea sont bien remplis
     if request.method == 'GET':
-        form.custom_head_scripts.data = settings.custom_head_scripts or ''
-        form.custom_footer_scripts.data = settings.custom_footer_scripts or ''
+        form.script_code.data = script_to_edit.script_code
+        form.excluded_endpoints.data = script_to_edit.excluded_endpoints
+        form.description.data = script_to_edit.description
 
-    return render_template('site_settings.html', title=_('Paramètres du Site (Scripts Head/Footer)'), form=form)
-# <<< FIN NOUVELLE ROUTE >>>
+    return render_template('create_custom_script.html', title=_('Modifier le Script Personnalisé'), form=form, script=script_to_edit, is_edit=True)
+
+@bp.route('/custom-script/<int:script_id>/delete', methods=['POST'])
+@login_required
+@super_admin_required # Ou @admin_required
+def delete_custom_script(script_id):
+    script_to_delete = db.session.get(CustomScript, script_id) or abort(404)
+    try:
+        db.session.delete(script_to_delete)
+        db.session.commit()
+        flash(_('Script personnalisé "%(name)s" supprimé avec succès.', name=script_to_delete.name), 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(_('Erreur lors de la suppression du script : %(error)s', error=str(e)), 'danger')
+        current_app.logger.error(f"Erreur suppression CustomScript {script_id}: {e}")
+    return redirect(url_for('admin.manage_custom_scripts'))
+
+@bp.route('/custom-script/<int:script_id>/toggle_active', methods=['POST'])
+@login_required
+@super_admin_required # Ou @admin_required
+def toggle_custom_script_active(script_id):
+    script = db.session.get(CustomScript, script_id) or abort(404)
+    try:
+        script.is_active = not script.is_active
+        db.session.commit()
+        status_msg = _('activé') if script.is_active else _('désactivé')
+        flash(_('Script "%(name)s" maintenant %(status)s.', name=script.name, status=status_msg), 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(_('Erreur lors du changement de statut du script: %(error)s', error=str(e)), 'danger')
+        current_app.logger.error(f"Erreur toggle CustomScript {script_id}: {e}")
+    return redirect(url_for('admin.manage_custom_scripts'))
+# <<< FIN NOUVELLES ROUTES POUR SCRIPTS PERSONNALISÉS >>>

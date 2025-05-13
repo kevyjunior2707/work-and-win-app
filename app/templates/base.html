@@ -1,4 +1,4 @@
-{# app/templates/base.html (Avec Injection Scripts Head/Footer) #}
+{# app/templates/base.html (Avec Injection Scripts Personnalisés Head/Footer) #}
 <!doctype html>
 <html lang="{{ g.locale }}">
   <head>
@@ -36,9 +36,11 @@
 
     {% block head_extra %}{% endblock %}
 
-    {# --- NOUVEAU : Injection des scripts personnalisés pour <head> --- #}
-    {% if custom_head_scripts %}
-        {{ custom_head_scripts | safe }}
+    {# --- Injection des scripts personnalisés pour <head> --- #}
+    {% if global_custom_head_scripts %}
+        {% for script_code in global_custom_head_scripts %}
+            {{ script_code | safe }}
+        {% endfor %}
     {% endif %}
     {# --- FIN Injection <head> --- #}
   </head>
@@ -191,9 +193,11 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     {% block scripts %}{% endblock %}
 
-    {# --- NOUVEAU : Injection des scripts personnalisés pour le pied de page --- #}
-    {% if custom_footer_scripts %}
-        {{ custom_footer_scripts | safe }}
+    {# --- Injection des scripts personnalisés pour le pied de page --- #}
+    {% if global_custom_footer_scripts %}
+        {% for script_code in global_custom_footer_scripts %}
+            {{ script_code | safe }}
+        {% endfor %}
     {% endif %}
     {# --- FIN Injection <footer> --- #}
   </body>

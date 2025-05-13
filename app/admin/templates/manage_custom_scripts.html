@@ -1,0 +1,133 @@
+{# app/admin/templates/manage_custom_scripts.html (NOUVEAU FICHIER) #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5"> {# Conteneur principal #}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1><i class="bi bi-code-square"></i> {{ title }}</h1>
+        {# Le formulaire d'ajout est inclus sur cette page #}
+    </div>
+    <p>{{ _('Gérez les scripts HTML/JavaScript personnalisés à injecter dans les pages de votre site (ex: vérification Google, Analytics, AdSense, pixels).')}}</p>
+    <div class="alert alert-warning" role="alert">
+        <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> {{ _('Attention Importante !') }}</h4>
+        <p>{{ _("L'ajout de code incorrect ou malveillant dans ces champs peut gravement affecter la sécurité, l'affichage ou le fonctionnement de votre site. N'ajoutez que du code provenant de sources absolument fiables et dont vous comprenez l'utilité.") }}</p>
+        <hr>
+        <p class="mb-0">{{ _("Testez minutieusement votre site après chaque modification ici. En cas de problème, désactivez ou supprimez le script concerné.") }}</p>
+    </div>
+    <hr>
+
+    {# Section pour Ajouter un Nouveau Script Personnalisé #}
+    <h2>{{ _('Ajouter un Nouveau Script') }}</h2>
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form action="{{ url_for('admin.manage_custom_scripts') }}" method="post" novalidate>
+                {{ form.hidden_tag() }}
+                <div class="row g-3">
+                    <div class="col-md-6 mb-3">
+                        {{ form.name.label(class="form-label") }}
+                        {{ form.name(class="form-control form-control-sm" + (" is-invalid" if form.name.errors else "")) }}
+                        {% if form.name.errors %}<div class="invalid-feedback d-block">{% for error in form.name.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        {{ form.location.label(class="form-label") }}
+                        {{ form.location(class="form-select form-select-sm" + (" is-invalid" if form.location.errors else "")) }}
+                        {% if form.location.errors %}<div class="invalid-feedback d-block">{% for error in form.location.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+                    </div>
+                    <div class="col-12 mb-3">
+                        {{ form.script_code.label(class="form-label") }}
+                        {{ form.script_code(class="form-control form-control-sm font-monospace" + (" is-invalid" if form.script_code.errors else "")) }}
+                        {% if form.script_code.errors %}<div class="invalid-feedback d-block">{% for error in form.script_code.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+                    </div>
+                    <div class="col-12 mb-3">
+                        {{ form.excluded_endpoints.label(class="form-label") }}
+                        {{ form.excluded_endpoints(class="form-control form-control-sm" + (" is-invalid" if form.excluded_endpoints.errors else "")) }}
+                        {% if form.excluded_endpoints.errors %}<div class="invalid-feedback d-block">{% for error in form.excluded_endpoints.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+                        <small class="form-text text-muted">{{ form.excluded_endpoints.description }}</small>
+                    </div>
+                     <div class="col-12 mb-3">
+                        {{ form.description.label(class="form-label") }}
+                        {{ form.description(class="form-control form-control-sm" + (" is-invalid" if form.description.errors else "")) }}
+                        {% if form.description.errors %}<div class="invalid-feedback d-block">{% for error in form.description.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+                    </div>
+                    <div class="col-md-12">
+                        <div class="form-check mt-2 mb-3">
+                            {{ form.is_active(class="form-check-input") }}
+                            {{ form.is_active.label(class="form-check-label") }}
+                        </div>
+                    </div>
+                    <div class="col-md-12 text-end">
+                        {{ form.submit(class="btn btn-success btn-sm", value=_('Ajouter le Script')) }}
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {# Section pour Lister les Scripts Existants #}
+    <h2>{{ _('Scripts Personnalisés Actuels') }}</h2>
+    {% if not scripts %}
+        <div class="alert alert-info">
+            {{ _('Aucun script personnalisé n\'a été ajouté pour le moment.') }}
+        </div>
+    {% else %}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover table-sm align-middle">
+                <thead>
+                    <tr>
+                        <th>{{ _('Nom') }}</th>
+                        <th>{{ _('Emplacement') }}</th>
+                        <th>{{ _('Exclusions') }}</th>
+                        <th>{{ _('Statut') }}</th>
+                        <th class="text-end">{{ _('Actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for script_item in scripts %} {# Renommé pour éviter conflit avec variable 'script' dans la route edit #}
+                    <tr>
+                        <td>
+                            {{ script_item.name }}
+                            {% if script_item.description %}
+                                <small class="d-block text-muted">{{ script_item.description | truncate(50) }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if script_item.location == 'head' %} <span class="badge bg-info">{{ _('En-tête (<head>)') }}</span>
+                            {% elif script_item.location == 'footer' %} <span class="badge bg-secondary">{{ _('Pied de page (</body>)') }}</span>
+                            {% else %} {{ script_item.location }}
+                            {% endif %}
+                        </td>
+                        <td><small>{{ script_item.excluded_endpoints | truncate(40, True) if script_item.excluded_endpoints else '-' }}</small></td>
+                        <td>
+                            {% if script_item.is_active %}
+                                <span class="badge bg-success">{{ _('Actif') }}</span>
+                            {% else %}
+                                <span class="badge bg-danger">{{ _('Inactif') }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end text-nowrap">
+                            <a href="{{ url_for('admin.edit_custom_script', script_id=script_item.id) }}" class="btn btn-sm btn-outline-primary" title="{{ _('Modifier') }}"><i class="bi bi-pencil-square"></i></a>
+                            <form action="{{ url_for('admin.toggle_custom_script_active', script_id=script_item.id) }}" method="post" style="display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" class="btn btn-sm {% if script_item.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}" title="{{ _('Activer/Désactiver') }}">
+                                    {% if script_item.is_active %}<i class="bi bi-toggle-off"></i>{% else %}<i class="bi bi-toggle-on"></i>{% endif %}
+                                </button>
+                            </form>
+                            <form action="{{ url_for('admin.delete_custom_script', script_id=script_item.id) }}" method="post" style="display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="{{ _('Supprimer') }}" onclick="return confirm('{{ _('Êtes-vous sûr de vouloir supprimer ce script personnalisé ?') }}');"><i class="bi bi-trash3"></i></button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+
+    <div class="mt-4">
+        <a href="{{ url_for('admin.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left-circle"></i> {{ _('Retour au Panel Admin') }}</a>
+    </div>
+</div> {# <<< Fin Conteneur >>> #}
+{% endblock %}
