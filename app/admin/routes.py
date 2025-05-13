@@ -1051,38 +1051,6 @@ def toggle_custom_script_active(script_id):
 # À ajouter à la fin de app/admin/routes.py
 
 # <<< NOUVELLES ROUTES POUR LA GESTION DES SCRIPTS PERSONNALISÉS >>>
-@bp.route('/custom-scripts', methods=['GET', 'POST'])
-@login_required
-@super_admin_required # Ou @admin_required si tous les admins peuvent gérer
-def manage_custom_scripts():
-    form = CustomScriptForm()
-    form.excluded_endpoints.choices = get_available_endpoints() # Peuple les choix dynamiquement
-
-    if form.validate_on_submit():
-        # Convertit la liste des endpoints sélectionnés en une chaîne séparée par des virgules
-        excluded_endpoints_str = ','.join(form.excluded_endpoints.data) if form.excluded_endpoints.data else None
-
-        new_script = CustomScript(
-            name=form.name.data,
-            script_code=form.script_code.data,
-            location=form.location.data,
-            excluded_endpoints=excluded_endpoints_str,
-            is_active=form.is_active.data,
-            description=form.description.data
-        )
-        try:
-            db.session.add(new_script)
-            db.session.commit()
-            flash(_('Nouveau script personnalisé "%(name)s" ajouté avec succès !', name=new_script.name), 'success')
-            return redirect(url_for('admin.manage_custom_scripts'))
-        except Exception as e:
-            db.session.rollback()
-            flash(_("Erreur lors de l'ajout du script personnalisé : %(error)s", error=str(e)), 'danger')
-            current_app.logger.error(f"Erreur ajout CustomScript: {e}")
-
-    scripts = db.session.scalars(select(CustomScript).order_by(CustomScript.name)).all()
-    return render_template('manage_custom_scripts.html', title=_('Gérer les Scripts Personnalisés'), form=form, scripts=scripts)
-
 @bp.route('/custom-script/<int:script_id>/edit', methods=['GET', 'POST'])
 @login_required
 @super_admin_required # Ou @admin_required
