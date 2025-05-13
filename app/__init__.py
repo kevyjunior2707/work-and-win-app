@@ -1,4 +1,4 @@
-# app/__init__.py (VERSION COMPLÈTE v18 - Correction Finale Import Circulaire)
+# app/__init__.py (VERSION COMPLÈTE v19 - Context Processor pour CustomScript)
 
 import os
 from flask import Flask, request, g, current_app, session
@@ -13,17 +13,16 @@ from datetime import datetime, timezone
 import json
 
 # Initialisation des extensions (SANS app au niveau global)
-# Ces objets seront liés à l'application dans create_app
 db = SQLAlchemy()
 migrate = Migrate()
 login = LoginManager()
-login.login_view = 'auth.login' # Point d'entrée pour la page de connexion
+login.login_view = 'auth.login'
 login.login_message = _l('Veuillez vous connecter pour accéder à cette page.')
-login.login_message_category = 'info' # Catégorie Bootstrap pour le message flash
+login.login_message_category = 'info'
 babel = Babel()
 mail = Mail()
 
-# Fonction de sélection de la langue (doit utiliser current_app pour la config)
+# Fonction de sélection de la langue
 def get_locale():
     lang = request.args.get('lang')
     if lang and lang in current_app.config['LANGUAGES']:
@@ -38,24 +37,19 @@ def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
-    # Lie les extensions à l'instance de l'application créée
     db.init_app(app)
     migrate.init_app(app, db)
     login.init_app(app)
     babel.init_app(app, locale_selector=get_locale)
     mail.init_app(app)
 
-    # --- Configuration du dossier d'upload ---
     upload_folder = app.config.get('UPLOAD_FOLDER', os.path.join(app.root_path, 'static/uploads'))
-    # Crée les dossiers s'ils n'existent pas
     os.makedirs(upload_folder, exist_ok=True)
     os.makedirs(os.path.join(upload_folder, 'tasks'), exist_ok=True)
     os.makedirs(os.path.join(upload_folder, 'banners'), exist_ok=True)
     os.makedirs(os.path.join(upload_folder, 'blog_posts'), exist_ok=True)
     os.makedirs(os.path.join(upload_folder, 'proofs'), exist_ok=True)
 
-
-    # --- Fonctions exécutées avant chaque requête ---
     @app.before_request
     def before_request():
         selected_locale = get_locale()
@@ -63,19 +57,15 @@ def create_app(config_class=Config):
         g.locale_display_name = app.config['LANGUAGES'].get(g.locale, g.locale)
         g.current_year = datetime.now(timezone.utc).year
 
-
-    # --- Processeurs de Contexte (variables globales pour templates) ---
-    # L'import des modèles se fera à la fin de ce fichier pour éviter les imports circulaires
-    # avec les context processors qui pourraient les utiliser.
-
     @app.context_processor
     def inject_notifications():
         unread_count = 0
-        if current_user.is_authenticated and not current_user.is_admin and hasattr(app, 'models'): # Vérifie si app.models est chargé
+        from .models import Notification # Import local pour clarté
+        if current_user.is_authenticated and not current_user.is_admin:
             try:
                 unread_count = db.session.scalar(
-                    db.select(func.count(app.models.Notification.id)) # Utilise app.models.Notification
-                    .where(app.models.Notification.user_id == current_user.id, app.models.Notification.is_read == False)
+                    db.select(func.count(Notification.id))
+                    .where(Notification.user_id == current_user.id, Notification.is_read == False)
                 ) or 0
             except Exception as e:
                 app.logger.error(f"Erreur lors du comptage des notifications: {e}")
@@ -86,71 +76,70 @@ def create_app(config_class=Config):
     def inject_banners():
         active_top_banner = None
         active_bottom_banner = None
-        if hasattr(app, 'models'): # Vérifie si app.models est chargé
-            try:
-                active_top_banner = db.session.scalars(
-                    select(app.models.Banner).where( # Utilise app.models.Banner
-                        app.models.Banner.is_active == True,
-                        app.models.Banner.display_location.in_(['top', 'top_bottom'])
-                    ).order_by(app.models.Banner.uploaded_at.desc())
-                ).first()
-                active_bottom_banner = db.session.scalars(
-                    select(app.models.Banner).where(
-                        app.models.Banner.is_active == True,
-                        app.models.Banner.display_location.in_(['bottom', 'top_bottom'])
-                    ).order_by(app.models.Banner.uploaded_at.desc())
-                ).first()
-            except Exception as e:
-                app.logger.error(f"Erreur lors de la récupération des bannières: {e}")
+        from .models import Banner # Import local pour clarté
+        try:
+            active_top_banner = db.session.scalars(
+                select(Banner).where(
+                    Banner.is_active == True,
+                    Banner.display_location.in_(['top', 'top_bottom'])
+                ).order_by(Banner.uploaded_at.desc())
+            ).first()
+            active_bottom_banner = db.session.scalars(
+                select(Banner).where(
+                    Banner.is_active == True,
+                    Banner.display_location.in_(['bottom', 'top_bottom'])
+                ).order_by(Banner.uploaded_at.desc())
+            ).first()
+        except Exception as e:
+            app.logger.error(f"Erreur lors de la récupération des bannières: {e}")
         return dict(
             active_top_banner=active_top_banner,
             active_bottom_banner=active_bottom_banner
         )
 
+    # <<< NOUVEAU CONTEXT PROCESSOR POUR LES SCRIPTS PERSONNALISÉS >>>
     @app.context_processor
     def inject_custom_scripts():
+        from .models import CustomScript # Import local pour clarté
         head_scripts_list = []
         footer_scripts_list = []
-        if hasattr(app, 'models'): # Vérifie si app.models est chargé
-            try:
-                active_scripts = db.session.scalars(
-                    select(app.models.CustomScript).where(app.models.CustomScript.is_active == True) # Utilise app.models.CustomScript
-                ).all()
+        try:
+            # Récupère tous les scripts actifs
+            active_scripts = db.session.scalars(
+                select(CustomScript).where(CustomScript.is_active == True)
+            ).all()
 
-                for script in active_scripts:
-                    excluded = script.get_excluded_endpoints_list()
-                    if request.endpoint not in excluded:
-                        if script.location == 'head':
-                            head_scripts_list.append(script.script_code)
-                        elif script.location == 'footer':
-                            footer_scripts_list.append(script.script_code)
-            except Exception as e:
-                app.logger.warning(f"Erreur lors de la récupération des CustomScripts: {e}")
+            for script_item in active_scripts: # Renommé 'script' en 'script_item' pour éviter conflit
+                excluded = script_item.get_excluded_endpoints_list()
+                # Vérifie si l'endpoint actuel n'est PAS dans la liste d'exclusion du script
+                if request.endpoint not in excluded:
+                    if script_item.location == 'head':
+                        head_scripts_list.append(script_item.script_code)
+                    elif script_item.location == 'footer':
+                        footer_scripts_list.append(script_item.script_code)
+        except Exception as e:
+            # Ne pas planter l'application si la table n'existe pas encore (ex: pendant les migrations initiales)
+            # ou si la base de données n'est pas accessible.
+            app.logger.warning(f"Erreur lors de la récupération des CustomScripts (peut être normal pendant les migrations): {e}")
         
         return dict(
             global_custom_head_scripts=head_scripts_list,
             global_custom_footer_scripts=footer_scripts_list
         )
-    # --- Fin Processeurs de Contexte ---
+    # <<< FIN NOUVEAU CONTEXT PROCESSOR >>>
 
-    # --- Enregistrement des Blueprints ---
     from app.auth import bp as auth_bp
     app.register_blueprint(auth_bp, url_prefix='/auth')
     from app.main import bp as main_bp
     app.register_blueprint(main_bp)
     from app.admin import bp as admin_bp
     app.register_blueprint(admin_bp, url_prefix='/admin')
-    # Ne pas oublier d'importer et enregistrer d'autres blueprints si vous en créez
 
-    # --- Log de démarrage ---
     if not app.debug and not app.testing:
         pass
     app.logger.info('Work and Win startup')
 
     return app
 
-# <<< L'IMPORT DES MODÈLES EST CRUCIALEMENT À LA FIN DU FICHIER >>>
-# Cela permet à 'db', 'login', etc., d'être définis avant que models.py ne les importe.
+# L'import des modèles est crucial et doit rester à la fin du fichier
 from app import models
-# Ajoute les modèles à l'objet app pour que les context processors puissent y accéder sans import circulaire direct
-# app.models = models # Cette ligne n'est pas standard et peut causer des problèmes. On utilise directement les modèles dans les context processors après l'import.

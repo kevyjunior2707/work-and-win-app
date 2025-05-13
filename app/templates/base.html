@@ -37,6 +37,7 @@
     {% block head_extra %}{% endblock %}
 
     {# --- Injection des scripts personnalisés pour <head> --- #}
+    {# Ces variables viennent du context processor inject_custom_scripts #}
     {% if global_custom_head_scripts %}
         {% for script_code in global_custom_head_scripts %}
             {{ script_code | safe }}
@@ -194,6 +195,7 @@
     {% block scripts %}{% endblock %}
 
     {# --- Injection des scripts personnalisés pour le pied de page --- #}
+    {# Ces variables viennent du context processor inject_custom_scripts #}
     {% if global_custom_footer_scripts %}
         {% for script_code in global_custom_footer_scripts %}
             {{ script_code | safe }}

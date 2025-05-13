@@ -27,6 +27,47 @@ from flask_wtf.csrf import generate_csrf
 # Assurez-vous que cette fonction est bien définie
 from app.main.routes import allowed_file
 
+# À ajouter quelque part dans app/admin/routes.py, par exemple après les imports
+
+def get_available_endpoints():
+    """
+    Récupère une liste de tous les endpoints de l'application avec des noms conviviaux.
+    Exclut les endpoints statiques et ceux du blueprint admin lui-même pour éviter la récursion ou la confusion.
+    """
+    endpoints = []
+    # Mappage manuel des endpoints vers des noms conviviaux
+    # Vous pouvez étendre cette liste au fur et à mesure que vous ajoutez des pages
+    endpoint_names = {
+        'main.index': _l('Page d\'Accueil'),
+        'main.dashboard': _l('Tableau de Bord Utilisateur'),
+        'main.available_tasks': _l('Tâches Disponibles'),
+        'main.completed_tasks': _l('Mes Tâches Accomplies'),
+        'main.withdraw': _l('Page de Retrait'),
+        'main.notifications': _l('Mes Notifications'),
+        'main.profile': _l('Mon Profil'),
+        'main.blog_index': _l('Blog - Page Principale'),
+        'main.view_post': _l('Blog - Vue d\'un Article'), # Ce sera un endpoint générique
+        'auth.login': _l('Page de Connexion'),
+        'auth.register': _l('Page d\'Inscription'),
+        'auth.forgot_password_info': _l('Page Mot de Passe Oublié'),
+        # Ajoutez d'autres endpoints importants ici
+    }
+    try:
+        for rule in current_app.url_map.iter_rules():
+            # Exclure les endpoints statiques et ceux du blueprint admin lui-même
+            if rule.endpoint and not rule.endpoint.startswith('static') and not rule.endpoint.startswith('admin.'):
+                # Utilise un nom convivial s'il est défini, sinon l'endpoint lui-même
+                friendly_name = endpoint_names.get(rule.endpoint, rule.endpoint)
+                # Évite les doublons si plusieurs règles mènent au même endpoint
+                if (rule.endpoint, friendly_name) not in endpoints:
+                    # On stocke le nom technique (endpoint) comme valeur, et le nom convivial comme libellé
+                    endpoints.append((rule.endpoint, friendly_name))
+        # Trie par nom convivial
+        endpoints.sort(key=lambda x: x[1])
+    except Exception as e:
+        current_app.logger.error(f"Erreur lors de la récupération des endpoints: {e}")
+    return endpoints
+
 # --- Fonctions utilitaires pour images (tâches, bannières, articles) ---
 def save_picture(form_picture, subfolder='tasks'):
     random_hex = secrets.token_hex(8)
@@ -1006,33 +1047,102 @@ def toggle_custom_script_active(script_id):
         current_app.logger.error(f"Erreur toggle CustomScript {script_id}: {e}")
     return redirect(url_for('admin.manage_custom_scripts'))
 # <<< FIN NOUVELLES ROUTES POUR SCRIPTS PERSONNALISÉS >>>
-# VVVVVV COLLEZ CE BLOC DE CODE TOUT À LA FIN DE VOTRE FICHIER app/admin/routes.py VVVVVV
 
-# ATTENTION : ROUTE TEMPORAIRE À SUPPRIMER APRÈS UTILISATION
-@bp.route('/make-me-super-admin-now/activation-speciale-xyz258') # URL secrète
-@login_required # L'utilisateur doit être connecté pour accéder à cette route
-def temp_make_super_admin():
-    # Vérifie si l'utilisateur connecté est celui attendu
-    if current_user.email == 'pp364598@gmail.com':
+# À ajouter à la fin de app/admin/routes.py
+
+# <<< NOUVELLES ROUTES POUR LA GESTION DES SCRIPTS PERSONNALISÉS >>>
+@bp.route('/custom-scripts', methods=['GET', 'POST'])
+@login_required
+@super_admin_required # Ou @admin_required si tous les admins peuvent gérer
+def manage_custom_scripts():
+    form = CustomScriptForm()
+    form.excluded_endpoints.choices = get_available_endpoints() # Peuple les choix dynamiquement
+
+    if form.validate_on_submit():
+        # Convertit la liste des endpoints sélectionnés en une chaîne séparée par des virgules
+        excluded_endpoints_str = ','.join(form.excluded_endpoints.data) if form.excluded_endpoints.data else None
+
+        new_script = CustomScript(
+            name=form.name.data,
+            script_code=form.script_code.data,
+            location=form.location.data,
+            excluded_endpoints=excluded_endpoints_str,
+            is_active=form.is_active.data,
+            description=form.description.data
+        )
         try:
-            # Récupère l'objet utilisateur de la session de base de données pour le modifier
-            user_to_promote = db.session.get(User, current_user.id)
-            if user_to_promote:
-                user_to_promote.is_admin = True
-                user_to_promote.is_super_admin = True
-                db.session.commit()
-                flash(_('Vous avez été défini comme Super Administrateur ! Veuillez supprimer cette route temporaire maintenant.'), 'success')
-                current_app.logger.info(f"User {user_to_promote.email} a été défini comme super admin via la route temporaire.")
-            else:
-                flash(_('Utilisateur non trouvé dans la session de base de données.'), 'danger')
+            db.session.add(new_script)
+            db.session.commit()
+            flash(_('Nouveau script personnalisé "%(name)s" ajouté avec succès !', name=new_script.name), 'success')
+            return redirect(url_for('admin.manage_custom_scripts'))
         except Exception as e:
             db.session.rollback()
-            flash(_('Erreur lors de la définition du super admin : %(error)s', error=str(e)), 'danger')
-            current_app.logger.error(f"Erreur lors de la définition du super admin pour {current_user.email}: {e}")
-    else:
-        # Si un autre utilisateur connecté essaie d'accéder à cette URL
-        flash(_('Accès non autorisé à cette fonction. Cette action est réservée.'), 'danger')
+            flash(_("Erreur lors de l'ajout du script personnalisé : %(error)s", error=str(e)), 'danger')
+            current_app.logger.error(f"Erreur ajout CustomScript: {e}")
 
-    # Redirige vers le tableau de bord admin dans tous les cas après la tentative
-    return redirect(url_for('admin.index'))
-# ^^^^^^ FIN DE LA ROUTE TEMPORAIRE ^^^^^^
+    scripts = db.session.scalars(select(CustomScript).order_by(CustomScript.name)).all()
+    return render_template('manage_custom_scripts.html', title=_('Gérer les Scripts Personnalisés'), form=form, scripts=scripts)
+
+@bp.route('/custom-script/<int:script_id>/edit', methods=['GET', 'POST'])
+@login_required
+@super_admin_required # Ou @admin_required
+def edit_custom_script(script_id):
+    script_to_edit = db.session.get(CustomScript, script_id) or abort(404)
+    form = CustomScriptForm(obj=script_to_edit)
+    form.excluded_endpoints.choices = get_available_endpoints() # Peuple les choix
+
+    if request.method == 'GET':
+        # Pré-coche les cases pour les endpoints exclus
+        if script_to_edit.excluded_endpoints:
+            form.excluded_endpoints.data = script_to_edit.get_excluded_endpoints_list()
+
+    if form.validate_on_submit():
+        script_to_edit.name = form.name.data
+        script_to_edit.script_code = form.script_code.data
+        script_to_edit.location = form.location.data
+        # Convertit la liste des endpoints sélectionnés en une chaîne
+        script_to_edit.excluded_endpoints = ','.join(form.excluded_endpoints.data) if form.excluded_endpoints.data else None
+        script_to_edit.is_active = form.is_active.data
+        script_to_edit.description = form.description.data
+        try:
+            db.session.commit()
+            flash(_('Script personnalisé "%(name)s" mis à jour avec succès !', name=script_to_edit.name), 'success')
+            return redirect(url_for('admin.manage_custom_scripts'))
+        except Exception as e:
+            db.session.rollback()
+            flash(_("Erreur lors de la mise à jour du script : %(error)s", error=str(e)), 'danger')
+            current_app.logger.error(f"Erreur MAJ CustomScript {script_id}: {e}")
+
+    return render_template('create_custom_script.html', title=_('Modifier le Script Personnalisé'), form=form, script=script_to_edit, is_edit=True)
+
+@bp.route('/custom-script/<int:script_id>/delete', methods=['POST'])
+@login_required
+@super_admin_required # Ou @admin_required
+def delete_custom_script(script_id):
+    script_to_delete = db.session.get(CustomScript, script_id) or abort(404)
+    try:
+        db.session.delete(script_to_delete)
+        db.session.commit()
+        flash(_('Script personnalisé "%(name)s" supprimé avec succès.', name=script_to_delete.name), 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(_('Erreur lors de la suppression du script : %(error)s', error=str(e)), 'danger')
+        current_app.logger.error(f"Erreur suppression CustomScript {script_id}: {e}")
+    return redirect(url_for('admin.manage_custom_scripts'))
+
+@bp.route('/custom-script/<int:script_id>/toggle_active', methods=['POST'])
+@login_required
+@super_admin_required # Ou @admin_required
+def toggle_custom_script_active(script_id):
+    script = db.session.get(CustomScript, script_id) or abort(404)
+    try:
+        script.is_active = not script.is_active
+        db.session.commit()
+        status_msg = _('activé') if script.is_active else _('désactivé')
+        flash(_('Script "%(name)s" maintenant %(status)s.', name=script.name, status=status_msg), 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(_('Erreur lors du changement de statut du script: %(error)s', error=str(e)), 'danger')
+        current_app.logger.error(f"Erreur toggle CustomScript {script_id}: {e}")
+    return redirect(url_for('admin.manage_custom_scripts'))
+# <<< FIN NOUVELLES ROUTES POUR SCRIPTS PERSONNALISÉS >>>

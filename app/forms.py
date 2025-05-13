@@ -1,18 +1,19 @@
-# app/forms.py (VERSION COMPLÈTE v15 - Ajout CustomScriptForm)
+# app/forms.py (VERSION COMPLÈTE v16 - CustomScriptForm Amélioré)
 from flask_wtf import FlaskForm
 from wtforms import (StringField, PasswordField, SubmitField, SelectField,
-                     BooleanField, TextAreaField, DecimalField, SelectMultipleField,
+                     BooleanField, TextAreaField, DecimalField, SelectMultipleField, # SelectMultipleField importé
                      ValidationError, URLField, HiddenField)
-from wtforms import widgets
+from wtforms import widgets # widgets importé pour SelectMultipleField
 from wtforms.validators import (DataRequired, Email, EqualTo, Length, ValidationError,
                               NumberRange, Optional, URL, Regexp)
 from flask_wtf.file import FileField, FileAllowed
-from app.models import User # User est déjà importé
+from app.models import User
 from app import db
 from flask_babel import lazy_gettext as _l
 from flask_login import current_user
 
 # --- Listes de Choix (Pays/Appareils/Indicatifs) ---
+# (Ces listes restent inchangées et complètes)
 try:
     import pycountry
     countries_raw = sorted([(c.alpha_2, c.name) for c in pycountry.countries], key=lambda x: x[1])
@@ -22,8 +23,7 @@ except Exception as e:
     print(f"ERREUR: pycountry: {e}. Utilisation liste réduite."); countries_choices_multi = [('ALL', _l('Tous les pays')), ('BJ', 'Bénin'), ('FR', 'France')]; countries_choices_single = [('', _l('--- Sélectionnez votre pays ---')), ('BJ', 'Bénin'), ('FR', 'France')]
 
 country_codes = [
-    ('', _l('-- Indicatif --')),
-    ('+93', 'Afghanistan (+93)'), ('+355', 'Albanie (+355)'), ('+213', 'Algérie (+213)'),
+    ('', _l('-- Indicatif --')), ('+93', 'Afghanistan (+93)'), ('+355', 'Albanie (+355)'), ('+213', 'Algérie (+213)'),
     ('+1684', 'Samoa américaines (+1684)'), ('+376', 'Andorre (+376)'), ('+244', 'Angola (+244)'),
     ('+1264', 'Anguilla (+1264)'), ('+1268', 'Antigua-et-Barbuda (+1268)'), ('+54', 'Argentine (+54)'),
     ('+374', 'Arménie (+374)'), ('+297', 'Aruba (+297)'), ('+61', 'Australie (+61)'), ('+43', 'Autriche (+43)'),
@@ -238,19 +238,25 @@ class CommentForm(FlaskForm):
     parent_id = HiddenField()
     submit = SubmitField(_l('Envoyer le Commentaire'))
 
-# --- Formulaire pour les Scripts Personnalisés du Site ---
+# --- Formulaire pour les Scripts Personnalisés du Site (MODIFIÉ) ---
 class CustomScriptForm(FlaskForm):
     name = StringField(_l('Nom du Script (pour identification)'), validators=[DataRequired(_l('Le nom est requis.'))])
     script_code = TextAreaField(_l('Code du Script (HTML/JavaScript)'),
                                 validators=[DataRequired(_l('Le code du script ne peut pas être vide.'))],
                                 render_kw={'rows': 10, 'class': 'form-control font-monospace'})
     location = SelectField(_l('Emplacement du Script'), choices=[
-        ('head', _l('Dans <head>')),
-        ('footer', _l('Avant </body> (pied de page)'))
+        ('head', _l('En-tête (<head>)')), # <<< Libellé modifié
+        ('footer', _l('Pied de page (avant </body>)')) # <<< Libellé modifié
     ], validators=[DataRequired()])
-    excluded_endpoints = TextAreaField(_l('Pages à Exclure (Endpoints séparés par virgule, optionnel)'),
-                                       render_kw={'rows': 3, 'placeholder': _l('Ex: main.index, auth.login, admin.list_users')},
-                                       description=_l("Laissez vide pour inclure sur toutes les pages. Utilisez les noms internes des routes."))
+    # Le champ 'choices' sera peuplé dynamiquement dans la route
+    excluded_endpoints = SelectMultipleField(
+        _l('Pages où NE PAS afficher ce script'),
+        widget=widgets.ListWidget(prefix_label=False), # Affiche comme une liste de cases à cocher
+        option_widget=widgets.CheckboxInput(),
+        coerce=str, # Les valeurs des choix seront des chaînes (les endpoints)
+        validators=[Optional()] # Ce champ est optionnel
+    )
     is_active = BooleanField(_l('Activer ce script ?'), default=True)
     description = TextAreaField(_l('Notes/Description (pour vous, optionnel)'), render_kw={'rows': 2})
     submit = SubmitField(_l('Enregistrer le Script'))
+
