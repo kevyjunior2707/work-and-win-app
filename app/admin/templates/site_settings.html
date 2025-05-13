@@ -1,4 +1,4 @@
-{# app/admin/templates/site_settings.html (NOUVEAU FICHIER) #}
+{# app/admin/templates/site_settings.html (Sans Placeholders) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -11,7 +11,7 @@
         <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> {{ _('Attention Importante !') }}</h4>
         <p>{{ _("L'ajout de code incorrect ou malveillant dans ces champs peut gravement affecter la sécurité, l'affichage ou le fonctionnement de votre site. N'ajoutez que du code provenant de sources absolument fiables et dont vous comprenez l'utilité.") }}</p>
         <hr>
-        <p class="mb-0">{{ _("Testez minutieusement votre site après chaque modification ici. En cas de problème, videz ces champs pour retirer les scripts.") }}</p>
+        <p class="mb-0">{{ _("Testez minutieusement votre site après chaque modification ici. En cas de problème, videz ces champs et enregistrez pour retirer les scripts.") }}</p>
     </div>
     <hr>
 
@@ -27,7 +27,8 @@
                     <div class="card-body">
                         <div class="mb-3">
                             {{ form.custom_head_scripts.label(class="form-label") }}
-                            {{ form.custom_head_scripts(class="form-control font-monospace" + (" is-invalid" if form.custom_head_scripts.errors else ""), rows="12", placeholder=_("Collez vos scripts <head> ici...\nExemple pour Google Search Console :\n<meta name=\"google-site-verification\" content=\"VOTRE_CODE_ICI\" />\n\nExemple pour Google Analytics (gtag.js) :\n<script async src=\"https://www.googletagmanager.com/gtag/js?id=VOTRE_ID_GA\"></script>\n<script>\n  window.dataLayer = window.dataLayer || [];\n  function gtag(){dataLayer.push(arguments);}\n  gtag('js', new Date());\n  gtag('config', 'VOTRE_ID_GA');\n</script>")) }}
+                            {# <<< Placeholder enlevé >>> #}
+                            {{ form.custom_head_scripts(class="form-control font-monospace" + (" is-invalid" if form.custom_head_scripts.errors else ""), rows="10") }}
                             {% if form.custom_head_scripts.errors %}
                                 <div class="invalid-feedback">
                                     {% for error in form.custom_head_scripts.errors %}<span>{{ error }}</span>{% endfor %}
@@ -45,7 +46,8 @@
                     <div class="card-body">
                         <div class="mb-3">
                             {{ form.custom_footer_scripts.label(class="form-label") }}
-                            {{ form.custom_footer_scripts(class="form-control font-monospace" + (" is-invalid" if form.custom_footer_scripts.errors else ""), rows="12", placeholder=_("Collez vos scripts de pied de page ici...\nExemple pour un script de chat :\n<script type=\"text/javascript\">\n  // Code du widget de chat\n</script>")) }}
+                            {# <<< Placeholder enlevé >>> #}
+                            {{ form.custom_footer_scripts(class="form-control font-monospace" + (" is-invalid" if form.custom_footer_scripts.errors else ""), rows="10") }}
                             {% if form.custom_footer_scripts.errors %}
                                 <div class="invalid-feedback">
                                     {% for error in form.custom_footer_scripts.errors %}<span>{{ error }}</span>{% endfor %}
