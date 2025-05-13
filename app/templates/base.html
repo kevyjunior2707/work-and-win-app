@@ -1,4 +1,4 @@
-{# app/templates/base.html (Ajout Lien Blog Nav Principale) #}
+{# app/templates/base.html (Avec Injection Scripts Head/Footer) #}
 <!doctype html>
 <html lang="{{ g.locale }}">
   <head>
@@ -35,6 +35,12 @@
     </style>
 
     {% block head_extra %}{% endblock %}
+
+    {# --- NOUVEAU : Injection des scripts personnalisés pour <head> --- #}
+    {% if custom_head_scripts %}
+        {{ custom_head_scripts | safe }}
+    {% endif %}
+    {# --- FIN Injection <head> --- #}
   </head>
   <body class="d-flex flex-column min-vh-100">
 
@@ -53,11 +59,9 @@
             <li class="nav-item">
               <a class="nav-link {% if request.endpoint == 'main.index' %}active{% endif %}" aria-current="page" href="{{ url_for('main.index') }}">{{ _('Accueil') }}</a>
             </li>
-            {# <<< NOUVEAU LIEN BLOG AJOUTÉ ICI >>> #}
             <li class="nav-item">
               <a class="nav-link {% if request.endpoint == 'main.blog_index' or request.endpoint == 'main.view_post' %}active{% endif %}" href="{{ url_for('main.blog_index') }}">{{ _('Blog') }}</a>
             </li>
-            {# <<< FIN NOUVEAU LIEN BLOG >>> #}
             {% if current_user.is_anonymous %}
               <li class="nav-item">
                 <a class="nav-link {% if request.endpoint == 'auth.login' %}active{% endif %}" href="{{ url_for('auth.login') }}">{{ _('Connexion') }}</a>
@@ -186,5 +190,11 @@
     {# --- Scripts JavaScript --- #}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     {% block scripts %}{% endblock %}
+
+    {# --- NOUVEAU : Injection des scripts personnalisés pour le pied de page --- #}
+    {% if custom_footer_scripts %}
+        {{ custom_footer_scripts | safe }}
+    {% endif %}
+    {# --- FIN Injection <footer> --- #}
   </body>
 </html>

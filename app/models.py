@@ -1,4 +1,4 @@
-# app/models.py (VERSION STABLE BLOG AVEC RÉPONSES)
+# app/models.py (VERSION COMPLÈTE v23 - Ajout Modèle SiteSetting)
 
 import secrets
 from datetime import datetime, timezone
@@ -46,6 +46,7 @@ class User(UserMixin, db.Model):
     telegram_username = db.Column(db.String(100), nullable=True, index=True)
     is_verified = db.Column(db.Boolean, default=False, nullable=False, index=True)
 
+    # Relations
     referrer = relationship('User', remote_side=[id], back_populates='referred_users')
     referred_users = relationship('User', back_populates='referrer', foreign_keys=[referred_by_id])
     completed_tasks_rel = relationship('UserTaskCompletion', back_populates='user', lazy='dynamic', foreign_keys='UserTaskCompletion.user_id')
@@ -219,3 +220,17 @@ class Comment(db.Model):
     author = relationship('User', back_populates='comments')
     post = relationship('Post', back_populates='comments')
     def __repr__(self): return f'<Comment {self.id} by User {self.user_id} on Post {self.post_id}>'
+
+# <<< NOUVEAU MODÈLE SiteSetting >>>
+class SiteSetting(db.Model):
+    __tablename__ = 'site_setting'
+    # Utilise un ID simple, on s'assurera qu'il n'y a qu'une seule ligne via la logique des routes
+    id = db.Column(db.Integer, primary_key=True, default=1)
+    custom_head_scripts = db.Column(db.Text, nullable=True)
+    custom_footer_scripts = db.Column(db.Text, nullable=True)
+    last_updated = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    def __repr__(self):
+        return f'<SiteSetting {self.id}>'
+# <<< FIN NOUVEAU MODÈLE SiteSetting >>>
+

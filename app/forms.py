@@ -1,8 +1,8 @@
-# app/forms.py (VERSION COMPLÈTE v15 - Ajout parent_id à CommentForm)
+# app/forms.py (VERSION COMPLÈTE v15 - Ajout SiteSettingsForm)
 from flask_wtf import FlaskForm
 from wtforms import (StringField, PasswordField, SubmitField, SelectField,
                      BooleanField, TextAreaField, DecimalField, SelectMultipleField,
-                     ValidationError, URLField, HiddenField) # HiddenField ajouté
+                     ValidationError, URLField, HiddenField) # HiddenField était déjà là
 from wtforms import widgets
 from wtforms.validators import (DataRequired, Email, EqualTo, Length, ValidationError,
                               NumberRange, Optional, URL, Regexp)
@@ -235,7 +235,15 @@ class PostForm(FlaskForm):
 # --- Formulaire pour les Commentaires du Blog ---
 class CommentForm(FlaskForm):
     body = TextAreaField(_l('Votre commentaire'), validators=[DataRequired(_l('Le commentaire ne peut pas être vide.'))], render_kw={'rows': 3})
-    # <<< CHAMP CACHÉ POUR L'ID DU COMMENTAIRE PARENT (pour les réponses) >>>
-    parent_id = HiddenField()
+    parent_id = HiddenField() # Pour les réponses aux commentaires
     submit = SubmitField(_l('Envoyer le Commentaire'))
 
+# <<< NOUVEAU FORMULAIRE POUR LES PARAMÈTRES DU SITE >>>
+class SiteSettingsForm(FlaskForm):
+    custom_head_scripts = TextAreaField(_l('Scripts Personnalisés pour <head>'),
+                                        description=_l("Collez ici les codes à insérer juste avant la balise </head> (ex: Google Analytics, balises meta de vérification)."),
+                                        render_kw={'rows': 10})
+    custom_footer_scripts = TextAreaField(_l('Scripts Personnalisés pour le Pied de Page'),
+                                          description=_l("Collez ici les codes à insérer juste avant la balise </body> (ex: scripts de chat, pixels de suivi)."),
+                                          render_kw={'rows': 10})
+    submit = SubmitField(_l('Enregistrer les Paramètres'))

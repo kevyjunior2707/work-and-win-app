@@ -1,4 +1,4 @@
-# app/__init__.py (VERSION COMPLÈTE v15 - Correction Import Circulaire)
+# app/__init__.py (VERSION COMPLÈTE v16 - Ajout Context Processor SiteSettings)
 
 import os
 from flask import Flask, request, g, current_app, session
@@ -11,18 +11,20 @@ from flask_mail import Mail
 from sqlalchemy import select, func
 from datetime import datetime, timezone
 import json
+# <<< Import des modèles Notification, Banner, et SiteSetting >>>
+from .models import Notification, Banner, SiteSetting # Assurez-vous que SiteSetting est bien ici
 
-# Initialisation des extensions (SANS app au niveau global)
+# Initialisation des extensions
 db = SQLAlchemy()
 migrate = Migrate()
 login = LoginManager()
-login.login_view = 'auth.login' # Point d'entrée pour la page de connexion
+login.login_view = 'auth.login'
 login.login_message = _l('Veuillez vous connecter pour accéder à cette page.')
-login.login_message_category = 'info' # Catégorie Bootstrap pour le message flash
+login.login_message_category = 'info'
 babel = Babel()
 mail = Mail()
 
-# Fonction de sélection de la langue (doit utiliser current_app pour la config)
+# Fonction de sélection de la langue
 def get_locale():
     lang = request.args.get('lang')
     if lang and lang in current_app.config['LANGUAGES']:
@@ -37,20 +39,18 @@ def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
-    # Lie les extensions à l'instance de l'application créée
     db.init_app(app)
     migrate.init_app(app, db)
     login.init_app(app)
     babel.init_app(app, locale_selector=get_locale)
     mail.init_app(app)
 
-    # --- Configuration du dossier d'upload ---
     upload_folder = app.config.get('UPLOAD_FOLDER', os.path.join(app.root_path, 'static/uploads'))
     os.makedirs(upload_folder, exist_ok=True)
     os.makedirs(os.path.join(upload_folder, 'tasks'), exist_ok=True)
     os.makedirs(os.path.join(upload_folder, 'banners'), exist_ok=True)
+    os.makedirs(os.path.join(upload_folder, 'blog_posts'), exist_ok=True)
 
-    # --- Fonctions exécutées avant chaque requête ---
     @app.before_request
     def before_request():
         selected_locale = get_locale()
@@ -58,24 +58,18 @@ def create_app(config_class=Config):
         g.locale_display_name = app.config['LANGUAGES'].get(g.locale, g.locale)
         g.current_year = datetime.now(timezone.utc).year
 
-    # --- Processeurs de Contexte (variables globales pour templates) ---
     @app.context_processor
     def inject_notifications():
         unread_count = 0
-        # Import local pour éviter dépendance circulaire au démarrage
-        # et pour que le modèle Notification soit déjà connu par SQLAlchemy via l'import final
-        from .models import Notification
+        # Notification est déjà importé en haut du fichier via from .models import ...
         if current_user.is_authenticated and not current_user.is_admin:
             try:
-                # Utilise le contexte de l'application pour être sûr d'avoir accès à db
-                # Cela est implicite si le context processor est appelé pendant une requête
+                # Pas besoin de app.app_context() ici car on est dans une requête
                 unread_count = db.session.scalar(
                     db.select(func.count(Notification.id))
                     .where(Notification.user_id == current_user.id, Notification.is_read == False)
                 ) or 0
             except Exception as e:
-                # En cas d'erreur (ex: BDD pas encore initialisée pendant les migrations),
-                # évite de planter toute l'application.
                 app.logger.error(f"Erreur lors du comptage des notifications: {e}")
                 unread_count = 0
         return dict(unread_notification_count=unread_count)
@@ -84,10 +78,8 @@ def create_app(config_class=Config):
     def inject_banners():
         active_top_banner = None
         active_bottom_banner = None
-        # Import local
-        from .models import Banner
+        # Banner est déjà importé en haut du fichier
         try:
-            # Pas besoin de app.app_context() ici car on est déjà dans un contexte de requête
             active_top_banner = db.session.scalars(
                 select(Banner).where(
                     Banner.is_active == True,
@@ -106,9 +98,31 @@ def create_app(config_class=Config):
             active_top_banner=active_top_banner,
             active_bottom_banner=active_bottom_banner
         )
-    # --- Fin Processeurs de Contexte ---
 
-    # --- Enregistrement des Blueprints ---
+    # <<< NOUVEAU CONTEXT PROCESSOR POUR LES PARAMÈTRES DU SITE >>>
+    @app.context_processor
+    def inject_site_settings():
+        # SiteSetting est déjà importé en haut du fichier
+        settings = None
+        custom_head = ''
+        custom_footer = ''
+        try:
+            # Récupère l'unique enregistrement (ou le premier s'il y en avait plusieurs par erreur)
+            settings = db.session.scalars(select(SiteSetting).filter_by(id=1).limit(1)).first()
+            if settings:
+                custom_head = settings.custom_head_scripts or ''
+                custom_footer = settings.custom_footer_scripts or ''
+        except Exception as e:
+            # Ne pas planter l'application si la table n'existe pas encore (ex: pendant les migrations initiales)
+            # ou si la base de données n'est pas accessible.
+            app.logger.warning(f"Erreur lors de la récupération des SiteSettings (peut être normal pendant les migrations): {e}")
+        
+        return dict(
+            custom_head_scripts=custom_head,
+            custom_footer_scripts=custom_footer
+        )
+    # <<< FIN NOUVEAU CONTEXT PROCESSOR >>>
+
     from app.auth import bp as auth_bp
     app.register_blueprint(auth_bp, url_prefix='/auth')
     from app.main import bp as main_bp
@@ -116,13 +130,11 @@ def create_app(config_class=Config):
     from app.admin import bp as admin_bp
     app.register_blueprint(admin_bp, url_prefix='/admin')
 
-    # --- Log de démarrage ---
     if not app.debug and not app.testing:
-        # Configuration de logs plus avancés pour la production ici si nécessaire
         pass
     app.logger.info('Work and Win startup')
 
     return app
 
-# <<< L'IMPORT DES MODÈLES EST MAINTENANT À LA FIN >>>
+# L'import des modèles est crucial et doit rester à la fin
 from app import models

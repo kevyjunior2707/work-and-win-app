@@ -1,4 +1,4 @@
-{# app/admin/templates/admin_home.html (Statistiques et Modération Commentaires) #}
+{# app/admin/templates/admin_home.html (Avec Paramètres Site et Stats Debug) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -169,6 +169,19 @@
                 </div>
             </div>
         </div>
+        {# <<< NOUVELLE CARTE : Paramètres du Site >>> #}
+        <div class="col-md-6 col-lg-4 d-flex align-items-stretch">
+            <div class="card h-100 shadow-sm w-100">
+                 <div class="card-body d-flex flex-column">
+                    <h5 class="card-title"><i class="bi bi-sliders"></i> {{ _('Paramètres du Site') }}</h5>
+                    <p class="card-text flex-grow-1"><small>{{ _('Gérer les scripts personnalisés pour l\'en-tête et le pied de page.') }}</small></p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('admin.site_settings') }}" class="btn btn-primary btn-sm">{{ _('Gérer les Paramètres') }}</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {# <<< FIN NOUVELLE CARTE >>> #}
     </div>
     {# --- Fin Actions Rapides --- #}
 
@@ -178,12 +191,12 @@
 {# --- Bloc Scripts pour Chart.js --- #}
 {% block scripts %}
     {{ super() }}
-    {# La clé TinyMCE est dans create_post.html, pas besoin ici sauf si un autre éditeur est sur cette page #}
+    {# Le script TinyMCE n'est pas nécessaire ici, seulement sur create_post.html #}
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', (event) => {
             const chartData = {{ chart_data | tojson | safe }};
-            console.log("Données pour les graphiques (admin_home):", chartData); // DEBUG: Affiche toutes les données
+            console.log("Données pour les graphiques (admin_home):", chartData); // DEBUG
 
             const labels = chartData.labels;
             const wwBlue = '#2d92d0';
@@ -191,7 +204,7 @@
             const wwGray = '#6c757d';
 
             function createLineChart(canvasId, label, data, color) {
-                console.log(`Création graphique pour ${canvasId}:`, "Labels:", labels, "Data:", data); // DEBUG: Affiche données spécifiques au graphique
+                console.log(`Création graphique pour ${canvasId}:`, "Labels:", labels, "Data:", data); // DEBUG
                 const ctx = document.getElementById(canvasId);
                 if (!ctx) {
                     console.error(`Canvas element with id "${canvasId}" not found.`);
@@ -212,16 +225,16 @@
                     },
                     options: {
                         responsive: true,
-                        maintainAspectRatio: true, // Peut être mis à false si vous gérez la taille du canvas avec CSS
+                        maintainAspectRatio: true,
                         scales: {
                             y: {
                                 beginAtZero: true,
-                                suggestedMax: 5 // Force l'axe Y à monter au moins jusqu'à 5, même si les données sont à 0
+                                suggestedMax: 5 // Force l'axe Y à monter au moins jusqu'à 5
                             }
                         },
                         plugins: {
                             legend: {
-                                display: false // Cache la légende par défaut
+                                display: false
                             }
                         }
                     }
@@ -234,7 +247,6 @@
                 createLineChart('earningsChart', '{{ _("Gains ($)") }}', chartData.earnings, wwGreen);
             } else {
                 console.log("Aucune donnée de label disponible pour rendre les graphiques sur admin_home.");
-                // Affiche un message si pas de données
                 const chartContainers = ['registrationsChart', 'completionsChart', 'earningsChart'];
                 const messages = ['{{_("Pas de données pour le graphique des inscriptions.")}}',
                                   '{{_("Pas de données pour le graphique des accomplissements.")}}',

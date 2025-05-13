@@ -8,10 +8,12 @@ from app.admin import bp
 # Ajout de BannerForm et PostForm
 from app.forms import (TaskForm, countries_choices_multi, devices_choices_multi,
                        countries_choices_single, devices_choices_single,
-                       AdminResetPasswordForm, AddAdminForm, BannerForm, PostForm)
+                       AdminResetPasswordForm, AddAdminForm, BannerForm, PostForm,
+                       SiteSettingsForm)
 # Ajout des modèles Banner, Post, Comment et de la fonction slugify
 from app.models import (Task, UserTaskCompletion, ExternalTaskCompletion, User,
-                        Withdrawal, Notification, ReferralCommission, Banner, Post, Comment)
+                        Withdrawal, Notification, ReferralCommission, Banner, Post, Comment, 
+                        SiteSetting)
 from app.decorators import admin_required, super_admin_required
 from sqlalchemy import select, or_, func
 from sqlalchemy.orm import joinedload
@@ -911,3 +913,51 @@ def toggle_comment_approved(comment_id):
         flash(_('Erreur lors du changement de statut du commentaire: %(error)s', error=str(e)), 'danger')
     # Redirige vers la page précédente (manage_comments) en conservant la page de pagination
     return redirect(request.referrer or url_for('admin.manage_comments'))
+# À ajouter à la fin de app/admin/routes.py (ou avant une section de fin de fichier si elle existe)
+
+# <<< NOUVELLE ROUTE POUR LES PARAMÈTRES DU SITE >>>
+@bp.route('/site-settings', methods=['GET', 'POST'])
+@login_required
+@super_admin_required # Assurez-vous que ce décorateur est bien défini et importé si vous l'utilisez
+                      # ou remplacez par @admin_required si tous les admins peuvent y accéder.
+def site_settings():
+    # Il n'y aura qu'une seule ligne de paramètres, avec id=1 (ou un autre ID fixe si vous préférez)
+    # Essayons de récupérer l'enregistrement. S'il n'existe pas, nous le créons.
+    settings = db.session.get(SiteSetting, 1) # Tente de récupérer l'enregistrement avec id=1
+    if settings is None:
+        # Si aucun enregistrement n'existe, créez-en un avec l'id=1
+        settings = SiteSetting(id=1, custom_head_scripts='', custom_footer_scripts='')
+        db.session.add(settings)
+        try:
+            db.session.commit()
+            # Récupère à nouveau après la création pour s'assurer qu'on a l'objet de la session
+            settings = db.session.get(SiteSetting, 1)
+        except Exception as e:
+            db.session.rollback()
+            flash(_("Erreur lors de l'initialisation des paramètres du site: %(error)s", error=str(e)), 'danger')
+            current_app.logger.error(f"Erreur initialisation SiteSetting: {e}")
+            return redirect(url_for('admin.index')) # Redirige si erreur critique
+
+    form = SiteSettingsForm(obj=settings) # Pré-remplit avec les données existantes
+
+    if form.validate_on_submit():
+        settings.custom_head_scripts = form.custom_head_scripts.data
+        settings.custom_footer_scripts = form.custom_footer_scripts.data
+        try:
+            db.session.commit()
+            flash(_('Paramètres du site mis à jour avec succès !'), 'success')
+            return redirect(url_for('admin.site_settings')) # Redirige vers la même page
+        except Exception as e:
+            db.session.rollback()
+            flash(_("Erreur lors de la sauvegarde des paramètres : %(error)s", error=str(e)), 'danger')
+            current_app.logger.error(f"Erreur sauvegarde SiteSetting: {e}")
+
+    # Si c'est une requête GET, ou si la validation du formulaire a échoué,
+    # on pré-remplit le formulaire avec les données de la base (déjà fait par obj=settings)
+    # Mais on peut le refaire explicitement pour être sûr, surtout si obj=None était utilisé pour POST
+    if request.method == 'GET':
+        form.custom_head_scripts.data = settings.custom_head_scripts or ''
+        form.custom_footer_scripts.data = settings.custom_footer_scripts or ''
+
+    return render_template('site_settings.html', title=_('Paramètres du Site (Scripts Head/Footer)'), form=form)
+# <<< FIN NOUVELLE ROUTE >>>
