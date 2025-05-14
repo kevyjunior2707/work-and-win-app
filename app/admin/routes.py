@@ -35,31 +35,39 @@ def get_available_endpoints():
     Exclut les endpoints statiques et ceux du blueprint admin lui-même.
     """
     endpoints = []
+    # Mappage manuel des endpoints vers des noms conviviaux
+    # C'est ici que nous allons ajouter/corriger les noms.
     endpoint_names = {
-        'main.index': _l('Page d\'Accueil'),
+        'main.index': _l('Page d'Accueil'),
         'main.dashboard': _l('Tableau de Bord Utilisateur'),
-        'main.available_tasks': _l('Tâches Disponibles'),
-        'main.completed_tasks': _l('Mes Tâches Accomplies'),
-        'main.withdraw': _l('Page de Retrait'),
-        'main.notifications': _l('Mes Notifications'),
-        'main.profile': _l('Mon Profil'),
+        'main.available_tasks': _l('Tâches Disponibles (Utilisateur)'),
+        'main.completed_tasks': _l('Mes Tâches Accomplies (Utilisateur)'),
+        'main.withdraw': _l('Page de Retrait (Utilisateur)'),
+        'main.notifications': _l('Mes Notifications (Utilisateur)'),
+        'main.profile': _l('Mon Profil (Utilisateur)'),
         'main.blog_index': _l('Blog - Page Principale'),
-        'main.view_post': _l('Blog - Vue d\'un Article (Générique)'),
+        'main.view_post': _l('Blog - Vue d'un Article (Page individuelle)'),
+        'main.view_external_task': _l('Vue Publique Tâche (pour partage/parrainage)'),
         'auth.login': _l('Page de Connexion'),
-        'auth.register': _l('Page d\'Inscription'),
-        'auth.forgot_password_info': _l('Page Mot de Passe Oublié'),
+        'auth.register': _l('Page d'Inscription'),
+        'auth.logout': _l('Action de Déconnexion (pas une page visible)'),
+        'auth.reset_password_request': _l('Demande de Réinitialisation MDP'),
+        'auth.reset_password': _l('Page de Réinitialisation MDP (avec token)'),
+        'auth.verify_email': _l('Page de Vérification Email (après clic lien)'),
+        'auth.resend_verification_email': _l('Action de Renvoi Email Vérification'),
     }
     excluded_prefixes = ['static', '_debug_toolbar']
+    unique_endpoints_added = set()
+
     if current_app:
         try:
             for rule in current_app.url_map.iter_rules():
-                if rule.endpoint and 'GET' in rule.methods and \
-                   not any(rule.endpoint.startswith(prefix) for prefix in excluded_prefixes) and \
-                   not rule.endpoint.startswith(bp.name + '.'):
-                    friendly_name = endpoint_names.get(rule.endpoint, rule.endpoint)
-                    current_endpoint_tuple = (rule.endpoint, friendly_name)
-                    if current_endpoint_tuple not in endpoints:
-                        endpoints.append(current_endpoint_tuple)
+                if rule.endpoint and 'GET' in rule.methods and                    not any(rule.endpoint.startswith(prefix) for prefix in excluded_prefixes) and                    not rule.endpoint.startswith(bp.name + '.'):
+                    display_name = endpoint_names.get(rule.endpoint, rule.endpoint)
+                    if rule.endpoint not in unique_endpoints_added:
+                        endpoints.append((rule.endpoint, display_name))
+                        unique_endpoints_added.add(rule.endpoint)
+
             endpoints.sort(key=lambda x: x[1])
             current_app.logger.debug(f"Endpoints générés pour le formulaire : {endpoints}")
         except Exception as e:
@@ -142,7 +150,7 @@ def create_task():
         selected_countries = form.target_countries.data; countries_to_save = 'ALL' if 'ALL' in selected_countries or not selected_countries else ','.join(selected_countries)
         selected_devices = form.target_devices.data; devices_to_save = 'ALL' if 'ALL' in selected_devices or not selected_devices else ','.join(selected_devices)
         new_task = Task(
-            title=form.title.data, description=form.description.data,
+            title=form.title.data, description = form.description.data if form.description.data else None,
             instructions=form.instructions.data, task_link=form.task_link.data,
             reward_amount=form.reward_amount.data, target_countries=countries_to_save,
             target_devices=devices_to_save, is_active=form.is_active.data,
@@ -212,7 +220,7 @@ def edit_task(task_id):
         old_status = task.is_active
         selected_countries = form.target_countries.data; countries_to_save = 'ALL' if 'ALL' in selected_countries or not selected_countries else ','.join(selected_countries)
         selected_devices = form.target_devices.data; devices_to_save = 'ALL' if 'ALL' in selected_devices or not selected_devices else ','.join(selected_devices)
-        task.title=form.title.data; task.description=form.description.data; task.instructions=form.instructions.data; task.task_link=form.task_link.data; task.reward_amount=form.reward_amount.data; task.target_countries=countries_to_save; task.target_devices=devices_to_save; task.is_active=form.is_active.data
+        task.title=form.title.data; task.description = form.description.data if form.description.data else None; task.instructions=form.instructions.data; task.task_link=form.task_link.data; task.reward_amount=form.reward_amount.data; task.target_countries=countries_to_save; task.target_devices=devices_to_save; task.is_active=form.is_active.data
         task.is_daily=form.is_daily.data
         try:
             db.session.commit()
@@ -967,9 +975,9 @@ def manage_custom_scripts():
             name=form.name.data,
             script_code=form.script_code.data,
             location=form.location.data,
-            excluded_endpoints=form.excluded_endpoints.data,
+            excluded_endpoints = ','.join(form.excluded_endpoints.data) if form.excluded_endpoints.data else None,
             is_active=form.is_active.data,
-            description=form.description.data
+            description = form.description.data if form.description.data else None
         )
         try:
             db.session.add(new_script)
@@ -995,9 +1003,9 @@ def edit_custom_script(script_id):
         script_to_edit.name = form.name.data
         script_to_edit.script_code = form.script_code.data
         script_to_edit.location = form.location.data
-        script_to_edit.excluded_endpoints = form.excluded_endpoints.data
+        script_to_edit.excluded_endpoints = ','.join(form.excluded_endpoints.data) if form.excluded_endpoints.data else None
         script_to_edit.is_active = form.is_active.data
-        script_to_edit.description = form.description.data
+        script_to_edit.description = form.description.data if form.description.data else None if form.description.data else None
         try:
             db.session.commit()
             flash(_('Script personnalisé "%(name)s" mis à jour avec succès !', name=script_to_edit.name), 'success')
