@@ -38,7 +38,7 @@ def get_available_endpoints():
     # Mappage manuel des endpoints vers des noms conviviaux
     # C'est ici que nous allons ajouter/corriger les noms.
     endpoint_names = {
-        'main.index': _l('Page d'Accueil'),
+        'main.index': _l('Page d\'Accueil'),
         'main.dashboard': _l('Tableau de Bord Utilisateur'),
         'main.available_tasks': _l('Tâches Disponibles (Utilisateur)'),
         'main.completed_tasks': _l('Mes Tâches Accomplies (Utilisateur)'),
@@ -46,10 +46,10 @@ def get_available_endpoints():
         'main.notifications': _l('Mes Notifications (Utilisateur)'),
         'main.profile': _l('Mon Profil (Utilisateur)'),
         'main.blog_index': _l('Blog - Page Principale'),
-        'main.view_post': _l('Blog - Vue d'un Article (Page individuelle)'),
+        'main.view_post': _l('Blog - Vue d\'un Article (Page individuelle)'),
         'main.view_external_task': _l('Vue Publique Tâche (pour partage/parrainage)'),
         'auth.login': _l('Page de Connexion'),
-        'auth.register': _l('Page d'Inscription'),
+        'auth.register': _l('Page d\'Inscription'),
         'auth.logout': _l('Action de Déconnexion (pas une page visible)'),
         'auth.reset_password_request': _l('Demande de Réinitialisation MDP'),
         'auth.reset_password': _l('Page de Réinitialisation MDP (avec token)'),
