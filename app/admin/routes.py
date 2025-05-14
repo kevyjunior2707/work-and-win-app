@@ -2,7 +2,7 @@
 
 from flask import render_template, redirect, url_for, flash, request, abort, current_app, send_from_directory
 from flask_login import login_required, current_user
-from flask_babel import _
+from flask_babel import _, lazy_gettext as _l
 from app import db
 from app.admin import bp
 # Ajout de BannerForm et PostForm
@@ -35,8 +35,6 @@ def get_available_endpoints():
     Exclut les endpoints statiques et ceux du blueprint admin lui-même.
     """
     endpoints = []
-    # Mappage manuel des endpoints vers des noms conviviaux
-    # Étendez cette liste au fur et à mesure que vous ajoutez des pages importantes.
     endpoint_names = {
         'main.index': _l('Page d\'Accueil'),
         'main.dashboard': _l('Tableau de Bord Utilisateur'),
@@ -46,24 +44,18 @@ def get_available_endpoints():
         'main.notifications': _l('Mes Notifications'),
         'main.profile': _l('Mon Profil'),
         'main.blog_index': _l('Blog - Page Principale'),
-        'main.view_post': _l('Blog - Vue d\'un Article'),  # Nom générique car le slug change
+        'main.view_post': _l('Blog - Vue d\'un Article (Générique)'),
         'auth.login': _l('Page de Connexion'),
         'auth.register': _l('Page d\'Inscription'),
-        'auth.forgot_password_info': _l('Page Info Mot de Passe Oublié'),
-        'auth.logout': _l('Action de Déconnexion (pas une page)'),
-        'auth.verify_email': _l('Page de Vérification Email (via lien)'),
-        'main.view_external_task': _l('Vue Publique Tâche (pour partage)'),
+        'auth.forgot_password_info': _l('Page Mot de Passe Oublié'),
     }
-    # Préfixes des endpoints à exclure systématiquement
     excluded_prefixes = ['static', '_debug_toolbar']
-    
-    if current_app:  # S'assurer que current_app est disponible
+    if current_app:
         try:
             for rule in current_app.url_map.iter_rules():
                 if rule.endpoint and 'GET' in rule.methods and \
                    not any(rule.endpoint.startswith(prefix) for prefix in excluded_prefixes) and \
-                   not rule.endpoint.startswith(bp.name + '.'):  # bp.name est 'admin' pour ce blueprint
-
+                   not rule.endpoint.startswith(bp.name + '.'):
                     friendly_name = endpoint_names.get(rule.endpoint, rule.endpoint)
                     current_endpoint_tuple = (rule.endpoint, friendly_name)
                     if current_endpoint_tuple not in endpoints:
@@ -968,6 +960,8 @@ def toggle_comment_approved(comment_id):
 @super_admin_required # Ou @admin_required si tous les admins peuvent gérer
 def manage_custom_scripts():
     form = CustomScriptForm()
+    form.excluded_endpoints.choices = get_available_endpoints()
+    current_app.logger.debug(f"Choix pour excluded_endpoints (manage) : {form.excluded_endpoints.choices}")
     if form.validate_on_submit():
         new_script = CustomScript(
             name=form.name.data,
