@@ -1,4 +1,4 @@
-{# app/admin/templates/manage_custom_scripts.html (Gestion des Scripts Personnalisés) #}
+{# app/admin/templates/manage_custom_scripts.html (Fix CSRF Token) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -22,7 +22,7 @@
     <div class="card shadow-sm mb-4">
         <div class="card-body">
             <form action="{{ url_for('admin.manage_custom_scripts') }}" method="post" novalidate>
-                {{ form.hidden_tag() }} {# Protection CSRF #}
+                {{ form.hidden_tag() }} {# Protection CSRF pour CE formulaire d'ajout #}
                 <div class="row g-3">
                     <div class="col-md-6 mb-3">
                         {{ form.name.label(class="form-label") }}
@@ -39,19 +39,14 @@
                         {{ form.script_code(class="form-control form-control-sm font-monospace" + (" is-invalid" if form.script_code.errors else ""), rows="8") }}
                         {% if form.script_code.errors %}<div class="invalid-feedback d-block">{% for error in form.script_code.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
                     </div>
-
-                    {# Champ pour les pages à exclure (SelectMultipleField) #}
                     <div class="col-12 mb-3">
                         {{ form.excluded_endpoints.label(class="form-label") }}
-                        {# Le widget ListWidget et CheckboxInput affichera cela comme une liste de cases à cocher #}
-                        {# On peut l'entourer d'un div scrollable si la liste est longue #}
                         <div class="border p-2 rounded" style="max-height: 200px; overflow-y: auto;">
-                            {{ form.excluded_endpoints(class="form-check-input-group") }} {# Pas de classe form-control ici #}
+                            {{ form.excluded_endpoints(class="form-check-input-group") }}
                         </div>
                         {% if form.excluded_endpoints.errors %}<div class="invalid-feedback d-block">{% for error in form.excluded_endpoints.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
                         <small class="form-text text-muted">{{ _("Cochez les pages où ce script NE doit PAS s'afficher. Laissez tout décoché pour l'afficher partout (selon son emplacement head/footer).") }}</small>
                     </div>
-
                      <div class="col-12 mb-3">
                         {{ form.description.label(class="form-label") }}
                         {{ form.description(class="form-control form-control-sm" + (" is-invalid" if form.description.errors else ""), rows="2") }}
@@ -115,13 +110,15 @@
                         <td class="text-end text-nowrap">
                             <a href="{{ url_for('admin.edit_custom_script', script_id=script_item.id) }}" class="btn btn-sm btn-outline-primary" title="{{ _('Modifier') }}"><i class="bi bi-pencil-square"></i></a>
                             <form action="{{ url_for('admin.toggle_custom_script_active', script_id=script_item.id) }}" method="post" style="display: inline;">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> {# CSRF pour les actions POST #}
+                                {# <<< CORRECTION CSRF TOKEN ICI >>> #}
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/>
                                 <button type="submit" class="btn btn-sm {% if script_item.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}" title="{{ _('Activer/Désactiver') }}">
                                     {% if script_item.is_active %}<i class="bi bi-toggle-off"></i>{% else %}<i class="bi bi-toggle-on"></i>{% endif %}
                                 </button>
                             </form>
                             <form action="{{ url_for('admin.delete_custom_script', script_id=script_item.id) }}" method="post" style="display: inline;">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> {# CSRF pour les actions POST #}
+                                {# <<< CORRECTION CSRF TOKEN ICI >>> #}
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/>
                                 <button type="submit" class="btn btn-sm btn-outline-danger" title="{{ _('Supprimer') }}" onclick="return confirm('{{ _('Êtes-vous sûr de vouloir supprimer ce script personnalisé ?') }}');"><i class="bi bi-trash3"></i></button>
                             </form>
                         </td>

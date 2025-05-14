@@ -963,21 +963,24 @@ def toggle_comment_approved(comment_id):
 # À ajouter à la fin de app/admin/routes.py
 
 # <<< NOUVELLES ROUTES POUR LA GESTION DES SCRIPTS PERSONNALISÉS >>>
+
 @bp.route('/custom-scripts', methods=['GET', 'POST'])
 @login_required
 @super_admin_required # Ou @admin_required si tous les admins peuvent gérer
 def manage_custom_scripts():
     form = CustomScriptForm()
     form.excluded_endpoints.choices = get_available_endpoints()
-    current_app.logger.debug(f"Choix pour excluded_endpoints (manage) : {form.excluded_endpoints.choices}")
-    if form.validate_on_submit():
+    current_app.logger.debug(f"Choix pour excluded_endpoints (manage GET/début POST) : {form.excluded_endpoints.choices}")
+
+    if form.validate_on_submit(): # Logique pour l'ajout d'un nouveau script
+        excluded_endpoints_str = ','.join(form.excluded_endpoints.data) if form.excluded_endpoints.data else None
         new_script = CustomScript(
             name=form.name.data,
             script_code=form.script_code.data,
             location=form.location.data,
-            excluded_endpoints = ','.join(form.excluded_endpoints.data) if form.excluded_endpoints.data else None,
+            excluded_endpoints=excluded_endpoints_str,
             is_active=form.is_active.data,
-            description = form.description.data if form.description.data else None
+            description=form.description.data if form.description.data else None
         )
         try:
             db.session.add(new_script)
@@ -989,8 +992,15 @@ def manage_custom_scripts():
             flash(_("Erreur lors de l'ajout du script personnalisé : %(error)s", error=str(e)), 'danger')
             current_app.logger.error(f"Erreur ajout CustomScript: {e}")
 
+    # Pour la requête GET (affichage de la liste et du formulaire d'ajout vide)
     scripts = db.session.scalars(select(CustomScript).order_by(CustomScript.name)).all()
-    return render_template('manage_custom_scripts.html', title=_('Gérer les Scripts Personnalisés'), form=form, scripts=scripts)
+    csrf_token_value = generate_csrf() # Génère un token pour les formulaires d'action dans la liste
+
+    return render_template('manage_custom_scripts.html',
+                           title=_('Gérer les Scripts Personnalisés'),
+                           form=form, # Formulaire pour l'ajout
+                           scripts=scripts, # Liste des scripts existants
+                           csrf_token=csrf_token_value) # Token pour les actions de la liste
 
 @bp.route('/custom-script/<int:script_id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -1055,35 +1065,3 @@ def toggle_custom_script_active(script_id):
         current_app.logger.error(f"Erreur toggle CustomScript {script_id}: {e}")
     return redirect(url_for('admin.manage_custom_scripts'))
 # <<< FIN NOUVELLES ROUTES POUR SCRIPTS PERSONNALISÉS >>>
-# VVVVVV COLLEZ CE BLOC DE CODE TOUT À LA FIN DE VOTRE FICHIER app/admin/routes.py VVVVVV
-
-# ATTENTION : ROUTE TEMPORAIRE À SUPPRIMER APRÈS UTILISATION
-@bp.route('/make-me-super-admin-now/activation-speciale-xyz258') # URL secrète
-@login_required # L'utilisateur doit être connecté pour accéder à cette route
-def temp_make_super_admin():
-    # Vérifie si l'utilisateur connecté est celui attendu
-    if current_user.email == 'pp364598@gmail.com':
-        try:
-            # Récupère l'objet utilisateur de la session de base de données pour le modifier
-            user_to_promote = db.session.get(User, current_user.id)
-            if user_to_promote:
-                user_to_promote.is_admin = True
-                user_to_promote.is_super_admin = True
-                db.session.commit()
-                flash(_('Vous avez été défini comme Super Administrateur ! Veuillez supprimer cette route temporaire maintenant.'), 'success')
-                current_app.logger.info(f"User {user_to_promote.email} a été défini comme super admin via la route temporaire.")
-            else:
-                flash(_('Utilisateur non trouvé dans la session de base de données.'), 'danger')
-                current_app.logger.warning(f"Tentative d'utilisation de la route temp_make_super_admin mais l'utilisateur {current_user.email} (ID: {current_user.id}) n'a pas été trouvé avec db.session.get().")
-        except Exception as e:
-            db.session.rollback()
-            flash(_('Erreur lors de la définition du super admin : %(error)s', error=str(e)), 'danger')
-            current_app.logger.error(f"Erreur lors de la définition du super admin pour {current_user.email}: {e}")
-    else:
-        # Si un autre utilisateur connecté essaie d'accéder à cette URL
-        flash(_('Accès non autorisé à cette fonction. Cette action est réservée.'), 'danger')
-        current_app.logger.warning(f"Tentative d'accès non autorisé à temp_make_super_admin par {current_user.email if current_user.is_authenticated else 'un utilisateur non connecté'}.")
-    
-    # Redirige vers le tableau de bord admin dans tous les cas après la tentative
-    return redirect(url_for('admin.index'))
-# ^^^^^^ FIN DE LA ROUTE TEMPORAIRE ^^^^^^
