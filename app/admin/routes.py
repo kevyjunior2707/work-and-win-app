@@ -32,11 +32,9 @@ from app.main.routes import allowed_file
 def get_available_endpoints():
     """
     Récupère une liste de tous les endpoints de l'application avec des noms conviviaux.
-    Exclut les endpoints statiques et ceux du blueprint admin lui-même pour éviter la récursion ou la confusion.
+    Exclut les endpoints statiques et ceux du blueprint admin lui-même.
     """
     endpoints = []
-    # Mappage manuel des endpoints vers des noms conviviaux
-    # Vous pouvez étendre cette liste au fur et à mesure que vous ajoutez des pages
     endpoint_names = {
         'main.index': _l('Page d\'Accueil'),
         'main.dashboard': _l('Tableau de Bord Utilisateur'),
@@ -46,26 +44,26 @@ def get_available_endpoints():
         'main.notifications': _l('Mes Notifications'),
         'main.profile': _l('Mon Profil'),
         'main.blog_index': _l('Blog - Page Principale'),
-        'main.view_post': _l('Blog - Vue d\'un Article'), # Ce sera un endpoint générique
+        'main.view_post': _l('Blog - Vue d\'un Article (Générique)'),
         'auth.login': _l('Page de Connexion'),
         'auth.register': _l('Page d\'Inscription'),
         'auth.forgot_password_info': _l('Page Mot de Passe Oublié'),
-        # Ajoutez d'autres endpoints importants ici
     }
-    try:
-        for rule in current_app.url_map.iter_rules():
-            # Exclure les endpoints statiques et ceux du blueprint admin lui-même
-            if rule.endpoint and not rule.endpoint.startswith('static') and not rule.endpoint.startswith('admin.'):
-                # Utilise un nom convivial s'il est défini, sinon l'endpoint lui-même
-                friendly_name = endpoint_names.get(rule.endpoint, rule.endpoint)
-                # Évite les doublons si plusieurs règles mènent au même endpoint
-                if (rule.endpoint, friendly_name) not in endpoints:
-                    # On stocke le nom technique (endpoint) comme valeur, et le nom convivial comme libellé
-                    endpoints.append((rule.endpoint, friendly_name))
-        # Trie par nom convivial
-        endpoints.sort(key=lambda x: x[1])
-    except Exception as e:
-        current_app.logger.error(f"Erreur lors de la récupération des endpoints: {e}")
+    excluded_prefixes = ['static', '_debug_toolbar']
+    if current_app:
+        try:
+            for rule in current_app.url_map.iter_rules():
+                if rule.endpoint and 'GET' in rule.methods and \
+                   not any(rule.endpoint.startswith(prefix) for prefix in excluded_prefixes) and \
+                   not rule.endpoint.startswith(bp.name + '.'):
+                    friendly_name = endpoint_names.get(rule.endpoint, rule.endpoint)
+                    current_endpoint_tuple = (rule.endpoint, friendly_name)
+                    if current_endpoint_tuple not in endpoints:
+                        endpoints.append(current_endpoint_tuple)
+            endpoints.sort(key=lambda x: x[1])
+            current_app.logger.debug(f"Endpoints générés pour le formulaire : {endpoints}")
+        except Exception as e:
+            current_app.logger.error(f"Erreur lors de la récupération des endpoints pour le formulaire: {e}")
     return endpoints
 
 # --- Fonctions utilitaires pour images (tâches, bannières, articles) ---
@@ -962,6 +960,8 @@ def toggle_comment_approved(comment_id):
 @super_admin_required # Ou @admin_required si tous les admins peuvent gérer
 def manage_custom_scripts():
     form = CustomScriptForm()
+    form.excluded_endpoints.choices = get_available_endpoints()
+    current_app.logger.debug(f"Choix pour excluded_endpoints (manage) : {form.excluded_endpoints.choices}")
     if form.validate_on_submit():
         new_script = CustomScript(
             name=form.name.data,
