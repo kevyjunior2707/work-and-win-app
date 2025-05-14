@@ -964,11 +964,15 @@ def toggle_comment_approved(comment_id):
 
 # <<< NOUVELLES ROUTES POUR LA GESTION DES SCRIPTS PERSONNALISÉS >>>
 
+# DANS app/admin/routes.py
+# REMPLACEZ la fonction manage_custom_scripts existante par celle-ci :
+
 @bp.route('/custom-scripts', methods=['GET', 'POST'])
 @login_required
-@super_admin_required # Ou @admin_required si tous les admins peuvent gérer
+@super_admin_required # Ou @admin_required
 def manage_custom_scripts():
     form = CustomScriptForm()
+    # Peuple les choix pour les endpoints à exclure AVANT toute validation ou rendu
     form.excluded_endpoints.choices = get_available_endpoints()
     current_app.logger.debug(f"Choix pour excluded_endpoints (manage GET/début POST) : {form.excluded_endpoints.choices}")
 
@@ -992,30 +996,53 @@ def manage_custom_scripts():
             flash(_("Erreur lors de l'ajout du script personnalisé : %(error)s", error=str(e)), 'danger')
             current_app.logger.error(f"Erreur ajout CustomScript: {e}")
 
-    # Pour la requête GET (affichage de la liste et du formulaire d'ajout vide)
+    # Pour la requête GET ou si la validation a échoué
     scripts = db.session.scalars(select(CustomScript).order_by(CustomScript.name)).all()
-    csrf_token_value = generate_csrf() # Génère un token pour les formulaires d'action dans la liste
-
+    csrf_token_value = generate_csrf()
     return render_template('manage_custom_scripts.html',
                            title=_('Gérer les Scripts Personnalisés'),
-                           form=form, # Formulaire pour l'ajout
-                           scripts=scripts, # Liste des scripts existants
-                           csrf_token=csrf_token_value) # Token pour les actions de la liste
+                           form=form,
+                           scripts=scripts,
+                           csrf_token=csrf_token_value)
+
+# DANS app/admin/routes.py
+# REMPLACEZ la fonction edit_custom_script existante par celle-ci :
 
 @bp.route('/custom-script/<int:script_id>/edit', methods=['GET', 'POST'])
 @login_required
 @super_admin_required # Ou @admin_required
 def edit_custom_script(script_id):
     script_to_edit = db.session.get(CustomScript, script_id) or abort(404)
-    form = CustomScriptForm(obj=script_to_edit) # Pré-remplit avec les données existantes
 
-    if form.validate_on_submit():
+    # Instancier le formulaire. Si c'est un POST, WTForms essaiera de peupler avec request.form
+    # Si c'est un GET, on passera obj=script_to_edit pour le pré-remplissage initial.
+    form = CustomScriptForm(obj=script_to_edit if request.method == 'GET' else None)
+
+    # Toujours peupler les choix, que ce soit GET ou POST (pour la validation et le re-rendu en cas d'erreur)
+    form.excluded_endpoints.choices = get_available_endpoints()
+    current_app.logger.debug(f"Choix pour excluded_endpoints (edit) : {form.excluded_endpoints.choices}")
+
+    if request.method == 'GET':
+        # Pré-remplir explicitement les champs qui pourraient ne pas l'être par 'obj'
+        # ou pour s'assurer du bon format (surtout pour SelectMultipleField)
+        form.name.data = script_to_edit.name
+        form.script_code.data = script_to_edit.script_code
+        form.location.data = script_to_edit.location
+        form.is_active.data = script_to_edit.is_active
+        form.description.data = script_to_edit.description
+        if script_to_edit.excluded_endpoints:
+            form.excluded_endpoints.data = script_to_edit.get_excluded_endpoints_list()
+        else:
+            form.excluded_endpoints.data = [] # Important pour SelectMultipleField
+
+    if form.validate_on_submit(): # S'exécute pour les requêtes POST valides
         script_to_edit.name = form.name.data
         script_to_edit.script_code = form.script_code.data
         script_to_edit.location = form.location.data
+        # form.excluded_endpoints.data sera une liste de strings (les endpoints cochés)
         script_to_edit.excluded_endpoints = ','.join(form.excluded_endpoints.data) if form.excluded_endpoints.data else None
         script_to_edit.is_active = form.is_active.data
-        script_to_edit.description = form.description.data if form.description.data else None if form.description.data else None
+        script_to_edit.description = form.description.data if form.description.data else None
         try:
             db.session.commit()
             flash(_('Script personnalisé "%(name)s" mis à jour avec succès !', name=script_to_edit.name), 'success')
@@ -1025,13 +1052,7 @@ def edit_custom_script(script_id):
             flash(_("Erreur lors de la mise à jour du script : %(error)s", error=str(e)), 'danger')
             current_app.logger.error(f"Erreur MAJ CustomScript {script_id}: {e}")
 
-    # Pour GET, le formulaire est déjà pré-rempli par obj=script_to_edit
-    # Mais on peut s'assurer que les champs Textarea sont bien remplis
-    if request.method == 'GET':
-        form.script_code.data = script_to_edit.script_code
-        form.excluded_endpoints.data = script_to_edit.excluded_endpoints
-        form.description.data = script_to_edit.description
-
+    # Si GET, ou si POST avec erreurs de validation, on affiche le formulaire
     return render_template('create_custom_script.html', title=_('Modifier le Script Personnalisé'), form=form, script=script_to_edit, is_edit=True)
 
 @bp.route('/custom-script/<int:script_id>/delete', methods=['POST'])
