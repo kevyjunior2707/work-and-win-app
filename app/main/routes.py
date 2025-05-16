@@ -42,17 +42,19 @@ def index():
     return render_template('index.html', title=_('Accueil'), warning_message=warning_message, latest_posts=latest_posts)
 
 # --- Route Tableau de Bord Utilisateur (MODIFIÉE) ---
+# DANS app/main/routes.py
+# Assurez-vous d'avoir : from flask_wtf.csrf import generate_csrf en haut du fichier
+
 @bp.route('/dashboard')
 @login_required
 def dashboard():
     if current_user.is_admin:
         return redirect(url_for('admin.index'))
 
-    warning_message = _("Nous appliquons une politique de tolérance zéro envers la triche, l'utilisation de VPN/proxys, ou la création de comptes multiples. Toute violation entraînera un bannissement permanent et la perte des gains.")
+    warning_message = _("Nous appliquons une politique de tolérance zéro envers la triche, l'utilisation de VPN/proxys, Bloqueur de publicité ou la création de comptes multiples. Toute violation entraînera un bannissement permanent et la perte des gains.")
 
     # Nombre de filleuls
-    # <<< CORRECTION ICI : Utilisation de len() au lieu de .count() >>>
-    referred_users_count = len(current_user.referred_users) if current_user.referred_users else 0
+    referred_users_count = current_user.referred_users.count()
 
     # Gains totaux de parrainage approuvés
     total_referral_earnings = db.session.scalar(
@@ -63,11 +65,15 @@ def dashboard():
         )
     ) or 0.0
 
+    # <<< AJOUT ICI : Générer le token CSRF >>>
+    csrf_token_value = generate_csrf()
+
     return render_template('dashboard.html',
                            title=_('Tableau de Bord'),
                            warning_message=warning_message,
                            referred_users_count=referred_users_count,
-                           total_referral_earnings=total_referral_earnings)
+                           total_referral_earnings=total_referral_earnings,
+                           csrf_token=csrf_token_value) # <<< Passer le token ici >>>
 
 # --- Route pour voir les tâches disponibles ---
 @bp.route('/tasks/available')
