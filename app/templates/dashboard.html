@@ -123,7 +123,7 @@
 
             {# Message Règles Importantes #}
             {% if warning_message %}
-            <div class="alert alert-danger mt-5 shadow-sm" role="alert"> {# Changé en alert-danger pour plus d'impact #}
+            <div class="alert alert-danger mt-5 shadow-sm" role="alert"> {# Changé en alert-danger #}
               <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> {{ _('Règles Importantes & Avertissement') }}</h4>
               <p>{{ warning_message }}</p>
               <hr>
@@ -142,17 +142,17 @@
     <script>
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text).then(function() {
-                var clickedButton = event.target.closest('button'); // Cible le bouton cliqué
+                var clickedButton = event.target.closest('button');
                 if (clickedButton) {
                     var originalButtonText = clickedButton.innerHTML;
                     clickedButton.innerHTML = '<i class="bi bi-check-lg"></i> {{ _("Copié !") }}';
-                    var originalClasses = Array.from(clickedButton.classList); // Sauvegarde les classes
-                    clickedButton.classList.remove('btn-outline-info'); // Adaptez si la classe d'origine est différente
+                    var originalClasses = Array.from(clickedButton.classList);
+                    clickedButton.classList.remove('btn-outline-info');
                     clickedButton.classList.add('btn-success');
                     setTimeout(function() {
                         clickedButton.innerHTML = originalButtonText;
                         clickedButton.classList.remove('btn-success');
-                        originalClasses.forEach(cls => { if(cls !== 'btn-success') clickedButton.classList.add(cls); }); // Restaure les classes d'origine
+                        originalClasses.forEach(cls => { if(cls !== 'btn-success') clickedButton.classList.add(cls); });
                     }, 2500);
                 }
             }, function(err) {

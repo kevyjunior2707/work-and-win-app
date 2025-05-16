@@ -1,4 +1,4 @@
-# app/main/routes.py (VERSION COMPLÈTE v30 - Correction Compte Filleuls)
+# app/main/routes.py (VERSION FINALE - Dashboard Corrigé et Filleuls)
 
 from flask import render_template, redirect, url_for, flash, request, abort, current_app, send_from_directory
 from flask_login import login_required, current_user
@@ -17,6 +17,7 @@ import os
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash
 from app.mailer import send_verification_email
+from flask_wtf.csrf import generate_csrf # <<< ASSUREZ-VOUS QUE CET IMPORT EST LÀ
 
 # --- Fonction utilitaire pour vérifier l'extension de fichier ---
 def allowed_file(filename):
@@ -41,10 +42,7 @@ def index():
         current_app.logger.error(f"Erreur lors de la récupération des articles pour l'accueil: {e}")
     return render_template('index.html', title=_('Accueil'), warning_message=warning_message, latest_posts=latest_posts)
 
-# --- Route Tableau de Bord Utilisateur (MODIFIÉE) ---
-# DANS app/main/routes.py
-# Assurez-vous d'avoir : from flask_wtf.csrf import generate_csrf en haut du fichier
-
+# --- Route Tableau de Bord Utilisateur (CORRIGÉE) ---
 @bp.route('/dashboard')
 @login_required
 def dashboard():
@@ -54,7 +52,11 @@ def dashboard():
     warning_message = _("Nous appliquons une politique de tolérance zéro envers la triche, l'utilisation de VPN/proxys, ou la création de comptes multiples. Toute violation entraînera un bannissement permanent et la perte des gains.")
 
     # Nombre de filleuls
-    referred_users_count = current_user.referred_users.count()
+    # <<< CORRECTION ICI : Utiliser len() pour une liste >>>
+    referred_users_count = len(current_user.referred_users) # Si referred_users est une liste standard
+    # Si referred_users est une relation lazy='dynamic', alors current_user.referred_users.count() est correct.
+    # D'après le modèle User, la relation 'referred_users' n'a pas lazy='dynamic' explicitement,
+    # donc elle retourne une liste par défaut. len() est donc la bonne méthode.
 
     # Gains totaux de parrainage approuvés
     total_referral_earnings = db.session.scalar(
@@ -63,63 +65,49 @@ def dashboard():
             ReferralCommission.referrer_id == current_user.id,
             ReferralCommission.status == 'Approved'
         )
-    ) or 0.0
+    ) or Decimal('0.0') # Assurer un Decimal pour le formatage
 
-    # <<< AJOUT ICI : Générer le token CSRF >>>
-    csrf_token_value = generate_csrf()
+    csrf_token_value = generate_csrf() # Pour le formulaire de renvoi d'email
 
     return render_template('dashboard.html',
                            title=_('Tableau de Bord'),
                            warning_message=warning_message,
                            referred_users_count=referred_users_count,
-                           total_referral_earnings=total_referral_earnings,
-                           csrf_token=csrf_token_value) # <<< Passer le token ici >>>
+                           total_referral_earnings=float(total_referral_earnings), # Convertir en float pour le template si besoin
+                           csrf_token=csrf_token_value)
 
 # --- Route pour voir les tâches disponibles ---
 @bp.route('/tasks/available')
 @login_required
 def available_tasks():
-    user_completions = db.session.scalars(
-        db.select(UserTaskCompletion)
-        .where(UserTaskCompletion.user_id == current_user.id)
-    ).all()
-    completions_dict = {}
-    for comp in user_completions:
-        if comp.task_id not in completions_dict:
-            completions_dict[comp.task_id] = []
-        completions_dict[comp.task_id].append(comp.completion_timestamp)
     all_active_tasks = db.session.scalars(db.select(Task).where(Task.is_active == True)).all()
     user_country = current_user.country
     user_device = current_user.device
     tasks_for_user = []
     now_utc = datetime.now(timezone.utc)
     delay_for_daily_task = timedelta(hours=24, minutes=1)
+
+    # Récupérer toutes les complétions de l'utilisateur en une fois
+    user_completions_query = select(UserTaskCompletion.task_id, func.max(UserTaskCompletion.completion_timestamp).label('latest_completion_ts')).where(UserTaskCompletion.user_id == current_user.id).group_by(UserTaskCompletion.task_id)
+    user_completions_dict = {comp.task_id: comp.latest_completion_ts for comp in db.session.execute(user_completions_query).all()}
+
     for task in all_active_tasks:
         target_countries = task.get_target_countries_list()
         country_match = 'ALL' in target_countries or user_country in target_countries
         target_devices = task.get_target_devices_list()
         device_match = 'ALL' in target_devices or user_device in target_devices
+
         if country_match and device_match:
-            task_id = task.id
-            is_completed_ever = task_id in completions_dict
             if task.is_daily:
-                completed_this_period = False # Renommé pour clarté
-                if is_completed_ever:
-                    # Trouver la dernière complétion pour cette tâche spécifique
-                    latest_completion_for_task = None
-                    for comp_ts in sorted([c for c in completions_dict[task_id]], reverse=True): # Trie pour trouver la plus récente
-                        latest_completion_for_task = comp_ts
-                        break
-                    
-                    if latest_completion_for_task:
-                        time_since_last = now_utc - latest_completion_for_task.replace(tzinfo=timezone.utc)
-                        if time_since_last < delay_for_daily_task:
-                            completed_this_period = True
-                
-                if not completed_this_period:
+                latest_completion_ts = user_completions_dict.get(task.id)
+                if latest_completion_ts:
+                    time_since_last = now_utc - latest_completion_ts.replace(tzinfo=timezone.utc)
+                    if time_since_last >= delay_for_daily_task:
+                        tasks_for_user.append(task)
+                else: # Jamais complétée
                     tasks_for_user.append(task)
-            else:
-                if not is_completed_ever:
+            else: # Tâche non quotidienne
+                if task.id not in user_completions_dict: # Vérifie si jamais complétée
                     tasks_for_user.append(task)
     return render_template('available_tasks.html', title=_('Tâches Disponibles'), tasks=tasks_for_user)
 
@@ -176,7 +164,7 @@ def completed_tasks():
 def withdraw():
     min_amount = current_app.config.get('MINIMUM_WITHDRAWAL_AMOUNT', 15.0)
     last_withdrawal = current_user.last_withdrawal_date
-    is_eligible_time = False; next_eligible_date = None; days_limit = 30 
+    is_eligible_time = False; next_eligible_date = None; days_limit = 30
     now_utc = datetime.now(timezone.utc)
     if last_withdrawal is None: is_eligible_time = True
     else:
@@ -311,45 +299,35 @@ def view_post(slug):
     comments = db.session.scalars(comments_query).all()
     return render_template('view_post.html', title=post.title, post=post, comments=comments, form=form, CommentModel=Comment)
 
-# --- NOUVELLE ROUTE POUR LES DÉTAILS DES FILLEULS ---
+# --- Route pour les détails des filleuls ---
 @bp.route('/my-referrals')
 @login_required
 def my_referrals_details():
-    user_with_referrals = db.session.scalars(
+    user = db.session.scalars(
         select(User).options(selectinload(User.referred_users)).filter_by(id=current_user.id)
     ).first()
-
-    if not user_with_referrals:
-        abort(404) # Ne devrait pas arriver si current_user existe
-
+    if not user: abort(404)
     referred_users_details = []
     total_earnings_from_referrals = Decimal('0.0')
-
-    # Utilise la liste pré-chargée
-    for referred_user in user_with_referrals.referred_users:
+    for referred_user_obj in user.referred_users: # Renommé pour éviter conflit avec la classe User
         commissions_from_this_referred = db.session.scalar(
             select(func.sum(ReferralCommission.commission_amount))
             .where(
                 ReferralCommission.referrer_id == current_user.id,
-                ReferralCommission.referred_user_id == referred_user.id,
+                ReferralCommission.referred_user_id == referred_user_obj.id,
                 ReferralCommission.status == 'Approved'
             )
-        ) or Decimal('0.0') # Assure que c'est un Decimal
-        
+        ) or Decimal('0.0')
         total_earnings_from_referrals += commissions_from_this_referred
-
         referred_users_details.append({
-            'full_name': referred_user.full_name,
-            'registration_date': referred_user.registration_date,
-            'completed_task_count': referred_user.completed_task_count or 0, # Assure 0 si None
-            'earnings_generated_for_referrer': commissions_from_this_referred
+            'full_name': referred_user_obj.full_name,
+            'registration_date': referred_user_obj.registration_date,
+            'completed_task_count': referred_user_obj.completed_task_count,
+            'earnings_generated_for_referrer': float(commissions_from_this_referred) # Convertir pour le template
         })
-    
     referred_users_details.sort(key=lambda x: x['registration_date'], reverse=True)
-    
     return render_template('my_referrals_details.html',
                            title=_('Mes Filleuls et Gains de Parrainage'),
                            referred_users_details=referred_users_details,
-                           total_referred_count=len(referred_users_details), # Utilise la longueur de la liste construite
-                           total_earnings_from_referrals=total_earnings_from_referrals)
-# --- FIN NOUVELLE ROUTE ---
+                           total_referred_count=len(referred_users_details),
+                           total_earnings_from_referrals=float(total_earnings_from_referrals))
