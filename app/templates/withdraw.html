@@ -1,112 +1,110 @@
-{# app/templates/withdraw.html (Liens Support Dynamiques et Cliquables) #}
+{# app/templates/withdraw.html (Basé sur votre préférence, avec liens dynamiques) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
 
 {% block content %}
-<div class="container mt-4 mb-5">
-    <div class="row justify-content-center">
-        <div class="col-lg-8">
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <h1 class="mb-0 h4"><i class="bi bi-cash-coin"></i> {{ title }}</h1>
-                </div>
-                <div class="card-body">
-                    <div class="text-center mb-4">
-                        <p class="lead">{{ _('Votre solde actuel est de :') }}</p>
-                        <h2 class="display-4 fw-bold text-success">$ {{ "%.2f"|format(current_user.balance) }}</h2>
-                    </div>
+<div class="container mt-4 mb-5"> {# Conteneur principal #}
+    <h1><i class="bi bi-cash-coin"></i> {{ title }}</h1>
+    <hr>
 
+    {# Solde Actuel #}
+    <div class="alert alert-success fs-5 mb-4 shadow-sm">
+       {{ _('Votre Solde Actuel:') }} <strong>$ {{ "%.2f"|format(current_user.balance) }}</strong>
+    </div>
+
+    {# --- Section Instructions / Eligibilité --- #}
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header">
+            <h5 class="my-1">{{ _('Demander un retrait') }}</h5>
+        </div>
+        <div class="card-body">
+            {% if minimum_amount > 0 %}
+                <p class="text-info"><i class="bi bi-info-circle-fill"></i> {{ _('Note: Le montant minimum pour demander un retrait est de $ %(amount).2f.', amount=minimum_amount) }}</p>
+            {% endif %}
+
+            {% if not current_user.is_verified %}
+                <div class="alert alert-warning mt-3">
+                     <i class="bi bi-exclamation-triangle-fill"></i> {{ _('Veuillez vérifier votre adresse email avant de pouvoir demander un retrait.') }}
+                     <a href="{{ url_for('main.profile') }}" class="alert-link">{{ _('Aller à mon profil pour renvoyer l\'email de vérification.') }}</a>
+                </div>
+            {% elif not is_eligible_time %}
+                <div class="alert alert-warning" role="alert">
+                    <h4 class="alert-heading">{{ _('Retrait Non Disponible Actuellement') }}</h4>
+                    <p>{{ _('Vous ne pouvez effectuer qu\'un seul retrait tous les %(days)s jours.', days=30) }}</p>
+                    {% if next_eligible_date %}
                     <hr>
-
-                    <h5 class="mt-4 mb-3">{{ _('Conditions de Retrait') }}</h5>
-                    <ul>
-                        <li>{{ _('Le montant minimum pour un retrait est de :') }} <strong>$ {{ "%.2f"|format(minimum_amount) }}</strong>.</li>
-                        <li>{{ _('Vous pouvez demander un retrait tous les 30 jours.') }}</li>
-                        {% if not is_eligible_time and next_eligible_date %}
-                            <li class="text-warning">{{ _('Votre prochain retrait sera possible à partir du : %(date)s', date=next_eligible_date.strftime('%d/%m/%Y à %H:%M UTC')) }}</li>
-                        {% endif %}
-                    </ul>
-
-                    {% if not current_user.is_verified %}
-                        <div class="alert alert-warning mt-3">
-                             <i class="bi bi-exclamation-triangle-fill"></i> {{ _('Veuillez vérifier votre adresse email avant de pouvoir demander un retrait.') }}
-                             <a href="{{ url_for('main.profile') }}" class="alert-link">{{ _('Aller à mon profil pour renvoyer l\'email de vérification.') }}</a>
-                        </div>
-                    {% elif not can_request_now %}
-                        <div class="alert alert-info mt-3">
-                            <i class="bi bi-info-circle-fill"></i>
-                            {% if current_user.balance < minimum_amount %}
-                                {{ _('Votre solde est insuffisant pour demander un retrait. Continuez à accomplir des tâches !') }}
-                            {% elif not is_eligible_time %}
-                                {{ _('Vous avez récemment effectué un retrait. Veuillez attendre la date indiquée ci-dessus.') }}
-                            {% endif %}
-                        </div>
-                    {% else %}
-                        <div class="alert alert-success mt-3">
-                            <i class="bi bi-check-circle-fill"></i> {{ _('Vous êtes éligible pour demander un retrait !') }}
-                        </div>
-                        <div class="mt-4 p-3 bg-light rounded border">
-                            <h5 class="mb-3">{{ _('Comment demander un retrait ?') }}</h5>
-                            <p>{{ _("Pour demander un retrait, veuillez contacter notre support en fournissant les informations suivantes :") }}</p>
-                            <ul>
-                                <li>{{ _('Votre adresse email d\'inscription :') }} <strong>{{ current_user.email }}</strong></li>
-                                <li>{{ _('Le montant que vous souhaitez retirer (minimum $ %(min_amount).2f).', min_amount=minimum_amount) }}</li>
-                                <li>{{ _('Votre méthode de paiement préférée (ex: Mobile Money, détails spécifiques).') }}</li>
-                            </ul>
-                            <p class="mt-3">
-                                {{ _('Contactez-nous par :') }}
-                                <ul class="list-unstyled">
-                                    {% if config.SUPPORT_EMAIL %}
-                                    <li>
-                                        <i class="bi bi-envelope-fill text-primary me-2"></i>
-                                        <strong>{{ _('Email :') }}</strong>
-                                        <a href="mailto:{{ config.SUPPORT_EMAIL }}?subject={{ _('Demande de Retrait - %(user_email)s', user_email=current_user.email) | urlencode }}" class="btn btn-outline-primary btn-sm ms-2">
-                                            {{ config.SUPPORT_EMAIL }}
-                                        </a>
-                                    </li>
-                                    {% endif %}
-                                    {% if config.SUPPORT_TELEGRAM_LINK and config.SUPPORT_TELEGRAM_LINK != 'TELEGRAM_LINK_A_DEFINIR' %}
-                                    <li class="mt-2">
-                                        <i class="bi bi-telegram text-info me-2"></i>
-                                        <strong>{{ _('Telegram :') }}</strong>
-                                        <a href="{{ config.SUPPORT_TELEGRAM_LINK }}" target="_blank" class="btn btn-outline-info btn-sm ms-2">
-                                            {{ _('Contacter via Telegram') }}
-                                        </a>
-                                    </li>
-                                    {% endif %}
-                                </ul>
-                            </p>
-                            <p><small class="text-muted">{{ _('Les paiements sont généralement traités sous 24 à 72 heures ouvrées.') }}</small></p>
-                        </div>
-                    {% endif %}
-
-                    <h5 class="mt-5 mb-3">{{ _('Historique de mes Retraits (Approuvés)') }}</h5>
-                    {% if withdrawal_history %}
-                        <div class="table-responsive">
-                            <table class="table table-sm table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>{{ _('Date de Traitement') }}</th>
-                                        <th class="text-end">{{ _('Montant ($)') }}</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for withdrawal_item in withdrawal_history %}
-                                    <tr>
-                                        <td>{{ withdrawal_item.processed_timestamp.strftime('%d/%m/%Y à %H:%M') }}</td>
-                                        <td class="text-end">{{ "%.2f"|format(withdrawal_item.amount) }}</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    {% else %}
-                        <p>{{ _('Vous n\'avez encore effectué aucun retrait.') }}</p>
+                    <p class="mb-0">{{ _('Votre prochain retrait sera possible à partir du : %(date)s (UTC)', date=next_eligible_date.strftime('%d/%m/%Y à %H:%M')) }}</p>
                     {% endif %}
                 </div>
-            </div>
+            {% elif not can_request_now %}
+                <div class="alert alert-danger" role="alert">
+                  {{ _('Votre solde actuel ($ %(balance)s) est inférieur au minimum requis ($ %(min_amount)s) pour demander un retrait.', balance= ("%.2f"|format(current_user.balance)), min_amount=minimum_amount) }}
+                </div>
+            {% else %}
+                {# Si éligible (temps ET solde), affiche les instructions #}
+                <h5 class="card-title">{{ _('Processus de Retrait Manuel') }}</h5>
+                <p>{{ _("Pour demander le retrait de vos gains (minimum $ %(min_amount).2f), veuillez contacter notre équipe de support en fournissant les informations suivantes :", min_amount=minimum_amount) }}</p>
+                <ul>
+                    <li>{{ _("Votre adresse email enregistrée :") }} <strong>{{ current_user.email }}</strong></li>
+                    <li>{{ _("Le montant exact que vous souhaitez retirer (en $).") }}</li>
+                    <li>{{ _("Votre méthode de paiement préférée (ex: Mobile Money [Numéro et Nom Réseau], Virement Bancaire [Détails du Compte], etc.).") }}</li>
+                </ul>
+                <p class="mt-3"><strong>{{ _("Contactez-nous par :") }}</strong></p>
+                <div class="d-grid gap-2 d-md-block">
+                    {% if config.SUPPORT_EMAIL %}
+                        <a href="mailto:{{ config.SUPPORT_EMAIL }}?subject={{ _('Demande de Retrait - %(user_email)s', user_email=current_user.email) | urlencode }}" class="btn btn-primary btn-sm mb-2 mb-md-0">
+                            <i class="bi bi-envelope-fill"></i> {{ _('Contacter par Email') }} ({{ config.SUPPORT_EMAIL }})
+                        </a>
+                    {% endif %}
+                    {% if config.SUPPORT_TELEGRAM_LINK and config.SUPPORT_TELEGRAM_LINK != 'TELEGRAM_LINK_A_DEFINIR' and config.SUPPORT_TELEGRAM_LINK.startswith('https://t.me/') %}
+                        <a href="{{ config.SUPPORT_TELEGRAM_LINK }}" target="_blank" class="btn btn-info text-white btn-sm">
+                            <i class="bi bi-telegram"></i> {{ _('Contacter via Telegram') }}
+                        </a>
+                    {% endif %}
+                </div>
+                <p class="text-muted mt-3"><small>{{ _("Votre demande sera traitée manuellement par notre équipe dans les plus brefs délais (généralement 24-72h ouvrées). Votre date de dernier retrait sera enregistrée une fois le paiement effectué par l'administrateur.") }}</small></p>
+            {% endif %}
         </div>
     </div>
-</div>
+
+    {# Historique des Retraits #}
+    <div class="card shadow-sm">
+        <div class="card-header">
+            <h5 class="my-1"><i class="bi bi-clock-history"></i> {{ _('Historique de vos Retraits (Approuvés)') }}</h5>
+        </div>
+        <div class="card-body p-0">
+            {% if not withdrawal_history %}
+                <div class="p-3 text-muted">{{ _('Vous n\'avez pas encore effectué de retrait approuvé.') }}</div>
+            {% else %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover table-sm mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3">{{ _('Date de Traitement (UTC)') }}</th>
+                                <th class="text-end pe-3">{{ _('Montant ($)') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for withdrawal_item in withdrawal_history %}
+                            <tr>
+                                <td class="ps-3">{{ withdrawal_item.processed_timestamp.strftime('%d/%m/%Y à %H:%M') if withdrawal_item.processed_timestamp else _('N/A') }}</td>
+                                <td class="text-end pe-3"><strong>$ {{ "%.2f"|format(withdrawal_item.amount) }}</strong></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="mt-4 text-center">
+         {% if current_user.is_admin %}
+            <a href="{{ url_for('admin.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left-circle"></i> {{ _('Retour au Panel Admin') }}</a>
+         {% else %}
+            <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left-circle"></i> {{ _('Retour au Tableau de Bord') }}</a>
+         {% endif %}
+    </div>
+</div> {# <<< Fin Conteneur >>> #}
 {% endblock %}
