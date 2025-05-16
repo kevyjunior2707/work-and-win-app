@@ -1,15 +1,15 @@
-# app/main/routes.py (VERSION COMPLÈTE v29 - Fix UnboundLocalError avec _l)
+# app/main/routes.py (VERSION COMPLÈTE v28 - Affichage Filleuls sur Profil)
 
 from flask import render_template, redirect, url_for, flash, request, abort, current_app, send_from_directory
 from flask_login import login_required, current_user
-from flask_babel import _, lazy_gettext as _l # <<< _l ajouté ici >>>
+from flask_babel import _, lazy_gettext as _l
 from app import db
 from app.models import (Task, UserTaskCompletion, User, Notification,
                         ExternalTaskCompletion, ReferralCommission, Withdrawal, Post, Comment)
 from app.main import bp
 from app.forms import EditProfileForm, ChangePasswordForm, CommentForm
 from datetime import datetime, timezone, timedelta, date
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, subqueryload # subqueryload pour charger les filleuls efficacement
 from sqlalchemy import select, func, and_
 from decimal import Decimal, InvalidOperation
 import json
@@ -67,92 +67,75 @@ def available_tasks():
     user_device = current_user.device
     tasks_for_user = []
     now_utc = datetime.now(timezone.utc)
-    delay_for_daily_task = timedelta(hours=24, minutes=1) # Défini ici pour être utilisé
+    delay_for_daily_task = timedelta(hours=24, minutes=1)
     for task in all_active_tasks:
         target_countries = task.get_target_countries_list()
         country_match = 'ALL' in target_countries or user_country in target_countries
         target_devices = task.get_target_devices_list()
         device_match = 'ALL' in target_devices or user_device in target_devices
         if country_match and device_match:
+            task_id = task.id
+            is_completed_ever = task_id in completions_dict
             if task.is_daily:
-                latest_completion = db.session.scalar(
-                    select(UserTaskCompletion)
-                    .where(UserTaskCompletion.user_id == current_user.id, UserTaskCompletion.task_id == task.id)
-                    .order_by(UserTaskCompletion.completion_timestamp.desc())
-                )
-                if latest_completion:
-                    time_since_last = now_utc - latest_completion.completion_timestamp.replace(tzinfo=timezone.utc)
-                    if time_since_last >= delay_for_daily_task:
-                        tasks_for_user.append(task)
-                else:
-                    tasks_for_user.append(task)
+                completed_today = False
+                if is_completed_ever:
+                    for timestamp in completions_dict[task_id]:
+                        if timestamp.astimezone(timezone.utc).date() == now_utc.date(): # Comparaison avec la date actuelle
+                            time_since_last = now_utc - timestamp.replace(tzinfo=timezone.utc)
+                            if time_since_last < delay_for_daily_task:
+                                completed_today = True; break
+                if not completed_today: tasks_for_user.append(task)
             else:
-                existing_completion = db.session.scalar(
-                    select(UserTaskCompletion.id).where(UserTaskCompletion.user_id == current_user.id, UserTaskCompletion.task_id == task.id)
-                )
-                if not existing_completion:
-                    tasks_for_user.append(task)
+                if not is_completed_ever: tasks_for_user.append(task)
     return render_template('available_tasks.html', title=_('Tâches Disponibles'), tasks=tasks_for_user)
 
-# --- Route pour marquer une tâche comme accomplie (Utilise _l pour flash) ---
+# --- Route pour marquer une tâche comme accomplie ---
 @bp.route('/task/complete/<int:task_id>', methods=['POST'])
 @login_required
 def complete_task(task_id):
     task = db.session.get(Task, task_id) or abort(404); user = current_user
     user_country = user.country; user_device = user.device; target_countries = task.get_target_countries_list(); target_devices = task.get_target_devices_list(); country_match = 'ALL' in target_countries or user_country in target_countries; device_match = 'ALL' in target_devices or user_device in target_devices
-    if not (country_match and device_match and task.is_active):
-        flash(_l('Vous ne pouvez pas accomplir cette tâche ou elle n\'est plus active.'), 'danger') # Utilise _l
-        return redirect(url_for('main.available_tasks'))
-
+    if not (country_match and device_match and task.is_active): flash(_l('Vous ne pouvez pas accomplir cette tâche ou elle n\'est plus active.'), 'danger'); return redirect(url_for('main.available_tasks'))
     now_utc = datetime.now(timezone.utc)
     delay_for_daily_task = timedelta(hours=24, minutes=1)
-
     if task.is_daily:
-        latest_completion = db.session.scalar(
-            select(UserTaskCompletion)
+        latest_completion_ts = db.session.scalar(
+            select(func.max(UserTaskCompletion.completion_timestamp))
             .where(UserTaskCompletion.user_id == user.id, UserTaskCompletion.task_id == task.id)
-            .order_by(UserTaskCompletion.completion_timestamp.desc())
         )
-        if latest_completion:
-            time_since_last = now_utc - latest_completion.completion_timestamp.replace(tzinfo=timezone.utc)
+        if latest_completion_ts:
+            time_since_last = now_utc - latest_completion_ts.replace(tzinfo=timezone.utc)
             if time_since_last < delay_for_daily_task:
                 time_remaining = delay_for_daily_task - time_since_last
                 hours, remainder = divmod(time_remaining.total_seconds(), 3600)
-                minutes, _scnds = divmod(remainder, 60) # Renommé _ en _scnds
-                flash(_l('Vous avez déjà accompli cette tâche. Elle sera disponible à nouveau dans environ %(hours)sh %(minutes)sm.', hours=int(hours), minutes=int(minutes)), 'warning') # Utilise _l
-                return redirect(url_for('main.available_tasks'))
+                minutes, _scnds = divmod(remainder, 60)
+                flash(_l('Vous avez déjà accompli cette tâche. Elle sera disponible à nouveau dans environ %(hours)sh %(minutes)sm.', hours=int(hours), minutes=int(minutes)), 'warning'); return redirect(url_for('main.available_tasks'))
     else:
         existing_completion = db.session.scalar(select(UserTaskCompletion.id).where(UserTaskCompletion.user_id == user.id, UserTaskCompletion.task_id == task.id))
-        if existing_completion:
-            flash(_l('Vous avez déjà marqué cette tâche comme accomplie.'), 'warning') # Utilise _l
-            return redirect(url_for('main.available_tasks'))
-
+        if existing_completion: flash(_l('Vous avez déjà marqué cette tâche comme accomplie.'), 'warning'); return redirect(url_for('main.available_tasks'))
     try:
-        completion = UserTaskCompletion(user_id=user.id, task_id=task.id, completion_timestamp=now_utc)
-        db.session.add(completion)
+        completion = UserTaskCompletion(user_id=user.id, task_id=task.id, completion_timestamp=now_utc); db.session.add(completion)
         reward = Decimal(str(task.reward_amount or 0.0)); current_balance = Decimal(str(user.balance or 0.0))
         user.balance = float(current_balance + reward); user.completed_task_count = (user.completed_task_count or 0) + 1
-        if user.referred_by_id and user.completed_task_count >= 20:
+        if user.referred_by_id and user.completed_task_count >= 20: # Seuil pour commission
             referrer = db.session.get(User, user.referred_by_id)
             if referrer:
                 commission_amount = reward * Decimal('0.03');
                 if commission_amount > 0:
-                    new_commission = ReferralCommission(referrer_id=referrer.id, referred_user_id=user.id, originating_completion=completion, commission_amount=float(commission_amount), status='Pending');
-                    db.session.add(new_commission)
-        db.session.commit()
-        flash(_l('Félicitations ! Tâche "%(title)s" marquée comme accomplie. Récompense de %(amount)s $ ajoutée à votre solde.', title=task.title, amount=reward), 'success') # Utilise _l
-    except Exception as e:
-        db.session.rollback()
-        flash(_l('Une erreur est survenue : %(error)s', error=str(e)), 'danger') # Utilise _l
+                    new_commission = ReferralCommission(referrer_id=referrer.id, referred_user_id=user.id, originating_completion_id=completion.id, commission_amount=float(commission_amount), status='Pending');
+                    db.session.add(new_commission) # Ajout de la commission
+        db.session.commit(); flash(_l('Félicitations ! Tâche "%(title)s" marquée comme accomplie. Récompense de %(amount)s $ ajoutée à votre solde.', title=task.title, amount=reward), 'success')
+    except Exception as e: db.session.rollback(); flash(_l('Une erreur est survenue : %(error)s', error=str(e)), 'danger'); current_app.logger.error(f"Erreur complete_task: {e}")
     return redirect(url_for('main.available_tasks'))
 
-# --- (Le reste des routes : completed_tasks, withdraw, notifications, etc. reste inchangé) ---
+# --- Route pour voir les tâches accomplies par l'utilisateur ---
 @bp.route('/tasks/completed')
 @login_required
 def completed_tasks():
     page = request.args.get('page', 1, type=int); query = db.select(UserTaskCompletion).where(UserTaskCompletion.user_id == current_user.id).options(joinedload(UserTaskCompletion.task)).order_by(UserTaskCompletion.completion_timestamp.desc()); pagination = db.paginate(query, page=page, per_page=current_app.config['COMPLETIONS_PER_PAGE'], error_out=False); completions = pagination.items
     return render_template('completed_tasks.html', title=_('Mes Tâches Accomplies'), completions=completions, pagination=pagination)
 
+# --- Route pour la page de retrait ---
 @bp.route('/withdraw')
 @login_required
 def withdraw():
@@ -170,6 +153,7 @@ def withdraw():
     withdrawal_history = db.session.scalars(db.select(Withdrawal).where(Withdrawal.user_id == current_user.id, Withdrawal.status == 'Completed').order_by(Withdrawal.processed_timestamp.desc())).all()
     return render_template('withdraw.html', title=_('Mon Solde et Retrait'), minimum_amount=min_amount, is_eligible_time=is_eligible_time, can_request_now=can_request_now, next_eligible_date=next_eligible_date, withdrawal_history=withdrawal_history)
 
+# --- Route pour voir les notifications de l'utilisateur ---
 @bp.route('/notifications')
 @login_required
 def notifications():
@@ -192,6 +176,7 @@ def notifications():
         except Exception as e: db.session.rollback(); print(f"Erreur marquage notifs lues: {e}"); flash(_("Erreur mise à jour statut notifications."),'danger')
     return render_template('notifications.html', title=_('Mes Notifications'), notifications=notifications_to_render, pagination=pagination)
 
+# --- Routes Tâches Externes ---
 @bp.route('/task/external/<int:task_id>')
 def view_external_task(task_id):
     task = db.session.get(Task, task_id); ref_code = request.args.get('ref')
@@ -228,34 +213,78 @@ def view_proof_upload(filename):
     proof_folder = os.path.join(upload_dir, 'proofs')
     return send_from_directory(proof_folder, filename)
 
+# --- Routes Profil Utilisateur (MODIFIÉE pour afficher les filleuls) ---
 @bp.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():
-    edit_form = EditProfileForm(current_user.email); password_form = ChangePasswordForm()
-    if edit_form.submit_profile.data and edit_form.validate_on_submit():
+    edit_form = EditProfileForm(current_user.email) # On passe l'email original pour la validation
+    password_form = ChangePasswordForm()
+
+    if edit_form.submit_profile.data and edit_form.validate_on_submit(): # Si le formulaire de profil est soumis
         phone_number_full = edit_form.phone_code.data + edit_form.phone_local_number.data
-        current_user.full_name = edit_form.full_name.data; current_user.email = edit_form.email.data; current_user.phone_number = phone_number_full; current_user.telegram_username = edit_form.telegram_username.data or None; current_user.country = edit_form.country.data; current_user.device = edit_form.device.data
-        try: db.session.commit(); flash(_('Votre profil a été mis à jour.'), 'success'); return redirect(url_for('main.profile'))
-        except Exception as e: db.session.rollback(); flash(_('Erreur lors de la mise à jour du profil: %(error)s', error=str(e)), 'danger')
-    if password_form.submit_password.data and password_form.validate_on_submit():
+        current_user.full_name = edit_form.full_name.data
+        current_user.email = edit_form.email.data # L'email est déjà en minuscules grâce à la validation du formulaire
+        current_user.phone_number = phone_number_full
+        current_user.telegram_username = edit_form.telegram_username.data or None
+        current_user.country = edit_form.country.data
+        current_user.device = edit_form.device.data
+        try:
+            db.session.commit()
+            flash(_('Votre profil a été mis à jour.'), 'success')
+            return redirect(url_for('main.profile'))
+        except Exception as e:
+            db.session.rollback()
+            flash(_('Erreur lors de la mise à jour du profil: %(error)s', error=str(e)), 'danger')
+            current_app.logger.error(f"Erreur MAJ profil user {current_user.id}: {e}")
+
+    if password_form.submit_password.data and password_form.validate_on_submit(): # Si le formulaire de mot de passe est soumis
         current_user.set_password(password_form.new_password.data)
-        try: db.session.commit(); flash(_('Votre mot de passe a été changé avec succès.'), 'success'); return redirect(url_for('main.profile'))
-        except Exception as e: db.session.rollback(); flash(_('Erreur lors du changement de mot de passe: %(error)s', error=str(e)), 'danger')
+        try:
+            db.session.commit()
+            flash(_('Votre mot de passe a été changé avec succès.'), 'success')
+            return redirect(url_for('main.profile'))
+        except Exception as e:
+            db.session.rollback()
+            flash(_('Erreur lors du changement de mot de passe: %(error)s', error=str(e)), 'danger')
+            current_app.logger.error(f"Erreur changement MDP user {current_user.id}: {e}")
+
+    # Pour la requête GET, pré-remplir les formulaires
     if request.method == 'GET':
-        edit_form.full_name.data = current_user.full_name; edit_form.email.data = current_user.email; edit_form.telegram_username.data = current_user.telegram_username; edit_form.country.data = current_user.country; edit_form.device.data = current_user.device
+        edit_form.full_name.data = current_user.full_name
+        edit_form.email.data = current_user.email
+        edit_form.telegram_username.data = current_user.telegram_username
+        edit_form.country.data = current_user.country
+        edit_form.device.data = current_user.device
         current_phone = current_user.phone_number or ''
         found_code = ''; local_num = current_phone
-        from app.forms import country_codes
+        from app.forms import country_codes # Import local pour éviter dépendance circulaire au démarrage de l'app
         possible_codes = sorted([c[0] for c in country_codes if c[0]], key=len, reverse=True)
         for code in possible_codes:
-            if current_phone.startswith(code): found_code = code; local_num = current_phone[len(code):]; break
-        edit_form.phone_code.data = found_code; edit_form.phone_local_number.data = local_num
-    return render_template('edit_profile.html', title=_('Modifier Mon Profil'), edit_form=edit_form, password_form=password_form)
+            if current_phone.startswith(code):
+                found_code = code
+                local_num = current_phone[len(code):]
+                break
+        edit_form.phone_code.data = found_code
+        edit_form.phone_local_number.data = local_num
+
+    # <<< RÉCUPÉRATION DES FILLEULS >>>
+    # Utilise la relation 'referred_users' définie dans le modèle User
+    # On peut vouloir paginer si la liste est très longue, mais pour l'instant on récupère tout.
+    referred_users_list = current_user.referred_users.order_by(User.registration_date.desc()).all()
+    referred_users_count = current_user.referred_users.count()
+
+    return render_template('edit_profile.html',
+                           title=_('Modifier Mon Profil'),
+                           edit_form=edit_form,
+                           password_form=password_form,
+                           referred_users=referred_users_list, # Passe la liste au template
+                           referred_users_count=referred_users_count) # Passe le nombre au template
 
 @bp.route('/forgot-password-info')
 def forgot_password_info():
     return render_template('auth/forgot_password.html', title=_('Mot de Passe Oublié'))
 
+# --- Routes pour le Blog (CÔTÉ UTILISATEUR) ---
 @bp.route('/blog')
 def blog_index():
     page = request.args.get('page', 1, type=int)
@@ -272,19 +301,19 @@ def view_post(slug):
     if post.allow_comments and current_user.is_authenticated:
         form = CommentForm()
         if form.validate_on_submit():
-            if not current_user.is_verified: flash(_l('Veuillez vérifier votre adresse email avant de commenter.'), 'warning'); return redirect(url_for('main.view_post', slug=post.slug)) # Utilise _l
+            if not current_user.is_verified: flash(_l('Veuillez vérifier votre adresse email avant de commenter.'), 'warning'); return redirect(url_for('main.view_post', slug=post.slug))
             parent_id_val = form.parent_id.data; parent_comment = None
             if parent_id_val:
                 try: parent_id_int = int(parent_id_val)
-                except ValueError: flash(_l("ID de commentaire parent invalide."), 'danger'); return redirect(url_for('main.view_post', slug=post.slug)) # Utilise _l
+                except ValueError: flash(_l("ID de commentaire parent invalide."), 'danger'); return redirect(url_for('main.view_post', slug=post.slug))
                 parent_comment = db.session.get(Comment, parent_id_int)
-                if not parent_comment or parent_comment.post_id != post.id:
-                    flash(_l('Commentaire parent invalide.'), 'danger'); return redirect(url_for('main.view_post', slug=post.slug)) # Utilise _l
+                if not parent_comment or parent_comment.post_id != post.id: flash(_l('Commentaire parent invalide.'), 'danger'); return redirect(url_for('main.view_post', slug=post.slug))
             comment = Comment(body=form.body.data, post_id=post.id, user_id=current_user.id, parent_id=parent_comment.id if parent_comment else None)
             try:
-                db.session.add(comment); db.session.commit(); flash(_l('Votre commentaire a été ajouté.'), 'success') # Utilise _l
+                db.session.add(comment); db.session.commit(); flash(_l('Votre commentaire a été ajouté.'), 'success')
                 return redirect(url_for('main.view_post', slug=post.slug) + '#comment-' + str(comment.id))
-            except Exception as e: db.session.rollback(); flash(_l('Erreur lors de l\'ajout du commentaire.'), 'danger'); current_app.logger.error(f"Erreur ajout commentaire: {e}") # Utilise _l
+            except Exception as e: db.session.rollback(); flash(_l('Erreur lors de l\'ajout du commentaire.'), 'danger'); current_app.logger.error(f"Erreur ajout commentaire: {e}")
     comments_query = select(Comment).where(Comment.post_id == post.id, Comment.is_approved == True, Comment.parent_id == None).order_by(Comment.timestamp.asc())
     comments = db.session.scalars(comments_query).all()
     return render_template('view_post.html', title=post.title, post=post, comments=comments, form=form, CommentModel=Comment)
+
