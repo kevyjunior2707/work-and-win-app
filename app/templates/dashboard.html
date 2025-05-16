@@ -1,4 +1,4 @@
-{# app/templates/dashboard.html (Fix CSRF Token) #}
+{# app/templates/dashboard.html (Complet avec Résumé Parrainage et Fix CSRF) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -19,7 +19,7 @@
               <p class="mb-0">
                 {{ _("Si vous n'avez pas reçu l'email ou si le lien a expiré (valide 30 min), ou si vous avez changé d'email dans votre profil, cliquez ici pour renvoyer l'email de vérification :") }}
                 <form action="{{ url_for('auth.resend_verification_email') }}" method="post" class="d-inline">
-                     {# <<< CORRECTION CSRF TOKEN ICI >>> #}
+                     {# Utilise la variable csrf_token passée par la route #}
                      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                      <button type="submit" class="btn btn-warning btn-sm ms-2">{{ _('Renvoyer l\'email de vérification') }}</button>
                 </form>
@@ -123,11 +123,11 @@
 
             {# Message Règles Importantes #}
             {% if warning_message %}
-            <div class="alert alert-warning mt-5 shadow-sm" role="alert">
-              <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> {{ _('Règles Importantes') }}</h4>
+            <div class="alert alert-danger mt-5 shadow-sm" role="alert"> {# Changé en alert-danger pour plus d'impact #}
+              <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> {{ _('Règles Importantes & Avertissement') }}</h4>
               <p>{{ warning_message }}</p>
               <hr>
-              <p class="mb-0">{{ _("Jouez juste !") }}</p>
+              <p class="mb-0">{{ _("Respectez les règles pour une expérience positive pour tous.") }}</p>
             </div>
             {% endif %}
 
@@ -142,17 +142,18 @@
     <script>
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text).then(function() {
-                var originalButton = event.target.closest('button'); // Cible le bouton cliqué
-                if (originalButton) {
-                    var originalButtonText = originalButton.innerHTML;
-                    originalButton.innerHTML = '<i class="bi bi-check-lg"></i> {{ _("Copié !") }}';
-                    originalButton.classList.add('btn-success');
-                    originalButton.classList.remove('btn-outline-info');
+                var clickedButton = event.target.closest('button'); // Cible le bouton cliqué
+                if (clickedButton) {
+                    var originalButtonText = clickedButton.innerHTML;
+                    clickedButton.innerHTML = '<i class="bi bi-check-lg"></i> {{ _("Copié !") }}';
+                    var originalClasses = Array.from(clickedButton.classList); // Sauvegarde les classes
+                    clickedButton.classList.remove('btn-outline-info'); // Adaptez si la classe d'origine est différente
+                    clickedButton.classList.add('btn-success');
                     setTimeout(function() {
-                        originalButton.innerHTML = originalButtonText;
-                        originalButton.classList.remove('btn-success');
-                        originalButton.classList.add('btn-outline-info');
-                    }, 2000);
+                        clickedButton.innerHTML = originalButtonText;
+                        clickedButton.classList.remove('btn-success');
+                        originalClasses.forEach(cls => { if(cls !== 'btn-success') clickedButton.classList.add(cls); }); // Restaure les classes d'origine
+                    }, 2500);
                 }
             }, function(err) {
                 alert("{{ _('Erreur lors de la copie du lien : ') }}" + err);
