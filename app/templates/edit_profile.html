@@ -1,171 +1,84 @@
-{# app/templates/edit_profile.html (Avec Affichage des Filleuls) #}
+{# app/templates/edit_profile.html (Utilise phone_code/phone_local_number) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
 
 {% block content %}
-<div class="container mt-4 mb-5">
-    <h1 class="mb-4"><i class="bi bi-person-lines-fill"></i> {{ title }}</h1>
+<div class="container mt-4 mb-5"> {# Conteneur principal #}
+    <h1><i class="bi bi-person-gear"></i> {{ title }}</h1>
+    <hr>
 
-    <div class="row">
+    {# Avertissement sur changement Pays/Appareil #}
+    <div class="alert alert-warning" role="alert">
+      <h4 class="alert-heading">{{ _('Attention lors de la modification du Pays ou de l\'Appareil !') }}</h4>
+      <p>{{ _("Assurez-vous que le pays et l'appareil sélectionnés correspondent bien à votre situation actuelle.") }}</p>
+      <hr>
+      <p class="mb-0">{{ _("Utiliser un pays ou un appareil incorrect peut vous empêcher de voir des tâches disponibles et pourrait entraîner des problèmes lors de la validation de vos gains.") }}</p>
+    </div>
+
+    <div class="row g-5 mt-2">
         {# Colonne pour Modifier le Profil #}
-        <div class="col-lg-6 mb-4 mb-lg-0">
-            <div class="card shadow-sm">
-                <div class="card-header">
-                    <h5 class="my-0"><i class="bi bi-pencil-square"></i> {{ _('Informations Personnelles') }}</h5>
-                </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
                 <div class="card-body">
-                    <form method="POST" action="{{ url_for('main.profile') }}" novalidate>
+                    <h2 class="card-title mb-4">{{ _('Modifier mes Informations') }}</h2>
+                    <form action="{{ url_for('main.profile') }}" method="post" novalidate>
                         {{ edit_form.hidden_tag() }}
-                        <div class="mb-3">
-                            {{ edit_form.full_name.label(class="form-label") }}
-                            {{ edit_form.full_name(class="form-control form-control-sm" + (" is-invalid" if edit_form.full_name.errors else "")) }}
-                            {% if edit_form.full_name.errors %}<div class="invalid-feedback">{% for error in edit_form.full_name.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
-                        </div>
-                        <div class="mb-3">
-                            {{ edit_form.email.label(class="form-label") }}
-                            {{ edit_form.email(class="form-control form-control-sm" + (" is-invalid" if edit_form.email.errors else "")) }}
-                            {% if edit_form.email.errors %}<div class="invalid-feedback">{% for error in edit_form.email.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
-                        </div>
-                        <div class="row mb-3">
-                            <div class="col-md-5">
-                                {{ edit_form.phone_code.label(class="form-label") }}
-                                {{ edit_form.phone_code(class="form-select form-select-sm" + (" is-invalid" if edit_form.phone_code.errors else "")) }}
-                                {% if edit_form.phone_code.errors %}<div class="invalid-feedback">{% for error in edit_form.phone_code.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+                        {# Nom Complet #}
+                        <div class="mb-3"> {{ edit_form.full_name.label(class="form-label") }} {{ edit_form.full_name(class="form-control" + (" is-invalid" if edit_form.full_name.errors else "")) }} {% if edit_form.full_name.errors %}<div class="invalid-feedback">{% for error in edit_form.full_name.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %} </div>
+                        {# Email #}
+                        <div class="mb-3"> {{ edit_form.email.label(class="form-label") }} {{ edit_form.email(class="form-control" + (" is-invalid" if edit_form.email.errors else "")) }} {% if edit_form.email.errors %}<div class="invalid-feedback">{% for error in edit_form.email.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %} </div>
+
+                        {# --- Champs Téléphone Modifiés --- #}
+                        <label class="form-label">{{ _('Numéro de téléphone') }}</label>
+                        <div class="input-group mb-3">
+                            {{ edit_form.phone_code(class="form-select" + (" is-invalid" if edit_form.phone_code.errors else ""), style="max-width: 150px;") }}
+                            {{ edit_form.phone_local_number(class="form-control" + (" is-invalid" if edit_form.phone_local_number.errors else ""), placeholder=_("Votre numéro")) }}
+                            {% if edit_form.phone_code.errors or edit_form.phone_local_number.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in edit_form.phone_code.errors %}<span>{{ error }}</span>{% endfor %}
+                                {% for error in edit_form.phone_local_number.errors %}<span>{{ error }}</span>{% endfor %}
                             </div>
-                            <div class="col-md-7">
-                                {{ edit_form.phone_local_number.label(class="form-label") }}
-                                {{ edit_form.phone_local_number(class="form-control form-control-sm" + (" is-invalid" if edit_form.phone_local_number.errors else "")) }}
-                                {% if edit_form.phone_local_number.errors %}<div class="invalid-feedback">{% for error in edit_form.phone_local_number.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
-                            </div>
+                            {% endif %}
                         </div>
-                        <div class="mb-3">
-                            {{ edit_form.telegram_username.label(class="form-label") }}
-                            {{ edit_form.telegram_username(class="form-control form-control-sm" + (" is-invalid" if edit_form.telegram_username.errors else ""), placeholder="@pseudo_telegram") }}
-                            {% if edit_form.telegram_username.errors %}<div class="invalid-feedback">{% for error in edit_form.telegram_username.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+                        {# --- Fin Champs Téléphone --- #}
+
+                        {# Telegram #}
+                        <div class="mb-3"> {{ edit_form.telegram_username.label(class="form-label") }} {{ edit_form.telegram_username(class="form-control" + (" is-invalid" if edit_form.telegram_username.errors else ""), placeholder="@pseudo") }} {% if edit_form.telegram_username.errors %}<div class="invalid-feedback">{% for error in edit_form.telegram_username.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %} </div>
+                        {# Pays #}
+                        <div class="mb-3"> {{ edit_form.country.label(class="form-label") }} {{ edit_form.country(class="form-select" + (" is-invalid" if edit_form.country.errors else "")) }} {% if edit_form.country.errors %}<div class="invalid-feedback">{% for error in edit_form.country.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %} </div>
+                        {# Appareil #}
+                        <div class="mb-3"> {{ edit_form.device.label(class="form-label") }} {{ edit_form.device(class="form-select" + (" is-invalid" if edit_form.device.errors else "")) }} {% if edit_form.device.errors %}<div class="invalid-feedback">{% for error in edit_form.device.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %} </div>
+                        <div class="d-grid">
+                            {{ edit_form.submit_profile(class="btn btn-primary") }}
                         </div>
-                        <div class="mb-3">
-                            {{ edit_form.country.label(class="form-label") }}
-                            {{ edit_form.country(class="form-select form-select-sm" + (" is-invalid" if edit_form.country.errors else "")) }}
-                            {% if edit_form.country.errors %}<div class="invalid-feedback">{% for error in edit_form.country.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
-                        </div>
-                        <div class="mb-3">
-                            {{ edit_form.device.label(class="form-label") }}
-                            {{ edit_form.device(class="form-select form-select-sm" + (" is-invalid" if edit_form.device.errors else "")) }}
-                            {% if edit_form.device.errors %}<div class="invalid-feedback">{% for error in edit_form.device.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
-                        </div>
-                        {{ edit_form.submit_profile(class="btn btn-primary btn-sm") }}
                     </form>
                 </div>
             </div>
         </div>
 
         {# Colonne pour Changer le Mot de Passe #}
-        <div class="col-lg-6">
-            <div class="card shadow-sm">
-                <div class="card-header">
-                    <h5 class="my-0"><i class="bi bi-key-fill"></i> {{ _('Changer le Mot de Passe') }}</h5>
-                </div>
+        <div class="col-md-6">
+             <div class="card shadow-sm h-100">
                 <div class="card-body">
-                    <form method="POST" action="{{ url_for('main.profile') }}" novalidate>
+                    <h2 class="card-title mb-4">{{ _('Changer mon Mot de Passe') }}</h2>
+                     <form action="{{ url_for('main.profile') }}" method="post" novalidate>
                         {{ password_form.hidden_tag() }}
-                        <div class="mb-3">
-                            {{ password_form.current_password.label(class="form-label") }}
-                            {{ password_form.current_password(class="form-control form-control-sm" + (" is-invalid" if password_form.current_password.errors else "")) }}
-                            {% if password_form.current_password.errors %}<div class="invalid-feedback">{% for error in password_form.current_password.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+                        <div class="mb-3"> {{ password_form.current_password.label(class="form-label") }} {{ password_form.current_password(class="form-control" + (" is-invalid" if password_form.current_password.errors else "")) }} {% if password_form.current_password.errors %}<div class="invalid-feedback">{% for error in password_form.current_password.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %} </div>
+                        <div class="mb-3"> {{ password_form.new_password.label(class="form-label") }} {{ password_form.new_password(class="form-control" + (" is-invalid" if password_form.new_password.errors else "")) }} {% if password_form.new_password.errors %}<div class="invalid-feedback">{% for error in password_form.new_password.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %} </div>
+                        <div class="mb-3"> {{ password_form.new_password2.label(class="form-label") }} {{ password_form.new_password2(class="form-control" + (" is-invalid" if password_form.new_password2.errors else "")) }} {% if password_form.new_password2.errors %}<div class="invalid-feedback">{% for error in password_form.new_password2.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %} </div>
+                        <div class="d-grid">
+                            {{ password_form.submit_password(class="btn btn-secondary") }}
                         </div>
-                        <div class="mb-3">
-                            {{ password_form.new_password.label(class="form-label") }}
-                            {{ password_form.new_password(class="form-control form-control-sm" + (" is-invalid" if password_form.new_password.errors else "")) }}
-                            {% if password_form.new_password.errors %}<div class="invalid-feedback">{% for error in password_form.new_password.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
-                        </div>
-                        <div class="mb-3">
-                            {{ password_form.new_password2.label(class="form-label") }}
-                            {{ password_form.new_password2(class="form-control form-control-sm" + (" is-invalid" if password_form.new_password2.errors else "")) }}
-                            {% if password_form.new_password2.errors %}<div class="invalid-feedback">{% for error in password_form.new_password2.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
-                        </div>
-                        {{ password_form.submit_password(class="btn btn-warning btn-sm") }}
                     </form>
                 </div>
-            </div>
+             </div>
         </div>
     </div>
-
-    {# <<< NOUVELLE SECTION : MES FILLEULS >>> #}
-    <hr class="my-5">
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-header">
-                    <h5 class="my-0"><i class="bi bi-people"></i> {{ _('Mes Filleuls') }} ({{ referred_users_count }})</h5>
-                </div>
-                <div class="card-body">
-                    {% if referred_users %}
-                        <p>{{ _('Voici la liste des utilisateurs que vous avez parrainés :') }}</p>
-                        <div class="table-responsive">
-                            <table class="table table-sm table-striped table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>{{ _('Nom du Filleul') }}</th>
-                                        <th>{{ _('Date d\'Inscription') }}</th>
-                                        <th>{{ _('Statut Vérification Email') }}</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for referred_user in referred_users %}
-                                    <tr>
-                                        <td>{{ referred_user.full_name }}</td>
-                                        <td>{{ referred_user.registration_date.strftime('%d/%m/%Y') }}</td>
-                                        <td>
-                                            {% if referred_user.is_verified %}
-                                                <span class="badge bg-success">{{ _('Vérifié') }}</span>
-                                            {% else %}
-                                                <span class="badge bg-warning text-dark">{{ _('Non Vérifié') }}</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    {% else %}
-                        <p>{{ _('Vous n\'avez pas encore parrainé d\'utilisateurs. Partagez votre code de parrainage pour commencer !') }}</p>
-                    {% endif %}
-                    <p class="mt-3">
-                        <small>{{ _('Votre code de parrainage unique :') }}</small>
-                        <strong class="user-select-all ms-1">{{ current_user.referral_code }}</strong>
-                    </p>
-                    {% set reg_link = url_for('auth.register', ref=current_user.referral_code, _external=True) %}
-                    <button class="btn btn-sm btn-outline-info mt-1" type="button" onclick="copyToClipboard('{{ reg_link }}')" title="{{ _('Copier le lien d\'invitation') }}">
-                        <i class="bi bi-clipboard"></i> {{ _('Copier Lien d\'Invitation') }}
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-    {# <<< FIN NOUVELLE SECTION : MES FILLEULS >>> #}
 
     <div class="mt-5 text-center">
-        <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left-circle"></i> {{ _('Retour au Tableau de Bord') }}</a>
+         <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left-circle"></i> {{ _('Retour au Tableau de Bord') }}</a>
     </div>
 
-</div>
-{% endblock %}
-
-{% block scripts %}
-    {{ super() }}
-    <script>
-        function copyToClipboard(text) {
-            navigator.clipboard.writeText(text).then(function() {
-                // Optionnel: Afficher un message de succès plus discret qu'une alerte
-                var originalButtonText = event.target.innerHTML;
-                event.target.innerHTML = '<i class="bi bi-check-lg"></i> {{ _("Copié !") }}';
-                setTimeout(function() {
-                    event.target.innerHTML = originalButtonText;
-                }, 2000);
-            }, function(err) {
-                alert("{{ _('Erreur lors de la copie du lien : ') }}" + err);
-            });
-        }
-    </script>
+</div> {# <<< Fin Conteneur >>> #}
 {% endblock %}
