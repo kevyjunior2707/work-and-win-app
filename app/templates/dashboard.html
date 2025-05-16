@@ -1,137 +1,131 @@
-{# app/templates/dashboard.html (Ajout Alerte Vérification Email) #}
+{# app/templates/dashboard.html (Avec Résumé Parrainage) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
 
 {% block content %}
-<div class="container mt-4 mb-5"> {# Conteneur principal #}
-    <h1 class="mb-4"><i class="bi bi-speedometer2"></i> {{ title }}</h1>
+<div class="container mt-4 mb-5">
+    <div class="row">
+        <div class="col-md-12">
+            <h1 class="mb-3"><i class="bi bi-speedometer2"></i> {{ title }}</h1>
+            <p class="lead">{{ _('Bienvenue sur votre tableau de bord, %(username)s !', username=current_user.full_name) }}</p>
 
-    {# <<< NOUVEAU : Alerte si compte non vérifié >>> #}
-    {% if not current_user.is_verified %}
-    <div class="alert alert-danger border-danger shadow-sm" role="alert">
-      <h4 class="alert-heading"><i class="bi bi-envelope-exclamation-fill"></i> {{ _('Action Requise : Vérifiez Votre Email !') }}</h4>
-      <p>{{ _("Votre adresse email n'a pas encore été vérifiée. Vous devez cliquer sur le lien de vérification que nous vous avons envoyé lors de l'inscription.") }}</p>
-      <p>{{ _("Vérifiez votre boîte de réception ainsi que votre dossier spam/courrier indésirable pour l'email de 'Work and Win'.") }}</p>
-      <p class="fw-bold">{{ _("La vérification est nécessaire pour pouvoir demander des retraits de vos gains.") }}</p>
-      <hr>
-      <p class="mb-0">
-        {{ _("Si vous n'avez pas reçu l'email ou si le lien a expiré (valide 30 min), ou si vous avez changé d'email dans votre profil, cliquez ici pour renvoyer l'email de vérification :") }}
-        {# Formulaire pour renvoyer l'email #}
-        <form action="{{ url_for('auth.resend_verification_email') }}" method="post" class="d-inline">
-             {# CSRF Token est géré globalement par Flask-WTF si activé #}
-             <button type="submit" class="btn btn-warning btn-sm ms-2">{{ _('Renvoyer l\'email de vérification') }}</button>
-        </form>
-      </p>
-    </div>
-    {% endif %}
-    {# <<< FIN NOUVEAU >>> #}
+            {% if not current_user.is_verified %}
+            <div class="alert alert-warning" role="alert">
+                <h4 class="alert-heading">{{ _('Vérification d\'email requise !') }}</h4>
+                <p>{{ _('Votre adresse email n\'a pas encore été vérifiée. Veuillez consulter votre boîte de réception (et votre dossier spam) pour l\'email de vérification que nous vous avons envoyé. Si vous ne l\'avez pas reçu, vous pouvez demander un nouveau lien.') }}</p>
+                <hr>
+                <form action="{{ url_for('auth.resend_verification_email') }}" method="post" style="display: inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-warning btn-sm">{{ _('Renvoyer l\'email de vérification') }}</button>
+                </form>
+            </div>
+            {% endif %}
 
-    <p class="lead">{{ _('Bienvenue, %(username)s ! Gérez vos tâches et vos gains ici.', username=current_user.full_name) }}</p>
-    <hr>
-
-    {# Affichage Solde #}
-    <div class="alert alert-success fs-5 mb-4 shadow-sm">
-       <i class="bi bi-wallet2"></i> {{ _('Votre Solde Actuel:') }}
-       <strong class="mx-2">$ {{ "%.2f"|format(current_user.balance) }}</strong>
-       <a href="{{ url_for('main.withdraw') }}" class="btn btn-sm btn-outline-success ms-3">{{ _('Voir / Demander Retrait') }}</a>
+            {% if warning_message %}
+            <div class="alert alert-danger d-flex align-items-center mt-3" role="alert">
+              <i class="bi bi-shield-exclamation fs-2 me-3"></i>
+              <div>
+                <h4 class="alert-heading">{{ _("Tolérance Zéro pour la Fraude !") }}</h4>
+                {{ warning_message }}
+              </div>
+            </div>
+            {% endif %}
+            <hr class="my-4">
+        </div>
     </div>
 
-    {# Actions dans des cartes avec icônes #}
-    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+    <div class="row g-4">
+        {# Carte Solde Actuel #}
+        <div class="col-md-6 col-lg-4">
+            <div class="card text-center shadow-sm h-100">
+                <div class="card-header">
+                    <h5 class="my-1"><i class="bi bi-wallet2"></i> {{ _('Mon Solde Actuel') }}</h5>
+                </div>
+                <div class="card-body">
+                    <h1 class="display-4 fw-bold text-success">$ {{ "%.2f"|format(current_user.balance) }}</h1>
+                    <p class="card-text">{{ _('C\'est le montant que vous pouvez actuellement retirer.') }}</p>
+                </div>
+                <div class="card-footer">
+                     <a href="{{ url_for('main.withdraw') }}" class="btn btn-primary"><i class="bi bi-cash-coin"></i> {{ _('Demander un Retrait') }}</a>
+                </div>
+            </div>
+        </div>
+
         {# Carte Tâches Disponibles #}
-        <div class="col d-flex align-items-stretch">
-            <div class="card h-100 shadow-sm text-center border-0">
-                <div class="card-body d-flex flex-column">
-                    <div class="mb-3"><i class="bi bi-card-checklist fs-1 text-primary"></i></div>
-                    <h5 class="card-title">{{ _('Tâches Disponibles') }}</h5>
-                    <p class="card-text flex-grow-1"><small>{{ _('Voir les nouvelles tâches qui vous attendent maintenant.') }}</small></p>
-                    <a href="{{ url_for('main.available_tasks') }}" class="btn btn-primary mt-auto">{{ _('Voir les tâches') }}</a>
+        <div class="col-md-6 col-lg-4">
+            <div class="card text-center shadow-sm h-100">
+                <div class="card-header">
+                    <h5 class="my-1"><i class="bi bi-card-checklist"></i> {{ _('Tâches') }}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text fs-5">{{ _('Découvrez de nouvelles opportunités de gagner de l\'argent.') }}</p>
+                    <p>{{ _('Nombre de tâches accomplies :')}} <strong>{{ current_user.completed_task_count }}</strong></p>
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('main.available_tasks') }}" class="btn btn-success"><i class="bi bi-search"></i> {{ _('Voir les Tâches Disponibles') }}</a>
+                    <a href="{{ url_for('main.completed_tasks') }}" class="btn btn-outline-secondary mt-2 mt-md-0 ms-md-2"><i class="bi bi-check2-square"></i> {{ _('Mes Tâches Accomplies') }}</a>
                 </div>
             </div>
         </div>
-         {# Carte Tâches Accomplies #}
-        <div class="col d-flex align-items-stretch">
-            <div class="card h-100 shadow-sm text-center border-0">
-                 <div class="card-body d-flex flex-column">
-                    <div class="mb-3"><i class="bi bi-check2-square fs-1 text-success"></i></div>
-                    <h5 class="card-title">{{ _('Mes Tâches Accomplies') }}</h5>
-                    <p class="card-text flex-grow-1"><small>{{ _('Consultez l\'historique détaillé de vos gains et des tâches que vous avez terminées avec succès.') }}</small></p>
-                    <a href="{{ url_for('main.completed_tasks') }}" class="btn btn-success mt-auto">{{ _('Voir l\'historique') }}</a>
-                </div>
-            </div>
-        </div>
-         {# Carte Parrainage #}
-         <div class="col d-flex align-items-stretch">
-            <div class="card h-100 shadow-sm text-center border-0 bg-light">
-                 <div class="card-body d-flex flex-column">
-                    <div class="mb-3"><i class="bi bi-person-plus-fill fs-1 text-info"></i></div>
-                    <h5 class="card-title">{{ _('Inviter des Amis') }}</h5>
-                     <div class="flex-grow-1 d-flex flex-column justify-content-center">
-                         <p class="card-text mb-1"><small>{{ _('Votre Code de Parrainage Unique pour augmenter vos gains:') }}</small><br><strong class="fs-5 user-select-all">{{ current_user.referral_code }}</strong></p>
-                     </div>
-                     {% set reg_link = url_for('auth.register', ref=current_user.referral_code, _external=True) %}
-                     <button class="btn btn-sm btn-outline-info mt-auto" type="button" onclick="copyToClipboard('{{ reg_link }}')" title="{{ _('Copier le lien d\'invitation') }}">
-                         <i class="bi bi-clipboard"></i> {{ _('Copier Lien') }}
-                     </button>
-                </div>
-            </div>
-        </div>
-         {# Carte Notifications #}
-         <div class="col d-flex align-items-stretch">
-            <div class="card h-100 shadow-sm text-center border-0">
-                 <div class="card-body d-flex flex-column">
-                    <div class="mb-3"><i class="bi bi-bell fs-1 text-warning"></i></div>
-                    <h5 class="card-title">{{ _('Notifications') }}</h5>
-                    <p class="card-text flex-grow-1"><small>{{ _('Consultez les messages importants, les mises à jour de statut et les confirmations de bonus ou d\'avertissements.') }}</small></p>
-                    <a href="{{ url_for('main.notifications') }}" class="btn btn-warning mt-auto">{{ _('Voir les notifications') }}</a>
-                </div>
-            </div>
-        </div>
-        {# Carte Modifier Profil #}
-        <div class="col d-flex align-items-stretch">
-            <div class="card h-100 shadow-sm text-center border-0">
-                <div class="card-body d-flex flex-column">
-                   <div class="mb-3"><i class="bi bi-person-fill-gear fs-1 text-secondary"></i></div>
-                   <h5 class="card-title">{{ _('Modifier Mon Profil') }}</h5>
-                   <p class="card-text flex-grow-1"><small>{{ _('Mettez à jour vos informations personnelles (email, pays, appareil) ou changez votre mot de passe.') }}</small></p>
-                   <a href="{{ url_for('main.profile') }}" class="btn btn-secondary mt-auto">{{ _('Modifier Profil') }}</a>
-               </div>
-           </div>
-       </div>
-       {# Carte Retrait #}
-       <div class="col d-flex align-items-stretch">
-            <div class="card h-100 shadow-sm text-center border-0">
-                <div class="card-body d-flex flex-column">
-                   <div class="mb-3"><i class="bi bi-cash-coin fs-1 text-success"></i></div>
-                   <h5 class="card-title">{{ _('Retrait') }}</h5>
-                   <p class="card-text flex-grow-1"><small>{{ _('Vérifiez votre éligibilité, consultez l\'historique de vos paiements reçus et contactez le support pour demander un retrait.') }}</small></p>
-                   <a href="{{ url_for('main.withdraw') }}" class="btn btn-success mt-auto">{{ _('Voir / Demander Retrait') }}</a>
-               </div>
-           </div>
-       </div>
-    </div> {# Fin row g-4 #}
 
-    {# Message Règles Importantes (gardé) #}
-    {% if warning_message %}
-    <div class="alert alert-warning mt-5 shadow-sm" role="alert">
-      <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> {{ _('Règles Importantes') }}</h4>
-      <p>{{ warning_message }}</p>
-      <hr>
-      <p class="mb-0">{{ _("Jouez juste !") }}</p>
+        {# <<< NOUVELLE CARTE : RÉSUMÉ DU PARRAINAGE >>> #}
+        <div class="col-md-6 col-lg-4">
+            <div class="card text-center shadow-sm h-100">
+                <div class="card-header">
+                    <h5 class="my-1"><i class="bi bi-people-fill"></i> {{ _('Mon Programme de Parrainage') }}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">
+                        {{ _('Nombre de filleuls :') }} <strong class="fs-5">{{ referred_users_count }}</strong>
+                    </p>
+                    <p class="card-text">
+                        {{ _('Gains de parrainage (approuvés) :') }} <strong class="fs-5 text-success">$ {{ "%.2f"|format(total_referral_earnings) }}</strong>
+                    </p>
+                     <p class="mt-2">
+                        <small>{{ _('Votre code de parrainage :') }}</small>
+                        <strong class="user-select-all ms-1">{{ current_user.referral_code }}</strong>
+                    </p>
+                    {% set reg_link = url_for('auth.register', ref=current_user.referral_code, _external=True) %}
+                    <button class="btn btn-sm btn-outline-info mt-1" type="button" onclick="copyToClipboard('{{ reg_link }}')" title="{{ _('Copier le lien d\'invitation') }}">
+                        <i class="bi bi-clipboard"></i> {{ _('Copier Lien d\'Invitation') }}
+                    </button>
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('main.my_referrals_details') }}" class="btn btn-info text-white"><i class="bi bi-eye-fill"></i> {{ _('Voir Détails de mes Filleuls') }}</a>
+                </div>
+            </div>
+        </div>
+        {# <<< FIN NOUVELLE CARTE : RÉSUMÉ DU PARRAINAGE >>> #}
+
+        {# Carte Profil #}
+        <div class="col-md-6 col-lg-4">
+            <div class="card text-center shadow-sm h-100">
+                 <div class="card-header">
+                    <h5 class="my-1"><i class="bi bi-person-circle"></i> {{ _('Mon Profil') }}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text fs-5">{{ _('Gardez vos informations personnelles à jour.')}}</p>
+                </div>
+                <div class="card-footer">
+                     <a href="{{ url_for('main.profile') }}" class="btn btn-secondary"><i class="bi bi-pencil"></i> {{ _('Modifier Mon Profil') }}</a>
+                </div>
+            </div>
+        </div>
     </div>
-    {% endif %}
-
-</div> {# <<< Fin Conteneur >>> #}
+</div>
 {% endblock %}
 
-{# Script pour le bouton Copier #}
 {% block scripts %}
     {{ super() }}
     <script>
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text).then(function() {
-                alert("{{ _('Lien d\'invitation copié dans le presse-papiers !') }}");
+                var originalButtonText = event.target.innerHTML;
+                event.target.innerHTML = '<i class="bi bi-check-lg"></i> {{ _("Copié !") }}';
+                setTimeout(function() {
+                    event.target.innerHTML = originalButtonText;
+                }, 2000);
             }, function(err) {
                 alert("{{ _('Erreur lors de la copie du lien : ') }}" + err);
             });
