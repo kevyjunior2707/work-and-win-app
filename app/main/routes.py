@@ -51,7 +51,7 @@ def dashboard():
     warning_message = _("Nous appliquons une politique de tolérance zéro envers la triche, l'utilisation de VPN/proxys, ou la création de comptes multiples. Toute violation entraînera un bannissement permanent et la perte des gains.")
 
     # Nombre de filleuls
-    referred_users_count = current_user.referred_users.count() # Utilise la relation backref
+    referred_users_count = len(current_user.referred_users) # Utilise la relation backref
 
     # Gains totaux de parrainage approuvés
     total_referral_earnings = db.session.scalar(
