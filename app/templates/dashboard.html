@@ -71,7 +71,7 @@
                          <p class="card-text mb-2">
                             <small>{{ _('Gains de parrainage (approuvés) :') }}</small> <strong class="fs-5 text-success">$ {{ "%.2f"|format(total_referral_earnings) }}</strong>
                          </p>
-                         <p class="card-text mb-1"><small>{{ _('Voici votre code de parrainage à partager:') }}</small><br><strong class="fs-5 user-select-all">{{ current_user.referral_code }}</strong></p>
+                         <p class="card-text mb-1"><small>{{ _('Voici votre code de parrainage à partager : vous gagnerez 3 % sur les gains de vos filleuls, une fois qu’ils auront accompli 20 tâches.') }}</small><br><strong class="fs-5 user-select-all">{{ current_user.referral_code }}</strong></p>
                      </div>
                      {% set reg_link = url_for('auth.register', ref=current_user.referral_code, _external=True) %}
                      <button class="btn btn-sm btn-outline-info" type="button" onclick="copyToClipboard('{{ reg_link }}')" title="{{ _('Copier le lien d\'invitation') }}">
