@@ -1,4 +1,4 @@
-{# app/templates/dashboard.html (Carte Parrainage Simplifiée) #}
+{# app/templates/dashboard.html (Carte Parrainage Compacte) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -60,20 +60,20 @@
                         </div>
                     </div>
                 </div>
-                 {# Carte Parrainage (Simplifiée) #}
+                 {# Carte Parrainage (Compacte) #}
                  <div class="col d-flex align-items-stretch">
                     <div class="card h-100 shadow-sm text-center border-0 bg-light">
                          <div class="card-body d-flex flex-column">
-                            <div class="mb-3"><i class="bi bi-people-fill fs-1 text-info"></i></div>
+                            <div class="mb-2"><i class="bi bi-people-fill fs-1 text-info"></i></div> {/* mb-2 au lieu de mb-3 */}
                             <h5 class="card-title">{{ _('Mon Programme de Parrainage') }}</h5>
                              <div class="flex-grow-1 d-flex flex-column justify-content-center">
-                                 <p class="card-text mb-1">
+                                 <p class="card-text mb-1"> {/* mb-1 */}
                                     <small>{{ _('Nombre de filleuls que vous avez déjà parrainés :') }}</small>
                                  </p>
-                                 <p class="card-text mb-3">
-                                    <strong class="display-6">{{ referred_users_count }}</strong>
+                                 <p class="card-text mb-2"> {/* mb-2 au lieu de mb-3 */}
+                                    <strong class="h3">{{ referred_users_count }}</strong> {/* h3 au lieu de display-6 */}
                                  </p>
-                                 <p class="card-text mb-1"><small>{{ _('Votre code de parrainage :') }}</small><br><strong class="fs-5 user-select-all">{{ current_user.referral_code }}</strong></p>
+                                 <p class="card-text mb-2"><small>{{ _('Votre code de parrainage :') }}</small><br><strong class="fs-6 user-select-all">{{ current_user.referral_code }}</strong></p> {/* fs-6 au lieu de fs-5 */}
                              </div>
                              {% set reg_link = url_for('auth.register', ref=current_user.referral_code, _external=True) %}
                              <button class="btn btn-sm btn-outline-info mb-2" type="button" onclick="copyToClipboard('{{ reg_link }}')" title="{{ _('Copier le lien d\'invitation') }}">
@@ -146,14 +146,13 @@
                     var originalButtonText = clickedButton.innerHTML;
                     clickedButton.innerHTML = '<i class="bi bi-check-lg"></i> {{ _("Copié !") }}';
                     var originalClasses = Array.from(clickedButton.classList);
-                    clickedButton.classList.remove('btn-outline-info'); // Adaptez si la classe d'origine est différente
+                    clickedButton.classList.remove('btn-outline-info'); 
                     clickedButton.classList.add('btn-success');
                     setTimeout(function() {
                         clickedButton.innerHTML = originalButtonText;
                         clickedButton.classList.remove('btn-success');
-                        // Restaure les classes d'origine, en s'assurant de ne pas rajouter btn-success si elle n'y était pas
                         originalClasses.forEach(cls => { if(cls !== 'btn-success') clickedButton.classList.add(cls); });
-                        if (!originalClasses.includes('btn-outline-info') && originalClasses.includes('btn-info')) { // Cas spécifique si c'était btn-info
+                        if (!originalClasses.includes('btn-outline-info') && originalClasses.includes('btn-info')) { 
                            // Ne rien faire, ou remettre btn-info si c'est le style par défaut souhaité
                         } else if (!originalClasses.includes('btn-outline-info')) {
                             clickedButton.classList.add('btn-outline-info'); // Fallback
