@@ -1,4 +1,4 @@
-{# app/templates/withdraw.html (Basé sur votre préférence, avec liens dynamiques) #}
+{# app/templates/withdraw.html (Affichage Statut Retrait Corrigé) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -82,14 +82,17 @@
                         <thead class="table-light">
                             <tr>
                                 <th class="ps-3">{{ _('Date de Traitement (UTC)') }}</th>
-                                <th class="text-end pe-3">{{ _('Montant ($)') }}</th>
+                                <th class="text-end">{{ _('Montant ($)') }}</th>
+                                <th class="text-center">{{ _('Statut') }}</th> {# En-tête était déjà là #}
                             </tr>
                         </thead>
                         <tbody>
                             {% for withdrawal_item in withdrawal_history %}
                             <tr>
                                 <td class="ps-3">{{ withdrawal_item.processed_timestamp.strftime('%d/%m/%Y à %H:%M') if withdrawal_item.processed_timestamp else _('N/A') }}</td>
-                                <td class="text-end pe-3"><strong>$ {{ "%.2f"|format(withdrawal_item.amount) }}</strong></td>
+                                <td class="text-end"><strong>$ {{ "%.2f"|format(withdrawal_item.amount) }}</strong></td>
+                                {# <<< CELLULE POUR LE STATUT AJOUTÉE ICI >>> #}
+                                <td class="text-center"><span class="badge bg-success">{{ _('Complété') }}</span></td>
                             </tr>
                             {% endfor %}
                         </tbody>
