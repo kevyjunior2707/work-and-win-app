@@ -1,4 +1,4 @@
-{# app/templates/dashboard.html (Avec Carte Support) #}
+{# app/templates/dashboard.html (Message Vérification Email Ajusté) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -11,13 +11,20 @@
             
             {% if not current_user.is_verified %}
             <div class="alert alert-danger border-danger shadow-sm" role="alert">
-              <h4 class="alert-heading"><i class="bi bi-envelope-exclamation-fill"></i> {{ _('Action Requise : Vérifiez Votre Email !') }}</h4>
-              <p>{{ _("Votre adresse email n'a pas encore été vérifiée. Vous devez cliquer sur le lien de vérification que nous vous avons envoyé lors de l'inscription.") }}</p>
-              <p>{{ _("Vérifiez votre boîte de réception ainsi que votre dossier spam/courrier indésirable pour l'email de 'Work and Win'.") }}</p>
-              <p class="fw-bold">{{ _("La vérification est nécessaire pour pouvoir demander des retraits de vos gains et commenter sur le blog.") }}</p>
+              <h4 class="alert-heading"><i class="bi bi-envelope-exclamation-fill"></i> {{ _('Action Importante : Vérifiez Votre Adresse Email !') }}</h4>
+              <p>{{ _("Votre adresse email n'a pas encore été vérifiée. La vérification est essentielle pour sécuriser votre compte, recevoir des communications importantes et activer des fonctionnalités clés telles que les demandes de retrait et la possibilité de commenter sur notre blog.") }}</p>
+              <p>
+                <strong>{{ _("Comment vérifier :") }}</strong> {{ _("Veuillez cliquer sur le lien de vérification que nous vous avons envoyé lors de votre inscription.") }}
+              </p>
+              <p>
+                <strong><i class="bi bi-mailbox2"></i> {{ _("Email non reçu ?") }}</strong><br>
+                1. {{ _("Vérifiez attentivement votre dossier de courriers indésirables (spam).") }}<br>
+                2. {{ _("Si notre email s'y trouve, merci de le marquer comme 'Non-spam' ou 'Non-indésirable'. Cela nous aidera à nous assurer que vous recevez nos futures communications importantes.") }}
+              </p>
+              <p class="fw-bold">{{ _("Sans vérification, vous ne pourrez pas demander de retrait de vos gains ni participer aux discussions du blog.") }} {{ _("Il est de votre responsabilité de vous assurer que votre email est vérifié pour éviter toute complication avec votre compte ou vos gains.") }}</p>
               <hr>
               <p class="mb-0">
-                {{ _("Si vous n'avez pas reçu l'email ou si le lien a expiré (valide 30 min), ou si vous avez changé d'email dans votre profil, cliquez ici pour renvoyer l'email de vérification :") }}
+                {{ _("Si vous n'avez toujours pas reçu l'email, si le lien a expiré (valide 30 min), ou si vous avez changé d'email dans votre profil, vous pouvez demander un nouveau lien de vérification :") }}
                 <form action="{{ url_for('auth.resend_verification_email') }}" method="post" class="d-inline">
                      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                      <button type="submit" class="btn btn-warning btn-sm ms-2">{{ _('Renvoyer l\'email de vérification') }}</button>
@@ -68,7 +75,7 @@
                             <h5 class="card-title">{{ _('Nombre de filleuls que vous avez déjà parrainés :') }}</h5>
                              <div class="flex-grow-1 d-flex flex-column justify-content-center">
                                  <p class="card-text mb-2">
-                                    <strong class="h3">{{ referred_users_count }}</strong>
+                                    <strong class="h4">{{ referred_users_count }}</strong>
                                  </p>
                                  <p class="card-text mb-2"><small>{{ _('Votre code de parrainage :') }}</small><br><strong class="fs-6 user-select-all">{{ current_user.referral_code }}</strong></p>
                              </div>
@@ -115,8 +122,7 @@
                        </div>
                    </div>
                </div>
-
-                {# <<< NOUVELLE CARTE SUPPORT AJOUTÉE ICI >>> #}
+                {# Carte Support Client #}
                 <div class="col d-flex align-items-stretch">
                     <div class="card h-100 shadow-sm text-center border-0 bg-light">
                         <div class="card-body d-flex flex-column">
@@ -125,12 +131,12 @@
                            <p class="card-text flex-grow-1"><small>{{ _('Avez-vous des problèmes ou préoccupations ? Contactez notre support.') }}</small></p>
                            <div class="mt-auto">
                                 {% if config.SUPPORT_EMAIL %}
-                                <a href="mailto:{{ config.SUPPORT_EMAIL }}?subject={{ _('Demande de Support - Utilisateur %(user_id)s', user_id=current_user.id) | urlencode }}" class="btn btn-primary btn-sm me-2">
+                                <a href="mailto:{{ config.SUPPORT_EMAIL }}?subject={{ _('Demande de Support - Utilisateur %(user_id)s', user_id=current_user.id) | urlencode }}" class="btn btn-primary btn-sm me-2 mb-2">
                                     <i class="bi bi-envelope-fill"></i> {{ _('Email') }}
                                 </a>
                                 {% endif %}
                                 {% if config.SUPPORT_TELEGRAM_LINK and config.SUPPORT_TELEGRAM_LINK != 'TELEGRAM_LINK_A_DEFINIR' and config.SUPPORT_TELEGRAM_LINK.startswith('https://t.me/') %}
-                                <a href="{{ config.SUPPORT_TELEGRAM_LINK }}" target="_blank" class="btn btn-info text-white btn-sm">
+                                <a href="{{ config.SUPPORT_TELEGRAM_LINK }}" target="_blank" class="btn btn-info text-white btn-sm mb-2">
                                     <i class="bi bi-telegram"></i> {{ _('Telegram') }}
                                 </a>
                                 {% endif %}
@@ -138,8 +144,6 @@
                        </div>
                    </div>
                </div>
-               {# <<< FIN NOUVELLE CARTE SUPPORT >>> #}
-
             </div> {# Fin row g-4 #}
 
             {# Message Règles Importantes #}
