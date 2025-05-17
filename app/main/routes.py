@@ -77,40 +77,47 @@ def dashboard():
                            csrf_token=csrf_token_value)
 
 # --- Route pour voir les tâches disponibles ---
+
 @bp.route('/tasks/available')
 @login_required
 def available_tasks():
-    all_active_tasks = db.session.scalars(db.select(Task).where(Task.is_active == True)).all()
-    user_country = current_user.country
-    user_device = current_user.device
-    tasks_for_user = []
-    now_utc = datetime.now(timezone.utc)
-    delay_for_daily_task = timedelta(hours=24, minutes=1)
+        all_active_tasks = db.session.scalars(db.select(Task).where(Task.is_active == True)).all()
+        user_country = current_user.country
+        user_device = current_user.device
+        tasks_for_user = []
+        now_utc = datetime.now(timezone.utc)
+        delay_for_daily_task = timedelta(hours=24, minutes=1)
 
-    # Récupérer toutes les complétions de l'utilisateur en une fois
-    user_completions_query = select(UserTaskCompletion.task_id, func.max(UserTaskCompletion.completion_timestamp).label('latest_completion_ts')).where(UserTaskCompletion.user_id == current_user.id).group_by(UserTaskCompletion.task_id)
-    user_completions_dict = {comp.task_id: comp.latest_completion_ts for comp in db.session.execute(user_completions_query).all()}
+        user_completions_query = select(UserTaskCompletion.task_id, func.max(UserTaskCompletion.completion_timestamp).label('latest_completion_ts')).where(UserTaskCompletion.user_id == current_user.id).group_by(UserTaskCompletion.task_id)
+        user_completions_dict = {comp.task_id: comp.latest_completion_ts for comp in db.session.execute(user_completions_query).all()}
 
-    for task in all_active_tasks:
-        target_countries = task.get_target_countries_list()
-        country_match = 'ALL' in target_countries or user_country in target_countries
-        target_devices = task.get_target_devices_list()
-        device_match = 'ALL' in target_devices or user_device in target_devices
+        for task in all_active_tasks:
+            target_countries = task.get_target_countries_list()
+            country_match = 'ALL' in target_countries or user_country in target_countries
+            target_devices = task.get_target_devices_list()
+            device_match = 'ALL' in target_devices or user_device in target_devices
 
-        if country_match and device_match:
-            if task.is_daily:
-                latest_completion_ts = user_completions_dict.get(task.id)
-                if latest_completion_ts:
-                    time_since_last = now_utc - latest_completion_ts.replace(tzinfo=timezone.utc)
-                    if time_since_last >= delay_for_daily_task:
+            if country_match and device_match:
+                if task.is_daily:
+                    latest_completion_ts = user_completions_dict.get(task.id)
+                    if latest_completion_ts:
+                        time_since_last = now_utc - latest_completion_ts.replace(tzinfo=timezone.utc)
+                        if time_since_last >= delay_for_daily_task:
+                            tasks_for_user.append(task)
+                    else: # Jamais complétée
                         tasks_for_user.append(task)
-                else: # Jamais complétée
-                    tasks_for_user.append(task)
-            else: # Tâche non quotidienne
-                if task.id not in user_completions_dict: # Vérifie si jamais complétée
-                    tasks_for_user.append(task)
-    return render_template('available_tasks.html', title=_('Tâches Disponibles'), tasks=tasks_for_user)
-
+                else: # Tâche non quotidienne
+                    if task.id not in user_completions_dict: # Vérifie si jamais complétée
+                        tasks_for_user.append(task)
+        
+        # <<< AJOUT ICI : Générer le token CSRF >>>
+        csrf_token_value = generate_csrf()
+        
+        return render_template('available_tasks.html',
+                               title=_('Tâches Disponibles'),
+                               tasks=tasks_for_user,
+                               csrf_token=csrf_token_value) # <<< Passer le token ici >>>
+    
 # --- Route pour marquer une tâche comme accomplie ---
 @bp.route('/task/complete/<int:task_id>', methods=['POST'])
 @login_required

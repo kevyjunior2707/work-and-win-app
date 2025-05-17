@@ -1,4 +1,4 @@
-{# app/templates/available_tasks.html (Avec Modale pour Instructions) #}
+{# app/templates/available_tasks.html (Fix CSRF Modale) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -39,7 +39,6 @@
                         <p class="card-text flex-grow-1"><small>{{ task.description | striptags | truncate(100) }}</small></p>
                         
                         <div class="mt-auto">
-                            {# Bouton pour ouvrir la modale d'instructions #}
                             <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#taskInstructionsModal-{{ task.id }}">
                                 <i class="bi bi-eye-fill"></i> {{ _('Voir les Instructions & Commencer') }}
                             </button>
@@ -48,7 +47,6 @@
                 </div>
             </div>
 
-            {# #}
             <div class="modal fade" id="taskInstructionsModal-{{ task.id }}" tabindex="-1" aria-labelledby="taskInstructionsModalLabel-{{ task.id }}" aria-hidden="true">
                 <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
                     <div class="modal-content">
@@ -59,14 +57,14 @@
                         <div class="modal-body">
                             <div class="mb-3">
                                 <h6>{{ _('Description de la Tâche :') }}</h6>
-                                <p>{{ task.description | safe }}</p> {# |safe si la description peut contenir du HTML simple depuis l'admin #}
+                                <p>{{ task.description | safe }}</p>
                             </div>
                             <hr>
                             <div class="mb-3">
                                 <h6>{{ _('Instructions Détaillées :') }}</h6>
                                 {% if task.instructions %}
                                     <div class="instructions-content p-2 bg-light border rounded">
-                                        {{ task.instructions | safe }} {# |safe si les instructions peuvent contenir du HTML simple #}
+                                        {{ task.instructions | safe }}
                                     </div>
                                 {% else %}
                                     <p class="text-muted">{{ _('Aucune instruction spécifique fournie pour cette tâche.') }}</p>
@@ -88,7 +86,8 @@
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Fermer') }}</button>
                             <form method="POST" action="{{ url_for('main.complete_task', task_id=task.id) }}" style="display: inline;">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"> {# CSRF Token si vous l'utilisez pour les formulaires POST #}
+                                {# <<< CORRECTION CSRF TOKEN ICI >>> #}
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                                 <button type="submit" class="btn btn-success start-task-button" id="startButton-{{ task.id }}" disabled>
                                     <i class="bi bi-play-circle-fill"></i> {{ _('Commencer la Tâche') }}
                                 </button>
@@ -97,12 +96,8 @@
                     </div>
                 </div>
             </div>
-            {# #}
             {% endfor %}
         </div>
-
-        {# Pagination (si vous en avez une) #}
-        {# {% if pagination %} ... {% endif %} #}
     {% endif %}
 </div>
 {% endblock %}
@@ -117,14 +112,5 @@ function toggleStartButton(taskId) {
         startButton.disabled = !checkbox.checked;
     }
 }
-
-// Assurez-vous que le CSRF token est disponible si vous l'utilisez globalement
-// Sinon, si votre formulaire POST est protégé par Flask-WTF, form.hidden_tag() devrait suffire
-// ou vous devez passer csrf_token à ce template depuis la route.
-// Pour l'instant, j'ai mis {{ csrf_token() }} en supposant qu'il est disponible globalement
-// ou que vous avez une configuration qui le rend disponible.
-// Si ce n'est pas le cas et que vous avez une erreur UndefinedError: 'csrf_token',
-// il faudra passer csrf_token=generate_csrf() depuis la route `available_tasks`.
 </script>
 {% endblock %}
-
