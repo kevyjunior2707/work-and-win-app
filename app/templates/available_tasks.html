@@ -1,4 +1,4 @@
-{# app/templates/available_tasks.html (Description Tâches Uniforme) #}
+{# app/templates/available_tasks.html (Bouton Modale Corrigé) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -24,6 +24,11 @@
         align-items: center;
         justify-content: center;
         background-color: #f8f9fa; /* Couleur de fond pour le placeholder */
+    }
+    /* Styles pour les liens désactivés qui ressemblent à des boutons */
+    a.btn.disabled, a.btn:disabled {
+        pointer-events: none;
+        opacity: 0.65;
     }
 </style>
 {% endblock %}
@@ -61,7 +66,6 @@
                             <i class="bi bi-award-fill text-success"></i> {{ _('Récompense:') }} <strong>$ {{ "%.2f"|format(task.reward_amount) }}</strong>
                             {% if task.is_daily %}<span class="badge bg-info ms-2">{{ _('Quotidienne') }}</span>{% endif %}
                         </p>
-                        {# MODIFICATION ICI pour la description #}
                         <p class="card-text flex-grow-1 task-description-snippet"><small>{{ task.description | striptags | truncate(120, True) }}</small></p>
                         
                         <div class="mt-auto">
@@ -69,12 +73,9 @@
                                 <i class="bi bi-eye-fill"></i> {{ _('Voir les Instructions') }}
                             </button>
                             
-                            <form method="POST" action="{{ url_for('main.complete_task', task_id=task.id) }}" class="d-grid">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                <button type="submit" class="btn btn-success w-100">
-                                    <i class="bi bi-check2-circle"></i> {{ _('Marquer comme Accomplie') }}
-                                </button>
-                            </form>
+                            <button type="button" class="btn btn-success w-100" data-bs-toggle="modal" data-bs-target="#confirmCompleteModal-{{ task.id }}">
+                                <i class="bi bi-check2-circle"></i> {{ _('Marquer comme Accomplie') }}
+                            </button>
                             <small class="d-block text-center text-muted mt-1 px-1"><em>{{_('Cliquez seulement après avoir terminé la tâche conformément aux instructions.')}}</em></small>
                         </div>
                     </div>
@@ -121,11 +122,13 @@
                         <div class="modal-footer justify-content-between">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Fermer') }}</button>
                             {% if task.task_link %}
-                                <a href="{{ task.task_link }}" target="_blank" class="btn btn-success task-action-button" id="taskActionButton-{{ task.id }}" role="button" disabled>
-                                    <i class="bi bi-box-arrow-up-right"></i> {{ _('Aller à la Tâche (Nouvel Onglet)') }}
+                                {# Ajout de la classe 'disabled' et aria-disabled par défaut pour le lien #}
+                                <a href="{{ task.task_link }}" target="_blank" class="btn btn-success task-action-button disabled" id="taskActionButton-{{ task.id }}" role="button" aria-disabled="true">
+                                    <i class="bi bi-box-arrow-up-right"></i> {{ _('Commencer la Tâche') }}
                                 </a>
                             {% else %}
-                                <button type="button" class="btn btn-success task-action-button" id="taskActionButton-{{ task.id }}" data-bs-dismiss="modal" disabled>
+                                {# Attribut 'disabled' et classe 'disabled' pour le bouton #}
+                                <button type="button" class="btn btn-success task-action-button disabled" id="taskActionButton-{{ task.id }}" data-bs-dismiss="modal" disabled>
                                      <i class="bi bi-check-lg"></i> {{ _('J\'ai Compris') }}
                                 </button>
                             {% endif %}
@@ -171,18 +174,34 @@
 {% block scripts %}
 {{ super() }}
 <script>
+// Fonction pour gérer l'état du bouton d'action dans la modale d'instructions
 function toggleTaskActionButton(taskId) {
     var checkbox = document.getElementById('understoodCheckbox-' + taskId);
     var actionButton = document.getElementById('taskActionButton-' + taskId);
     if (checkbox && actionButton) {
         if (checkbox.checked) {
-            actionButton.disabled = false;
-            actionButton.classList.remove('disabled');
+            actionButton.disabled = false; // Pour les éléments <button>
+            actionButton.classList.remove('disabled'); // Pour les éléments <a> et <button> stylisés par Bootstrap
+            if (actionButton.tagName === 'A') {
+                actionButton.setAttribute('aria-disabled', 'false');
+            }
         } else {
-            actionButton.disabled = true;
-            actionButton.classList.add('disabled');
+            actionButton.disabled = true; // Pour les éléments <button>
+            actionButton.classList.add('disabled'); // Pour les éléments <a> et <button>
+            if (actionButton.tagName === 'A') {
+                actionButton.setAttribute('aria-disabled', 'true');
+            }
         }
     }
 }
+
+// S'assurer que l'état initial des boutons d'action est correct au chargement du DOM
+document.addEventListener('DOMContentLoaded', function() {
+    var instructionCheckboxes = document.querySelectorAll('.instruction-checkbox');
+    instructionCheckboxes.forEach(function(checkbox) {
+        var taskId = checkbox.id.replace('understoodCheckbox-', '');
+        toggleTaskActionButton(taskId); // Appelle la fonction pour définir l'état initial
+    });
+});
 </script>
 {% endblock %}
