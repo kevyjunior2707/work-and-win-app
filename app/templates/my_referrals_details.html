@@ -1,4 +1,4 @@
-{# app/templates/my_referrals_details.html (Redesign) #}
+{# app/templates/my_referrals_details.html (Infos Parrainage Ajoutées) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -12,7 +12,7 @@
         </a>
     </div>
     <p class="lead mb-4">{{ _("Suivez la performance de votre réseau de parrainage et les commissions que vous avez gagnées.") }}</p>
-    <hr class="mb-4">
+    
 
     <div class="row g-4 mb-4">
         <div class="col-md-6">
@@ -33,11 +33,27 @@
         </div>
     </div>
 
+    {# <<< SECTION D'INFORMATION SUR LE PARRAINAGE AJOUTÉE ICI >>> #}
+    <div class="alert alert-info shadow-sm mb-4" role="alert">
+        <h5 class="alert-heading"><i class="bi bi-info-circle-fill"></i> {{ _('Comment fonctionne le parrainage ?') }}</h5>
+        <p>{{ _('Partagez votre code de parrainage unique. Vous gagnerez une commission de 3%% sur les gains de chaque tâche accomplie par vos filleuls, une fois que le filleul concerné aura lui-même accompli au moins 20 tâches sur la plateforme.') }}</p>
+        <hr>
+        <p class="mb-1">
+            <small>{{ _('Votre code de parrainage unique :') }}</small>
+            <strong class="user-select-all ms-1 fs-5">{{ current_user.referral_code }}</strong>
+        </p>
+        {% set reg_link = url_for('auth.register', ref=current_user.referral_code, _external=True) %}
+        <button class="btn btn-sm btn-primary mt-2" type="button" onclick="copyToClipboard('{{ reg_link }}')" title="{{ _('Copier le lien d\'invitation') }}">
+            <i class="bi bi-clipboard-plus"></i> {{ _('Copier Mon Lien d\'Invitation Direct') }}
+        </button>
+    </div>
+    {# <<< FIN SECTION D'INFORMATION >>> #}
+
     <div class="card shadow-sm">
         <div class="card-header bg-light">
             <h5 class="my-1"><i class="bi bi-list-ul"></i> {{ _('Détails de mes Filleuls') }}</h5>
         </div>
-        <div class="card-body p-0"> {# p-0 pour que le tableau touche les bords de la carte #}
+        <div class="card-body p-0">
             {% if referred_users_details %}
                 <div class="table-responsive">
                     <table class="table table-hover table-striped mb-0 align-middle">
@@ -47,7 +63,7 @@
                                 <th scope="col">{{ _('Nom du Filleul') }}</th>
                                 <th scope="col">{{ _('Date d\'Inscription') }}</th>
                                 <th scope="col" class="text-center">{{ _('Tâches Accomplies') }}</th>
-                                <th scope="col" class="text-end pe-3">{{ _('Commissions Générées ($)') }}</th>
+                                <th scope="col" class="text-end pe-3">{{ _('Commissions Générées pour Vous ($)') }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -58,7 +74,7 @@
                                     <i class="bi bi-person-check text-muted me-1"></i>
                                     {{ referred_user_detail.full_name }}
                                 </td>
-                                <td>{{ referred_user_detail.registration_date.strftime('%d %B %Y') }}</td>
+                                <td>{{ referred_user_detail.registration_date.strftime('%d/%m/%Y') }}</td>
                                 <td class="text-center">
                                     <span class="badge bg-secondary rounded-pill px-2">
                                         {{ referred_user_detail.completed_task_count }}
@@ -73,20 +89,10 @@
                     </table>
                 </div>
             {% else %}
-                <div class="text-center p-5">
+                <div class="text-center p-4"> {# Augmenté le padding pour le message vide #}
                     <i class="bi bi-emoji-frown display-1 text-muted mb-3"></i>
                     <h4>{{ _('Aucun filleul pour le moment.') }}</h4>
-                    <p class="text-muted">{{ _('Partagez votre code de parrainage pour commencer à construire votre réseau et gagner des commissions !') }}</p>
-                    <div class="mt-4">
-                        <p class="mb-1">
-                            <small>{{ _('Votre code de parrainage unique :') }}</small>
-                            <strong class="user-select-all ms-1 fs-5">{{ current_user.referral_code }}</strong>
-                        </p>
-                        {% set reg_link = url_for('auth.register', ref=current_user.referral_code, _external=True) %}
-                        <button class="btn btn-primary mt-2" type="button" onclick="copyToClipboard('{{ reg_link }}')" title="{{ _('Copier le lien d\'invitation') }}">
-                            <i class="bi bi-clipboard-plus"></i> {{ _('Copier Mon Lien d\'Invitation') }}
-                        </button>
-                    </div>
+                    <p class="text-muted">{{ _('Partagez votre code de parrainage ci-dessus pour commencer à construire votre réseau et gagner des commissions !') }}</p>
                 </div>
             {% endif %}
         </div>
@@ -103,16 +109,18 @@
     <script>
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text).then(function() {
-                var originalButton = event.target;
-                var originalButtonText = originalButton.innerHTML;
-                originalButton.innerHTML = '<i class="bi bi-check-lg"></i> {{ _("Copié !") }}';
-                originalButton.classList.add('btn-success');
-                originalButton.classList.remove('btn-primary', 'btn-outline-info');
-                setTimeout(function() {
-                    originalButton.innerHTML = originalButtonText;
-                    originalButton.classList.remove('btn-success');
-                    originalButton.classList.add('btn-primary'); // Ou la classe d'origine
-                }, 2500);
+                var clickedButton = event.target.closest('button');
+                if (clickedButton) {
+                    var originalButtonText = clickedButton.innerHTML;
+                    clickedButton.innerHTML = '<i class="bi bi-check-lg"></i> {{ _("Copié !") }}';
+                    var originalClasses = Array.from(clickedButton.classList);
+                    // Conserve btn-sm, enlève btn-primary/btn-outline-info, ajoute btn-success
+                    clickedButton.className = 'btn btn-sm btn-success mb-2'; // Simplifié
+                    setTimeout(function() {
+                        clickedButton.innerHTML = originalButtonText;
+                        clickedButton.className = 'btn btn-sm btn-primary mt-2'; // Retour à l'état d'origine
+                    }, 2500);
+                }
             }, function(err) {
                 alert("{{ _('Erreur lors de la copie du lien : ') }}" + err);
             });
