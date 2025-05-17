@@ -1,4 +1,4 @@
-{# app/templates/dashboard.html (Carte Parrainage Très Compacte) #}
+{# app/templates/dashboard.html (Avec Carte Support) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -60,19 +60,16 @@
                         </div>
                     </div>
                 </div>
-                 {# Carte Parrainage (Très Compacte) #}
+                 {# Carte Parrainage (Compacte) #}
                  <div class="col d-flex align-items-stretch">
                     <div class="card h-100 shadow-sm text-center border-0 bg-light">
                          <div class="card-body d-flex flex-column">
                             <div class="mb-2"><i class="bi bi-people-fill fs-1 text-info"></i></div>
-                            {# <<< TITRE DE LA CARTE MODIFIÉ >>> #}
                             <h5 class="card-title">{{ _('Nombre de filleuls que vous avez déjà parrainés :') }}</h5>
                              <div class="flex-grow-1 d-flex flex-column justify-content-center">
-                                 {# <<< NOMBRE DE FILLEULS AVEC TAILLE RÉDUITE >>> #}
                                  <p class="card-text mb-2">
-                                    <strong class="h4">{{ referred_users_count }}</strong> {# h4 au lieu de h3 #}
+                                    <strong class="h3">{{ referred_users_count }}</strong>
                                  </p>
-                                 {# <<< GAINS SUPPRIMÉS D'ICI >>> #}
                                  <p class="card-text mb-2"><small>{{ _('Votre code de parrainage :') }}</small><br><strong class="fs-6 user-select-all">{{ current_user.referral_code }}</strong></p>
                              </div>
                              {% set reg_link = url_for('auth.register', ref=current_user.referral_code, _external=True) %}
@@ -118,6 +115,31 @@
                        </div>
                    </div>
                </div>
+
+                {# <<< NOUVELLE CARTE SUPPORT AJOUTÉE ICI >>> #}
+                <div class="col d-flex align-items-stretch">
+                    <div class="card h-100 shadow-sm text-center border-0 bg-light">
+                        <div class="card-body d-flex flex-column">
+                           <div class="mb-3"><i class="bi bi-headset fs-1 text-primary"></i></div>
+                           <h5 class="card-title">{{ _('Support Client') }}</h5>
+                           <p class="card-text flex-grow-1"><small>{{ _('Avez-vous des problèmes ou préoccupations ? Contactez notre support.') }}</small></p>
+                           <div class="mt-auto">
+                                {% if config.SUPPORT_EMAIL %}
+                                <a href="mailto:{{ config.SUPPORT_EMAIL }}?subject={{ _('Demande de Support - Utilisateur %(user_id)s', user_id=current_user.id) | urlencode }}" class="btn btn-primary btn-sm me-2">
+                                    <i class="bi bi-envelope-fill"></i> {{ _('Email') }}
+                                </a>
+                                {% endif %}
+                                {% if config.SUPPORT_TELEGRAM_LINK and config.SUPPORT_TELEGRAM_LINK != 'TELEGRAM_LINK_A_DEFINIR' and config.SUPPORT_TELEGRAM_LINK.startswith('https://t.me/') %}
+                                <a href="{{ config.SUPPORT_TELEGRAM_LINK }}" target="_blank" class="btn btn-info text-white btn-sm">
+                                    <i class="bi bi-telegram"></i> {{ _('Telegram') }}
+                                </a>
+                                {% endif %}
+                           </div>
+                       </div>
+                   </div>
+               </div>
+               {# <<< FIN NOUVELLE CARTE SUPPORT >>> #}
+
             </div> {# Fin row g-4 #}
 
             {# Message Règles Importantes #}
