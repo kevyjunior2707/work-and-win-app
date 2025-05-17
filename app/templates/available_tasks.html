@@ -1,7 +1,32 @@
-{# app/templates/available_tasks.html (Avec Modale de Confirmation pour Accomplissement) #}
+{# app/templates/available_tasks.html (Description Tâches Uniforme) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
+
+{% block head_extra %}
+{{ super() }}
+<style>
+    .task-description-snippet {
+        display: -webkit-box;
+        -webkit-line-clamp: 3; /* Nombre de lignes à afficher avant de tronquer */
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        height: 4.5em; /* Approximativement 3 lignes (3 * 1.5em line-height). Ajustez si nécessaire. */
+        line-height: 1.5em; /* Ajustez en fonction de la taille de la police de <small> */
+    }
+    .task-card-img, .task-card-img-placeholder {
+        height: 180px; /* Hauteur fixe pour les images/placeholders */
+        object-fit: cover; /* Assure que l'image couvre la zone sans se déformer */
+    }
+    .task-card-img-placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #f8f9fa; /* Couleur de fond pour le placeholder */
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container mt-4 mb-5">
@@ -26,7 +51,7 @@
                     {% if task.image_filename %}
                         <img src="{{ url_for('static', filename='uploads/tasks/' + task.image_filename) }}" class="card-img-top task-card-img" alt="{{ task.title }}">
                     {% else %}
-                        <div class="task-card-img-placeholder bg-light d-flex align-items-center justify-content-center">
+                        <div class="task-card-img-placeholder">
                             <i class="bi bi-card-image text-muted" style="font-size: 3rem;"></i>
                         </div>
                     {% endif %}
@@ -36,25 +61,27 @@
                             <i class="bi bi-award-fill text-success"></i> {{ _('Récompense:') }} <strong>$ {{ "%.2f"|format(task.reward_amount) }}</strong>
                             {% if task.is_daily %}<span class="badge bg-info ms-2">{{ _('Quotidienne') }}</span>{% endif %}
                         </p>
-                        <p class="card-text flex-grow-1"><small>{{ task.description | striptags | truncate(100) }}</small></p>
+                        {# MODIFICATION ICI pour la description #}
+                        <p class="card-text flex-grow-1 task-description-snippet"><small>{{ task.description | striptags | truncate(120, True) }}</small></p>
                         
                         <div class="mt-auto">
-                            {# Bouton pour ouvrir la modale d'instructions #}
                             <button type="button" class="btn btn-primary w-100 mb-2" data-bs-toggle="modal" data-bs-target="#taskInstructionsModal-{{ task.id }}">
                                 <i class="bi bi-eye-fill"></i> {{ _('Voir les Instructions') }}
                             </button>
                             
-                            {# Bouton pour ouvrir la modale de confirmation d'accomplissement #}
-                            <button type="button" class="btn btn-success w-100" data-bs-toggle="modal" data-bs-target="#confirmCompleteModal-{{ task.id }}">
-                                <i class="bi bi-check2-circle"></i> {{ _('Marquer comme Accomplie') }}
-                            </button>
+                            <form method="POST" action="{{ url_for('main.complete_task', task_id=task.id) }}" class="d-grid">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <button type="submit" class="btn btn-success w-100">
+                                    <i class="bi bi-check2-circle"></i> {{ _('Marquer comme Accomplie') }}
+                                </button>
+                            </form>
                             <small class="d-block text-center text-muted mt-1 px-1"><em>{{_('Cliquez seulement après avoir terminé la tâche conformément aux instructions.')}}</em></small>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {# #}
+            {# Modale pour les instructions de la tâche #}
             <div class="modal fade" id="taskInstructionsModal-{{ task.id }}" tabindex="-1" aria-labelledby="taskInstructionsModalLabel-{{ task.id }}" aria-hidden="true">
                 <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
                     <div class="modal-content">
@@ -95,7 +122,7 @@
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Fermer') }}</button>
                             {% if task.task_link %}
                                 <a href="{{ task.task_link }}" target="_blank" class="btn btn-success task-action-button" id="taskActionButton-{{ task.id }}" role="button" disabled>
-                                    <i class="bi bi-box-arrow-up-right"></i> {{ _('Commencer la Tâche') }}
+                                    <i class="bi bi-box-arrow-up-right"></i> {{ _('Aller à la Tâche (Nouvel Onglet)') }}
                                 </a>
                             {% else %}
                                 <button type="button" class="btn btn-success task-action-button" id="taskActionButton-{{ task.id }}" data-bs-dismiss="modal" disabled>
@@ -106,9 +133,8 @@
                     </div>
                 </div>
             </div>
-            {# #}
 
-            {# #}
+            {# Modale de Confirmation d'Accomplissement #}
             <div class="modal fade" id="confirmCompleteModal-{{ task.id }}" tabindex="-1" aria-labelledby="confirmCompleteModalLabel-{{ task.id }}" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered">
                     <div class="modal-content">
@@ -126,7 +152,6 @@
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Annuler') }}</button>
-                            {# Le formulaire est maintenant ici, dans la modale de confirmation #}
                             <form method="POST" action="{{ url_for('main.complete_task', task_id=task.id) }}" style="display: inline;">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                                 <button type="submit" class="btn btn-success">
@@ -137,7 +162,6 @@
                     </div>
                 </div>
             </div>
-            {# #}
             {% endfor %}
         </div>
     {% endif %}
