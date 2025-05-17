@@ -95,7 +95,7 @@
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Fermer') }}</button>
                             {% if task.task_link %}
                                 <a href="{{ task.task_link }}" target="_blank" class="btn btn-success task-action-button" id="taskActionButton-{{ task.id }}" role="button" disabled>
-                                    <i class="bi bi-box-arrow-up-right"></i> {{ _('Aller à la Tâche (Nouvel Onglet)') }}
+                                    <i class="bi bi-box-arrow-up-right"></i> {{ _('Commencer la Tâche') }}
                                 </a>
                             {% else %}
                                 <button type="button" class="btn btn-success task-action-button" id="taskActionButton-{{ task.id }}" data-bs-dismiss="modal" disabled>
