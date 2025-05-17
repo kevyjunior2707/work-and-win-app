@@ -1,81 +1,130 @@
-{# app/templates/available_tasks.html (Retour à Commencer + Terminé sur la carte) #}
+{# app/templates/available_tasks.html (Avec Modale pour Instructions) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
 
 {% block content %}
-<div class="container mt-4 mb-5"> {# Conteneur principal #}
-    <h1><i class="bi bi-card-checklist"></i> {{ title }}</h1>
-    <p>{{ _('Voici les tâches qui correspondent à votre profil (Pays: %(country)s, Appareil: %(device)s) et que vous n\'avez pas encore accomplies.', country=current_user.country, device=current_user.device) }}</p>
-
-    {# Avertissement Fraude #}
-    <div class="alert alert-danger mt-3 mb-4 shadow-sm" role="alert">
-      <h4 class="alert-heading"><i class="bi bi-shield-exclamation"></i> {{ _('Règles Essentielles & Anti-Fraude') }}</h4>
-      <p>{{ _("Il est strictement interdit d'utiliser des VPN, des proxys ou de créer plusieurs comptes pour accéder aux tâches. Toute tentative de tricherie ou de marquer une tâche comme accomplie sans l'avoir réellement terminée entraînera un bannissement immédiat et définitif, avec annulation de tous les gains.") }}</p>
-      <hr>
-      <p class="mb-0 fw-bold">{{ _("Soyez honnête et respectez les instructions pour une expérience positive.") }}</p>
-    </div>
-    {# Fin Avertissement #}
+<div class="container mt-4 mb-5">
+    <h1 class="mb-4"><i class="bi bi-card-checklist text-primary"></i> {{ title }}</h1>
 
     {% if not tasks %}
-        <div class="alert alert-info" role="alert">
-            <i class="bi bi-info-circle-fill"></i> {{ _('Aucune nouvelle tâche disponible pour vous pour le moment. Revenez plus tard !') }}
+        <div class="alert alert-info shadow-sm">
+            <h4 class="alert-heading"><i class="bi bi-emoji-smile"></i> {{ _('Aucune tâche pour le moment !') }}</h4>
+            <p>{{ _('De nouvelles tâches sont ajoutées régulièrement. Revenez consulter cette page plus tard.') }}</p>
+            <hr>
+            <p class="mb-0">{{ _('Assurez-vous que votre pays et votre appareil sont correctement configurés dans votre profil pour voir les tâches qui vous correspondent.') }} 
+                <a href="{{ url_for('main.profile') }}" class="alert-link">{{ _('Modifier mon profil') }}</a>.
+            </p>
         </div>
     {% else %}
+        <p class="lead mb-4">{{ _('Voici les tâches que vous pouvez accomplir pour gagner des récompenses. Lisez attentivement les instructions avant de commencer.') }}</p>
+        
         <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
             {% for task in tasks %}
             <div class="col d-flex align-items-stretch">
-                <div class="card h-100 shadow-sm border-0">
+                <div class="card h-100 shadow-sm task-card">
                     {% if task.image_filename %}
-                        <img src="{{ url_for('static', filename='uploads/tasks/' + task.image_filename) }}" class="card-img-top" alt="{{ _('Image pour la tâche') }} {{ task.title }}" style="max-height: 180px; object-fit: cover;">
+                        <img src="{{ url_for('static', filename='uploads/tasks/' + task.image_filename) }}" class="card-img-top task-card-img" alt="{{ task.title }}">
+                    {% else %}
+                        <div class="task-card-img-placeholder bg-light d-flex align-items-center justify-content-center">
+                            <i class="bi bi-card-image text-muted" style="font-size: 3rem;"></i>
+                        </div>
                     {% endif %}
                     <div class="card-body d-flex flex-column">
                         <h5 class="card-title">{{ task.title }}</h5>
-                        <p class="card-text text-muted flex-grow-1"><small>{{ task.description | truncate(120) }}</small></p>
-                        <ul class="list-group list-group-flush list-group-sm mb-2">
-                            <li class="list-group-item d-flex justify-content-between align-items-center px-0 border-0">
-                                <small>{{ _('Récompense:') }}</small>
-                                <span class="badge bg-success rounded-pill fs-6">$ {{ "%.2f"|format(task.reward_amount) }}</span>
-                            </li>
-                         </ul>
-                        {# Boutons en bas #}
-                        <div class="mt-auto border-top pt-3">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                {# <<< Bouton Commencer (lien externe) >>> #}
-                                {% if task.task_link %}
-                                <a href="{{ task.task_link }}" target="_blank" class="btn btn-primary btn-sm"><i class="bi bi-box-arrow-up-right"></i> {{ _('Commencer Tâche') }}</a>
-                                {% else %}
-                                <button class="btn btn-secondary btn-sm" disabled><i class="bi bi-box-arrow-up-right"></i> {{ _('Commencer Tâche') }}</button>
-                                {% endif %}
-
-                                {# <<< Bouton Marquer Terminé (ouvre modale) >>> #}
-                                <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#confirmCompleteModal{{ task.id }}">
-                                    <i class="bi bi-check2-circle"></i> {{ _('Marquer Accomplie') }}
-                                </button>
-
-                                {# Bouton Partager (inchangé) #}
-                                <a href="{{ url_for('main.view_external_task', task_id=task.id, ref=current_user.referral_code, _external=True) }}" class="btn btn-secondary btn-sm" target="_blank" title="{{ _('Partager cette tâche') }}">
-                                    <i class="bi bi-share-fill"></i>
-                                </a>
-                            </div>
-                            <small class="text-danger fst-italic d-block text-center mt-1" title="{{ config.FRAUD_WARNING }}"><i class="bi bi-exclamation-triangle"></i> {{ _('Ne marquer accomplie qu\'après avoir VRAIMENT terminé !') }}</small>
+                        <p class="card-text text-muted small">
+                            <i class="bi bi-award-fill text-success"></i> {{ _('Récompense:') }} <strong>$ {{ "%.2f"|format(task.reward_amount) }}</strong>
+                            {% if task.is_daily %}<span class="badge bg-info ms-2">{{ _('Quotidienne') }}</span>{% endif %}
+                        </p>
+                        <p class="card-text flex-grow-1"><small>{{ task.description | striptags | truncate(100) }}</small></p>
+                        
+                        <div class="mt-auto">
+                            {# Bouton pour ouvrir la modale d'instructions #}
+                            <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#taskInstructionsModal-{{ task.id }}">
+                                <i class="bi bi-eye-fill"></i> {{ _('Voir les Instructions & Commencer') }}
+                            </button>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                {# Fenêtre Modale de Confirmation (inchangée) #}
-                <div class="modal fade" id="confirmCompleteModal{{ task.id }}" tabindex="-1" aria-labelledby="confirmCompleteModalLabel{{ task.id }}" aria-hidden="true">
-                  <div class="modal-dialog"> <div class="modal-content"> <div class="modal-header bg-warning text-dark"> <h5 class="modal-title" id="confirmCompleteModalLabel{{ task.id }}"><i class="bi bi-exclamation-triangle-fill"></i> {{ _('Confirmation Requise') }}</h5> <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button> </div> <div class="modal-body"> <p><strong>{{ _('ATTENTION !') }}</strong></p> <p>{{ _("Vous êtes sur le point de marquer la tâche '%(title)s' comme terminée.", title=task.title) }}</p> <p class="text-danger fw-bold">{{ _("Ne confirmez que si vous avez réellement et entièrement accompli cette tâche selon les instructions de la page externe.") }}</p> <p class="text-danger">{{ _("Toute tentative de marquer une tâche comme terminée sans l'avoir réellement faite est considérée comme une fraude, entraînera un bannissement immédiat de la plateforme et l'annulation de tous vos gains accumulés.") }}</p> <p>{{ _("Êtes-vous sûr de vouloir continuer ?") }}</p> </div> <div class="modal-footer"> <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Annuler') }}</button> <form action="{{ url_for('main.complete_task', task_id=task.id) }}" method="post" style="display: inline;"> <button type="submit" class="btn btn-success">{{ _('Confirmer l\'Accomplissement') }}</button> </form> </div> </div> </div>
-                </div>{# --- Fin Modale --- #}
+            {# #}
+            <div class="modal fade" id="taskInstructionsModal-{{ task.id }}" tabindex="-1" aria-labelledby="taskInstructionsModalLabel-{{ task.id }}" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header bg-primary text-white">
+                            <h5 class="modal-title" id="taskInstructionsModalLabel-{{ task.id }}"><i class="bi bi-card-checklist"></i> {{ task.title }}</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <h6>{{ _('Description de la Tâche :') }}</h6>
+                                <p>{{ task.description | safe }}</p> {# |safe si la description peut contenir du HTML simple depuis l'admin #}
+                            </div>
+                            <hr>
+                            <div class="mb-3">
+                                <h6>{{ _('Instructions Détaillées :') }}</h6>
+                                {% if task.instructions %}
+                                    <div class="instructions-content p-2 bg-light border rounded">
+                                        {{ task.instructions | safe }} {# |safe si les instructions peuvent contenir du HTML simple #}
+                                    </div>
+                                {% else %}
+                                    <p class="text-muted">{{ _('Aucune instruction spécifique fournie pour cette tâche.') }}</p>
+                                {% endif %}
+                            </div>
+                            <hr>
+                            <div class="alert alert-warning small">
+                                <i class="bi bi-info-circle-fill"></i> <strong>{{ _('Note Importante :') }}</strong>
+                                {{ _("Nous vous rémunérons grâce aux revenus publicitaires générés et à la valeur des tâches que vous accomplissez. Veuillez suivre attentivement toutes les instructions pour assurer la validation de votre travail et le bon fonctionnement de la plateforme. Le non-respect des instructions peut entraîner le rejet de l'accomplissement de la tâche.") }}
+                            </div>
+                            <hr>
+                            <div class="form-check mt-3">
+                                <input class="form-check-input instruction-checkbox" type="checkbox" value="" id="understoodCheckbox-{{ task.id }}" onchange="toggleStartButton({{ task.id }})">
+                                <label class="form-check-label fw-bold" for="understoodCheckbox-{{ task.id }}">
+                                    {{ _('J\'ai lu et compris les instructions et les conditions ci-dessus.') }}
+                                </label>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Fermer') }}</button>
+                            <form method="POST" action="{{ url_for('main.complete_task', task_id=task.id) }}" style="display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"> {# CSRF Token si vous l'utilisez pour les formulaires POST #}
+                                <button type="submit" class="btn btn-success start-task-button" id="startButton-{{ task.id }}" disabled>
+                                    <i class="bi bi-play-circle-fill"></i> {{ _('Commencer la Tâche') }}
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {# #}
+            {% endfor %}
+        </div>
 
-            </div> {# Fin col #}
-            {% endfor %} {# Fin boucle tâches #}
-        </div> {# Fin row (grille de cartes) #}
-    {% endif %} {# Fin if not tasks #}
-
-    <div class="mt-5 text-center">
-         <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left-circle"></i> {{ _('Retour au Tableau de Bord') }}</a>
-    </div>
-
-</div> {# Fin container #}
+        {# Pagination (si vous en avez une) #}
+        {# {% if pagination %} ... {% endif %} #}
+    {% endif %}
+</div>
 {% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+function toggleStartButton(taskId) {
+    var checkbox = document.getElementById('understoodCheckbox-' + taskId);
+    var startButton = document.getElementById('startButton-' + taskId);
+    if (checkbox && startButton) {
+        startButton.disabled = !checkbox.checked;
+    }
+}
+
+// Assurez-vous que le CSRF token est disponible si vous l'utilisez globalement
+// Sinon, si votre formulaire POST est protégé par Flask-WTF, form.hidden_tag() devrait suffire
+// ou vous devez passer csrf_token à ce template depuis la route.
+// Pour l'instant, j'ai mis {{ csrf_token() }} en supposant qu'il est disponible globalement
+// ou que vous avez une configuration qui le rend disponible.
+// Si ce n'est pas le cas et que vous avez une erreur UndefinedError: 'csrf_token',
+// il faudra passer csrf_token=generate_csrf() depuis la route `available_tasks`.
+</script>
+{% endblock %}
+
