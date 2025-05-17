@@ -1,4 +1,4 @@
-{# app/templates/available_tasks.html (Fix CSRF Modale) #}
+{# app/templates/available_tasks.html (Flux Tâches Corrigé et Clair) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -17,7 +17,7 @@
             </p>
         </div>
     {% else %}
-        <p class="lead mb-4">{{ _('Voici les tâches que vous pouvez accomplir pour gagner des récompenses. Lisez attentivement les instructions avant de commencer.') }}</p>
+        <p class="lead mb-4">{{ _('Voici les tâches que vous pouvez accomplir pour gagner des récompenses. Cliquez sur "Voir les Instructions" pour chaque tâche.') }}</p>
         
         <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
             {% for task in tasks %}
@@ -39,14 +39,25 @@
                         <p class="card-text flex-grow-1"><small>{{ task.description | striptags | truncate(100) }}</small></p>
                         
                         <div class="mt-auto">
-                            <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#taskInstructionsModal-{{ task.id }}">
-                                <i class="bi bi-eye-fill"></i> {{ _('Voir les Instructions & Commencer') }}
+                            {# Bouton pour ouvrir la modale d'instructions #}
+                            <button type="button" class="btn btn-primary w-100 mb-2" data-bs-toggle="modal" data-bs-target="#taskInstructionsModal-{{ task.id }}">
+                                <i class="bi bi-eye-fill"></i> {{ _('Voir les Instructions') }}
                             </button>
+                            
+                            {# Formulaire pour marquer comme accomplie - RESTE SUR LA CARTE #}
+                            <form method="POST" action="{{ url_for('main.complete_task', task_id=task.id) }}" class="d-grid">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}"> {# Le csrf_token est passé par la route available_tasks #}
+                                <button type="submit" class="btn btn-success w-100">
+                                    <i class="bi bi-check2-circle"></i> {{ _('Marquer comme Accomplie') }}
+                                </button>
+                            </form>
+                            <small class="d-block text-center text-muted mt-1 px-1"><em>{{_('Important : Ne cliquez sur "Marquer comme Accomplie" qu\'après avoir terminé la tâche conformément aux instructions.')}}</em></small>
                         </div>
                     </div>
                 </div>
             </div>
 
+            {# #}
             <div class="modal fade" id="taskInstructionsModal-{{ task.id }}" tabindex="-1" aria-labelledby="taskInstructionsModalLabel-{{ task.id }}" aria-hidden="true">
                 <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
                     <div class="modal-content">
@@ -56,14 +67,14 @@
                         </div>
                         <div class="modal-body">
                             <div class="mb-3">
-                                <h6>{{ _('Description de la Tâche :') }}</h6>
+                                <h6><i class="bi bi-card-text"></i> {{ _('Description de la Tâche :') }}</h6>
                                 <p>{{ task.description | safe }}</p>
                             </div>
                             <hr>
                             <div class="mb-3">
-                                <h6>{{ _('Instructions Détaillées :') }}</h6>
+                                <h6><i class="bi bi-list-check"></i> {{ _('Instructions Détaillées :') }}</h6>
                                 {% if task.instructions %}
-                                    <div class="instructions-content p-2 bg-light border rounded">
+                                    <div class="instructions-content p-3 bg-light border rounded" style="max-height: 250px; overflow-y: auto;">
                                         {{ task.instructions | safe }}
                                     </div>
                                 {% else %}
@@ -77,25 +88,29 @@
                             </div>
                             <hr>
                             <div class="form-check mt-3">
-                                <input class="form-check-input instruction-checkbox" type="checkbox" value="" id="understoodCheckbox-{{ task.id }}" onchange="toggleStartButton({{ task.id }})">
+                                <input class="form-check-input instruction-checkbox" type="checkbox" value="" id="understoodCheckbox-{{ task.id }}" onchange="toggleTaskActionButton({{ task.id }})">
                                 <label class="form-check-label fw-bold" for="understoodCheckbox-{{ task.id }}">
                                     {{ _('J\'ai lu et compris les instructions et les conditions ci-dessus.') }}
                                 </label>
                             </div>
                         </div>
-                        <div class="modal-footer">
+                        <div class="modal-footer justify-content-between">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Fermer') }}</button>
-                            <form method="POST" action="{{ url_for('main.complete_task', task_id=task.id) }}" style="display: inline;">
-                                {# <<< CORRECTION CSRF TOKEN ICI >>> #}
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                <button type="submit" class="btn btn-success start-task-button" id="startButton-{{ task.id }}" disabled>
-                                    <i class="bi bi-play-circle-fill"></i> {{ _('Commencer la Tâche') }}
+                            {% if task.task_link %}
+                                <a href="{{ task.task_link }}" target="_blank" class="btn btn-success task-action-button" id="taskActionButton-{{ task.id }}" role="button" disabled>
+                                    <i class="bi bi-box-arrow-up-right"></i> {{ _('Aller à la Tâche (Nouvel Onglet)') }}
+                                </a>
+                            {% else %}
+                                {# Si pas de lien, le bouton "J'ai compris" ferme juste la modale #}
+                                <button type="button" class="btn btn-success task-action-button" id="taskActionButton-{{ task.id }}" data-bs-dismiss="modal" disabled>
+                                     <i class="bi bi-check-lg"></i> {{ _('J\'ai Compris') }}
                                 </button>
-                            </form>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
             </div>
+            {# #}
             {% endfor %}
         </div>
     {% endif %}
@@ -105,12 +120,19 @@
 {% block scripts %}
 {{ super() }}
 <script>
-function toggleStartButton(taskId) {
+function toggleTaskActionButton(taskId) { // Nom de fonction mis à jour
     var checkbox = document.getElementById('understoodCheckbox-' + taskId);
-    var startButton = document.getElementById('startButton-' + taskId);
-    if (checkbox && startButton) {
-        startButton.disabled = !checkbox.checked;
+    var actionButton = document.getElementById('taskActionButton-' + taskId); // ID du bouton mis à jour
+    if (checkbox && actionButton) {
+        if (checkbox.checked) {
+            actionButton.disabled = false;
+            actionButton.classList.remove('disabled'); // Pour Bootstrap 5, la propriété 'disabled' suffit souvent, mais la classe peut aussi être utilisée.
+        } else {
+            actionButton.disabled = true;
+            actionButton.classList.add('disabled');
+        }
     }
 }
 </script>
 {% endblock %}
+
