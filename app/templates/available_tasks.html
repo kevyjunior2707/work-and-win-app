@@ -1,4 +1,4 @@
-{# app/templates/available_tasks.html (Flux Tâches Corrigé et Clair) #}
+{# app/templates/available_tasks.html (Avec Modale de Confirmation pour Accomplissement) #}
 {% extends "base.html" %}
 
 {% block title %}{{ title }}{% endblock %}
@@ -44,14 +44,11 @@
                                 <i class="bi bi-eye-fill"></i> {{ _('Voir les Instructions') }}
                             </button>
                             
-                            {# Formulaire pour marquer comme accomplie - RESTE SUR LA CARTE #}
-                            <form method="POST" action="{{ url_for('main.complete_task', task_id=task.id) }}" class="d-grid">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}"> {# Le csrf_token est passé par la route available_tasks #}
-                                <button type="submit" class="btn btn-success w-100">
-                                    <i class="bi bi-check2-circle"></i> {{ _('Marquer comme Accomplie') }}
-                                </button>
-                            </form>
-                            <small class="d-block text-center text-muted mt-1 px-1"><em>{{_('Important : Ne cliquez sur "Marquer comme Accomplie" qu\'après avoir terminé la tâche conformément aux instructions.')}}</em></small>
+                            {# Bouton pour ouvrir la modale de confirmation d'accomplissement #}
+                            <button type="button" class="btn btn-success w-100" data-bs-toggle="modal" data-bs-target="#confirmCompleteModal-{{ task.id }}">
+                                <i class="bi bi-check2-circle"></i> {{ _('Marquer comme Accomplie') }}
+                            </button>
+                            <small class="d-block text-center text-muted mt-1 px-1"><em>{{_('Cliquez seulement après avoir terminé la tâche conformément aux instructions.')}}</em></small>
                         </div>
                     </div>
                 </div>
@@ -101,11 +98,41 @@
                                     <i class="bi bi-box-arrow-up-right"></i> {{ _('Aller à la Tâche (Nouvel Onglet)') }}
                                 </a>
                             {% else %}
-                                {# Si pas de lien, le bouton "J'ai compris" ferme juste la modale #}
                                 <button type="button" class="btn btn-success task-action-button" id="taskActionButton-{{ task.id }}" data-bs-dismiss="modal" disabled>
                                      <i class="bi bi-check-lg"></i> {{ _('J\'ai Compris') }}
                                 </button>
                             {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {# #}
+
+            {# #}
+            <div class="modal fade" id="confirmCompleteModal-{{ task.id }}" tabindex="-1" aria-labelledby="confirmCompleteModalLabel-{{ task.id }}" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header bg-warning text-dark">
+                            <h5 class="modal-title" id="confirmCompleteModalLabel-{{ task.id }}"><i class="bi bi-exclamation-triangle-fill"></i> {{ _('Confirmer l\'Accomplissement') }}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p><strong>{{ _('Tâche :') }} {{ task.title }}</strong></p>
+                            <p class="text-danger fw-bold">
+                                {{ _('Êtes-vous absolument sûr(e) d\'avoir complété cette tâche entièrement et conformément à toutes les instructions ?') }}
+                            </p>
+                            <p><small>{{ _('Marquer une tâche comme accomplie sans l\'avoir réellement effectuée ou en ne respectant pas les consignes peut entraîner des pénalités, y compris la non-validation de vos gains ou la suspension de votre compte.') }}</small></p>
+                            <p><small>{{ _("Nous comptons sur votre honnêteté pour maintenir la qualité de notre plateforme et assurer une rémunération équitable pour le travail réellement effectué.") }}</small></p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Annuler') }}</button>
+                            {# Le formulaire est maintenant ici, dans la modale de confirmation #}
+                            <form method="POST" action="{{ url_for('main.complete_task', task_id=task.id) }}" style="display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <button type="submit" class="btn btn-success">
+                                    <i class="bi bi-check2-circle"></i> {{ _('Oui, Confirmer et Marquer comme Accomplie') }}
+                                </button>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -120,13 +147,13 @@
 {% block scripts %}
 {{ super() }}
 <script>
-function toggleTaskActionButton(taskId) { // Nom de fonction mis à jour
+function toggleTaskActionButton(taskId) {
     var checkbox = document.getElementById('understoodCheckbox-' + taskId);
-    var actionButton = document.getElementById('taskActionButton-' + taskId); // ID du bouton mis à jour
+    var actionButton = document.getElementById('taskActionButton-' + taskId);
     if (checkbox && actionButton) {
         if (checkbox.checked) {
             actionButton.disabled = false;
-            actionButton.classList.remove('disabled'); // Pour Bootstrap 5, la propriété 'disabled' suffit souvent, mais la classe peut aussi être utilisée.
+            actionButton.classList.remove('disabled');
         } else {
             actionButton.disabled = true;
             actionButton.classList.add('disabled');
@@ -135,4 +162,3 @@ function toggleTaskActionButton(taskId) { // Nom de fonction mis à jour
 }
 </script>
 {% endblock %}
-
