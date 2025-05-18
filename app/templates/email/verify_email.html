@@ -1,10 +1,10 @@
-{# app/templates/email/verify_email.html (Style Logo et Texte Spam Modifiés) #}
+{# app/templates/email/verify_email.html (Texte Spam Simplifié et Footer Vérifié) #}
 <!doctype html>
 <html lang="{{ g.locale if g else 'fr' }}">
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <title>{{ _('Vérifiez Votre Adresse Email') }}</title>
+    <title>{{ _('Vérifiez votre adresse Email') }}</title>
     <style>
       body {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -28,11 +28,10 @@
         overflow: hidden;
       }
       .email-header {
-        /* MODIFIÉ : Fond blanc, ajout d'une bordure en bas */
         background-color: #ffffff; 
         padding: 20px;
         text-align: center;
-        border-bottom: 5px solid #2d92d0; /* Bordure avec l'ancienne couleur de fond */
+        border-bottom: 5px solid #2d92d0;
       }
       .email-header img {
         max-width: 180px; 
@@ -64,7 +63,7 @@
         word-break: break-all;
       }
       .spam-notice {
-        background-color: #fff3cd;
+        background-color: #fff3cd; /* Jaune clair pour l'alerte spam */
         border-left: 4px solid #ffeeba;
         padding: 15px;
         margin-top: 20px;
@@ -99,12 +98,11 @@
           <p>{{ _('Si le bouton ne fonctionne pas, copiez et collez le lien suivant dans la barre d\'adresse de votre navigateur :') }}</p>
           <p class="link-alternative"><a href="{{ url_for('auth.verify_email', token=token, _external=True) }}">{{ url_for('auth.verify_email', token=token, _external=True) }}</a></p>
           
+          {# <<< TEXTE SPAM SIMPLIFIÉ ICI >>> #}
           <div class="spam-notice">
-            <p><strong>{{ _('Important - Email non reçu ou dans les spams ?') }}</strong></p>
-            <p>{{ _("Si vous ne voyez pas cet email dans votre boîte de réception principale, veuillez vérifier attentivement votre dossier de courriers indésirables (spam).") }}</p>
-            {# <<< TEXTE SIMPLIFIÉ ICI >>> #}
-            <p>{{ _("Si notre email s'y trouve, merci de le marquer comme 'Non-spam' ou 'Non-indésirable'.") }}</p>
+            <p><strong>{{ _('Important :') }}</strong> {{ _("Notre email figure dans vos Spams ? Veuillez le signaler comme 'Non-Spam' ou 'Non-indésirable'.") }}</p>
           </div>
+          {# <<< FIN SECTION SPAMS >>> #}
 
           <p style="margin-top: 25px;">{{ _('Si vous n\'avez pas créé de compte sur Work and Win, veuillez ignorer cet email.') }}</p>
         </div>
