@@ -1,12 +1,11 @@
-{# app/templates/email/verify_email.html (Avec Logo et Instructions Spam) #}
+{# app/templates/email/verify_email.html (Correction Syntaxe Footer) #}
 <!doctype html>
-<html lang="{{ g.locale if g else 'fr' }}"> {# Fallback pour la langue si g n'est pas disponible dans le contexte de l'email #}
+<html lang="{{ g.locale if g else 'fr' }}">
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <title>{{ _('Vérifiez Votre Adresse Email') }}</title>
     <style>
-      /* Styles CSS simples pour l'email */
       body {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         line-height: 1.6;
@@ -26,15 +25,15 @@
         background-color: #ffffff;
         border: 1px solid #dddddd;
         border-radius: 5px;
-        overflow: hidden; /* Pour que le border-radius s'applique bien au header */
+        overflow: hidden;
       }
       .email-header {
-        background-color: #2d92d0; /* Couleur primaire de votre site */
+        background-color: #2d92d0; 
         padding: 20px;
         text-align: center;
       }
       .email-header img {
-        max-width: 180px; /* Ajustez la taille de votre logo */
+        max-width: 180px; 
         height: auto;
       }
       .email-body {
@@ -51,8 +50,8 @@
       .button {
         display: inline-block;
         padding: 12px 25px;
-        background-color: #009444; /* Couleur verte pour l'action principale */
-        color: #ffffff !important; /* !important pour forcer la couleur dans certains clients mail */
+        background-color: #009444; 
+        color: #ffffff !important;
         text-decoration: none;
         border-radius: 5px;
         font-weight: bold;
@@ -60,10 +59,10 @@
       }
       .link-alternative {
         font-size: 0.9em;
-        word-break: break-all; /* Pour que les longs liens ne cassent pas le layout */
+        word-break: break-all;
       }
       .spam-notice {
-        background-color: #fff3cd; /* Jaune clair pour l'alerte spam */
+        background-color: #fff3cd;
         border-left: 4px solid #ffeeba;
         padding: 15px;
         margin-top: 20px;
@@ -85,8 +84,6 @@
     <div class="email-wrapper">
       <div class="email-container">
         <div class="email-header">
-          {# Assurez-vous que 'logo.png' est dans votre dossier static/img #}
-          {# _external=True est crucial pour que l'URL soit absolue dans l'email #}
           <img src="{{ url_for('static', filename='img/logo.png', _external=True) }}" alt="{{ _('Logo Work and Win') }}">
         </div>
         <div class="email-body">
@@ -100,19 +97,18 @@
           <p>{{ _('Si le bouton ne fonctionne pas, copiez et collez le lien suivant dans la barre d\'adresse de votre navigateur :') }}</p>
           <p class="link-alternative"><a href="{{ url_for('auth.verify_email', token=token, _external=True) }}">{{ url_for('auth.verify_email', token=token, _external=True) }}</a></p>
           
-          {# <<< SECTION POUR LES SPAMS AJOUTÉE ICI >>> #}
           <div class="spam-notice">
             <p><strong>{{ _('Important - Email non reçu ou dans les spams ?') }}</strong></p>
             <p>{{ _("Si vous ne voyez pas cet email dans votre boîte de réception principale, veuillez vérifier attentivement votre dossier de courriers indésirables (spam).") }}</p>
             <p>{{ _("Si notre email s'y trouve, merci de le marquer comme 'Non-spam' ou 'Non-indésirable'. Cela nous aidera à nous assurer que vous recevez correctement nos futures communications importantes.") }}</p>
           </div>
-          {# <<< FIN SECTION SPAMS >>> #}
 
           <p style="margin-top: 25px;">{{ _('Si vous n\'avez pas créé de compte sur Work and Win, veuillez ignorer cet email.') }}</p>
         </div>
         <div class="footer">
           <p>{{ _('Ce lien de vérification est valide pendant 30 minutes.') }}</p>
-          <p>&copy; {{ g.current_year if g else_year }} Work and Win. {{ _('Tous droits réservés.') }}</p>
+          {# <<< CORRECTION ICI >>> #}
+          <p>&copy; {{ current_year if current_year else g.current_year if g else '2025' }} Work and Win. {{ _('Tous droits réservés.') }}</p>
         </div>
       </div>
     </div>
