@@ -1,4 +1,4 @@
-{# app/templates/email/verify_email.html (Correction Syntaxe Footer) #}
+{# app/templates/email/verify_email.html (Style Logo et Texte Spam Modifiés) #}
 <!doctype html>
 <html lang="{{ g.locale if g else 'fr' }}">
   <head>
@@ -28,9 +28,11 @@
         overflow: hidden;
       }
       .email-header {
-        background-color: #2d92d0; 
+        /* MODIFIÉ : Fond blanc, ajout d'une bordure en bas */
+        background-color: #ffffff; 
         padding: 20px;
         text-align: center;
+        border-bottom: 5px solid #2d92d0; /* Bordure avec l'ancienne couleur de fond */
       }
       .email-header img {
         max-width: 180px; 
@@ -100,14 +102,14 @@
           <div class="spam-notice">
             <p><strong>{{ _('Important - Email non reçu ou dans les spams ?') }}</strong></p>
             <p>{{ _("Si vous ne voyez pas cet email dans votre boîte de réception principale, veuillez vérifier attentivement votre dossier de courriers indésirables (spam).") }}</p>
-            <p>{{ _("Si notre email s'y trouve, merci de le marquer comme 'Non-spam' ou 'Non-indésirable'. Cela nous aidera à nous assurer que vous recevez correctement nos futures communications importantes.") }}</p>
+            {# <<< TEXTE SIMPLIFIÉ ICI >>> #}
+            <p>{{ _("Si notre email s'y trouve, merci de le marquer comme 'Non-spam' ou 'Non-indésirable'.") }}</p>
           </div>
 
           <p style="margin-top: 25px;">{{ _('Si vous n\'avez pas créé de compte sur Work and Win, veuillez ignorer cet email.') }}</p>
         </div>
         <div class="footer">
           <p>{{ _('Ce lien de vérification est valide pendant 30 minutes.') }}</p>
-          {# <<< CORRECTION ICI >>> #}
           <p>&copy; {{ current_year if current_year else g.current_year if g else '2025' }} Work and Win. {{ _('Tous droits réservés.') }}</p>
         </div>
       </div>
