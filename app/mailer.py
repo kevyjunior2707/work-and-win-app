@@ -1,5 +1,5 @@
 # app/email.py
-
+import requests
 from threading import Thread
 from flask import current_app, render_template
 from flask_mail import Message
@@ -10,7 +10,15 @@ from flask_babel import _ # Pour traduire le sujet de l'email
 def send_async_email(app, msg):
     with app.app_context(): # Nécessaire car l'email est envoyé dans un thread séparé
         try:
-            mail.send(msg)
+            if current_app.config.get("BREVO_API_KEY"):
+    send_email_brevo(
+        msg.subject,
+        msg.recipients,
+        msg.html,
+        msg.body
+    )
+else:
+    mail.send(msg)
         except Exception as e:
             print(f"Erreur lors de l'envoi de l'email en arrière-plan: {e}")
             current_app.logger.error(f"Erreur envoi email BG: {e}") # Log l'erreur
@@ -41,3 +49,29 @@ def send_verification_email(user):
         # Corps de l'email en HTML (pour la plupart des clients mail)
         html_body=render_template('email/verify_email.html', user=user, token=token)
     )
+
+def send_email_brevo(subject, recipients, html_body, text_body=None):
+    api_key = current_app.config.get("BREVO_API_KEY")
+
+    url = "https://api.brevo.com/v3/smtp/email"
+
+    payload = {
+        "sender": {
+            "name": "Work and Win",
+            "email": current_app.config['MAIL_USERNAME']
+        },
+        "to": [{"email": recipients[0]}],
+        "subject": subject,
+        "htmlContent": html_body
+    }
+
+    if text_body:
+        payload["textContent"] = text_body
+
+    headers = {
+        "accept": "application/json",
+        "api-key": api_key,
+        "content-type": "application/json"
+    }
+
+    requests.post(url, json=payload, headers=headers)
