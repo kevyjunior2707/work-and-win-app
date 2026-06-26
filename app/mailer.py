@@ -1,10 +1,11 @@
 # app/email.py
-import requests
+
 from threading import Thread
 from flask import current_app, render_template
 from flask_mail import Message
 from app import mail # Importe l'instance mail depuis __init__.py
 from flask_babel import _ # Pour traduire le sujet de l'email
+import requests
 
 # Fonction pour envoyer un email en arrière-plan
 def send_async_email(app, msg):
