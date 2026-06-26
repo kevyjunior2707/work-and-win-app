@@ -11,14 +11,14 @@ import requests
 def send_async_email(app, msg):
     with app.app_context(): # Nécessaire car l'email est envoyé dans un thread séparé
         try:
-            if current_app.config.get("BREVO_API_KEY"):
+if current_app.config.get("BREVO_API_KEY"):
     send_email_brevo(
         msg.subject,
         msg.recipients,
         msg.html,
         msg.body
     )
-            else:
+else:
     mail.send(msg)
         except Exception as e:
             print(f"Erreur lors de l'envoi de l'email en arrière-plan: {e}")
