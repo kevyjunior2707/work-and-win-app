@@ -24,7 +24,7 @@ def send_email(subject, sender, recipients, text_body, html_body):
     # Crée une copie de l'application actuelle pour le thread
     app = current_app._get_current_object()
     # Lance l'envoi dans un thread séparé
-    send_async_email(app, msg)
+    Thread(target=send_async_email, args=(app, msg)).start()
 
 
 # Fonction spécifique pour l'email de vérification
