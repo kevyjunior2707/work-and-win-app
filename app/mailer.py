@@ -18,7 +18,7 @@ def send_async_email(app, msg):
         msg.html,
         msg.body
     )
-else:
+            else:
     mail.send(msg)
         except Exception as e:
             print(f"Erreur lors de l'envoi de l'email en arrière-plan: {e}")
